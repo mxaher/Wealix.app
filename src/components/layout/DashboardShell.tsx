@@ -33,7 +33,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
     <div
       className={cn(
         'min-h-screen bg-background',
-        isArabic && 'font-[family-name:var(--font-tajawal)]'
+        isArabic && 'font-[family-name:var(--font-arabic)]'
       )}
       dir={isArabic ? 'rtl' : 'ltr'}
     >

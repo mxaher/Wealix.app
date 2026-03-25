@@ -7,7 +7,7 @@ import {
   Target,
   TrendingUp,
   Calendar,
-  Slider,
+  SlidersHorizontal,
   Zap,
   AlertCircle,
   CheckCircle,
@@ -358,7 +358,7 @@ export default function FirePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Slider className="w-5 h-5" />
+                  <SlidersHorizontal className="w-5 h-5" />
                   {isArabic ? 'أداة تأثير المدخرات' : 'Savings Impact Tool'}
                 </CardTitle>
                 <CardDescription>

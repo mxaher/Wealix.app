@@ -26,6 +26,18 @@ Base currency: SAR (Saudi Riyal)
 
 Respond in a professional yet friendly manner. Be concise but thorough.`;
 
+function formatProfileAmount(value: unknown): string | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? `${value.toLocaleString()} SAR`
+    : null;
+}
+
+function formatProfilePercent(value: unknown): string | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? `${value.toFixed(1)}%`
+    : null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -43,23 +55,29 @@ export async function POST(request: NextRequest) {
     
     if (userContext) {
       systemPrompt += `\n\nUser's Financial Profile:`;
-      if (userContext.netWorth) {
-        systemPrompt += `\n- Net Worth: ${userContext.netWorth.toLocaleString()} SAR`;
+      const netWorth = formatProfileAmount(userContext.netWorth);
+      if (netWorth) {
+        systemPrompt += `\n- Net Worth: ${netWorth}`;
       }
-      if (userContext.portfolioValue) {
-        systemPrompt += `\n- Portfolio Value: ${userContext.portfolioValue.toLocaleString()} SAR`;
+      const portfolioValue = formatProfileAmount(userContext.portfolioValue);
+      if (portfolioValue) {
+        systemPrompt += `\n- Portfolio Value: ${portfolioValue}`;
       }
-      if (userContext.monthlyIncome) {
-        systemPrompt += `\n- Monthly Income: ${userContext.monthlyIncome.toLocaleString()} SAR`;
+      const monthlyIncome = formatProfileAmount(userContext.monthlyIncome);
+      if (monthlyIncome) {
+        systemPrompt += `\n- Monthly Income: ${monthlyIncome}`;
       }
-      if (userContext.monthlyExpenses) {
-        systemPrompt += `\n- Monthly Expenses: ${userContext.monthlyExpenses.toLocaleString()} SAR`;
+      const monthlyExpenses = formatProfileAmount(userContext.monthlyExpenses);
+      if (monthlyExpenses) {
+        systemPrompt += `\n- Monthly Expenses: ${monthlyExpenses}`;
       }
-      if (userContext.fireGoal) {
-        systemPrompt += `\n- FIRE Goal: ${userContext.fireGoal.toLocaleString()} SAR`;
+      const fireGoal = formatProfileAmount(userContext.fireGoal);
+      if (fireGoal) {
+        systemPrompt += `\n- FIRE Goal: ${fireGoal}`;
       }
-      if (userContext.fireProgress) {
-        systemPrompt += `\n- FIRE Progress: ${userContext.fireProgress.toFixed(1)}%`;
+      const fireProgress = formatProfilePercent(userContext.fireProgress);
+      if (fireProgress) {
+        systemPrompt += `\n- FIRE Progress: ${fireProgress}`;
       }
     }
 
@@ -70,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare messages for the API
     const apiMessages = [
-      { role: 'assistant' as const, content: systemPrompt },
+      { role: 'system' as const, content: systemPrompt },
       ...messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'user' ? 'user' as const : 'assistant' as const,
         content: m.content,
