@@ -61,14 +61,19 @@ export function Sidebar() {
               <span className="text-navy-dark font-bold text-lg">W</span>
             </div>
             {!sidebarCollapsed && (
-              <motion.span
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="font-bold text-lg text-sidebar-foreground"
+                className="min-w-0"
               >
-                {isArabic ? 'ثروتي' : 'WealthOS'}
-              </motion.span>
+                <div className="font-bold text-lg text-sidebar-foreground">
+                  Wealix
+                </div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  Personal Wealth Operating System
+                </div>
+              </motion.div>
             )}
           </Link>
         </div>

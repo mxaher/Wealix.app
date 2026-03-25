@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Settings as SettingsIcon,
   User,
   Globe,
   Bell,
+  Database,
   CreditCard,
   Download,
   Trash2,
@@ -101,6 +102,8 @@ export default function SettingsPage({
     clearAllData,
     setUser,
     setSubscriptionTier,
+    appMode,
+    setAppMode,
   } = useAppStore();
   const { theme, setTheme } = useTheme();
   const isArabic = locale === 'ar';
@@ -117,9 +120,11 @@ export default function SettingsPage({
   const [name, setName] = useState(currentUser.name ?? '');
   const [email, setEmail] = useState(currentUser.email);
   const currentPlan = user?.subscriptionTier ?? 'free';
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const validTabs = useMemo(() => ['profile', 'preferences', 'subscription', 'data'] as const, []);
   const activeTabParam = searchParams?.tab ?? null;
-  const activeTab = validTabs.find((value) => value === activeTabParam) ?? 'profile';
+  const initialTab = validTabs.find((value) => value === activeTabParam) ?? 'profile';
+  const [activeTab, setActiveTabState] = useState<(typeof validTabs)[number]>(initialTab);
 
   const handleSubscriptionChange = (tier: 'free' | 'core' | 'pro') => {
     setSubscriptionTier(tier);
@@ -161,7 +166,41 @@ export default function SettingsPage({
 
   const setActiveTab = (tab: string) => {
     const nextTab = validTabs.find((value) => value === tab) ?? 'profile';
+    setActiveTabState(nextTab);
     router.replace(`/settings?tab=${nextTab}`, { scroll: false });
+  };
+
+  const handleModeChange = (mode: 'demo' | 'live') => {
+    setAppMode(mode);
+    setTheme('dark');
+
+    const nextUser = mode === 'demo'
+      ? {
+          id: 'demo-user',
+          name: 'Demo User',
+          email: 'demo@wealthos.com',
+        }
+      : {
+          id: 'live-user',
+          name: '',
+          email: '',
+        };
+
+    setName(nextUser.name);
+    setEmail(nextUser.email);
+
+    toast({
+      title: mode === 'demo'
+        ? (isArabic ? 'تم تفعيل الوضع التجريبي' : 'Demo mode enabled')
+        : (isArabic ? 'تم تفعيل الوضع المباشر' : 'Live mode enabled'),
+      description: mode === 'demo'
+        ? (isArabic
+            ? 'تمت استعادة بيانات العرض التجريبي الحالية.'
+            : 'The sample demo dataset has been restored.')
+        : (isArabic
+            ? 'تم تنظيف بيانات العرض التجريبي وأصبح التطبيق جاهزاً لبياناتك الحقيقية.'
+            : 'Sample demo data was cleared and the app is ready for real entries.'),
+    });
   };
 
   const handleSaveProfile = () => {
@@ -182,6 +221,24 @@ export default function SettingsPage({
   const handleCancelProfile = () => {
     setName(currentUser.name ?? '');
     setEmail(currentUser.email);
+  };
+
+  const handleAvatarChange = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      updateUser({ avatarUrl: typeof reader.result === 'string' ? reader.result : null });
+      toast({
+        title: isArabic ? 'تم تحديث الصورة' : 'Avatar updated',
+        description: isArabic
+          ? 'تم حفظ صورة الملف الشخصي محلياً.'
+          : 'Your profile image was saved locally.',
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleNotificationChange = (
@@ -223,12 +280,7 @@ export default function SettingsPage({
         </div>
 
         {/* Tabs */}
-        <Tabs
-          key={activeTab}
-          defaultValue={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-6"
-        >
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
             <TabsTrigger value="profile">
               <User className="w-4 h-4 mr-2" />
@@ -270,17 +322,17 @@ export default function SettingsPage({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        toast({
-                          title: isArabic ? 'قريباً' : 'Coming soon',
-                          description: isArabic
-                            ? 'رفع الصورة سيتوفر في تحديث لاحق.'
-                            : 'Avatar upload will be added in a future update.',
-                        })
-                      }
+                      onClick={() => avatarInputRef.current?.click()}
                     >
                       {isArabic ? 'تغيير الصورة' : 'Change Avatar'}
                     </Button>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => handleAvatarChange(e.target.files?.[0] ?? null)}
+                    />
                     <p className="text-xs text-muted-foreground mt-1">
                       {isArabic ? 'JPG, PNG بحد أقصى 2MB' : 'JPG, PNG up to 2MB'}
                     </p>
@@ -373,6 +425,52 @@ export default function SettingsPage({
                       <SelectItem value="system">{isArabic ? 'تلقائي' : 'System'}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Database className="mt-0.5 h-5 w-5 text-gold" />
+                    <div>
+                      <Label>{isArabic ? 'وضع التطبيق' : 'App Mode'}</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {isArabic
+                          ? 'الوضع التجريبي يعرض البيانات الوهمية الحالية، والوضع المباشر ينظفها لتبدأ ببياناتك الحقيقية.'
+                          : 'Demo mode shows the current sample dataset, while Live mode clears it so you can start with real data.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange('demo')}
+                      className={`rounded-xl border p-4 text-left transition-colors ${
+                        appMode === 'demo' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="font-medium">{isArabic ? 'الوضع التجريبي' : 'Demo Mode'}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {isArabic
+                          ? 'يعيد تحميل المستخدم التجريبي والبيانات الوهمية الحالية.'
+                          : 'Restores the sample user and the current mock dataset.'}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange('live')}
+                      className={`rounded-xl border p-4 text-left transition-colors ${
+                        appMode === 'live' ? 'border-emerald-500 bg-emerald-500/10' : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="font-medium">{isArabic ? 'الوضع المباشر' : 'Live Mode'}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {isArabic
+                          ? 'يحذف بيانات العرض التجريبي ويترك التطبيق جاهزاً لإدخالات المستخدم الفعلية.'
+                          : 'Clears demo data and leaves the app ready for actual user entries.'}
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

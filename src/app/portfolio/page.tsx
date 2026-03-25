@@ -83,10 +83,10 @@ const exchangeColors: Record<string, string> = {
 };
 
 export default function PortfolioPage() {
-  const { locale, shariahFilterEnabled, toggleShariahFilter, selectedExchange, setSelectedExchange } = useAppStore();
+  const { locale, appMode, shariahFilterEnabled, toggleShariahFilter, selectedExchange, setSelectedExchange } = useAppStore();
   const isArabic = locale === 'ar';
   
-  const [holdings, setHoldings] = useState(mockHoldings);
+  const [holdings, setHoldings] = useState(() => appMode === 'demo' ? mockHoldings : []);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddHolding, setShowAddHolding] = useState(false);
   const [newHolding, setNewHolding] = useState({

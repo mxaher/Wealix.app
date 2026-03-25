@@ -7,16 +7,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 
 export const metadata: Metadata = {
-  title: "WealthOS - ثروتي | Personal Wealth Operating System",
-  description: "Track net worth, manage investment portfolios, plan FIRE, and receive AI-powered financial guidance. Designed for Saudi and MENA market with Arabic/English support.",
+  title: "Wealix App",
+  description: "Personal Wealth Operating System",
   keywords: ["Wealth", "Net Worth", "Portfolio", "FIRE", "TASI", "EGX", "Saudi", "MENA", "Finance", "Investment"],
-  authors: [{ name: "WealthOS Team" }],
+  authors: [{ name: "Wealix Team" }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "WealthOS - ثروتي",
-    description: "Personal Wealth Operating System for Saudi and MENA",
+    title: "Wealix App",
+    description: "Personal Wealth Operating System",
     type: "website",
   },
 };

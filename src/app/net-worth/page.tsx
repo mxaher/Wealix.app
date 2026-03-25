@@ -110,11 +110,11 @@ const mockHistory = [
 ];
 
 export default function NetWorthPage() {
-  const { locale } = useAppStore();
+  const { locale, appMode } = useAppStore();
   const isArabic = locale === 'ar';
   
-  const [assets, setAssets] = useState(mockAssets);
-  const [liabilities, setLiabilities] = useState(mockLiabilities);
+  const [assets, setAssets] = useState(() => appMode === 'demo' ? mockAssets : []);
+  const [liabilities, setLiabilities] = useState(() => appMode === 'demo' ? mockLiabilities : []);
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', category: 'cash', value: '' });

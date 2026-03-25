@@ -4,8 +4,10 @@ import { persist } from 'zustand/middleware';
 export type Locale = 'ar' | 'en';
 export type Theme = 'dark' | 'light' | 'system';
 export type SubscriptionTier = 'free' | 'core' | 'pro';
+export type AppMode = 'demo' | 'live';
 export type IncomeSource = 'salary' | 'freelance' | 'business' | 'investment' | 'rental' | 'other';
 export type IncomeFrequency = 'one_time' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+export type PortfolioExchange = 'TASI' | 'EGX' | 'NASDAQ' | 'NYSE';
 export type ExpenseCategory =
   | 'Food'
   | 'Transport'
@@ -82,6 +84,18 @@ export interface ReceiptScanResult {
   suggestedCategory: ExpenseCategory;
   rawText: string;
   imageName: string;
+}
+
+export interface PortfolioHolding {
+  id: string;
+  ticker: string;
+  name: string;
+  exchange: PortfolioExchange;
+  shares: number;
+  avgCost: number;
+  currentPrice: number;
+  sector: string;
+  isShariah: boolean;
 }
 
 const defaultUser: User = {
@@ -185,6 +199,53 @@ const defaultExpenseEntries: ExpenseEntry[] = [
   },
 ];
 
+const defaultPortfolioHoldings: PortfolioHolding[] = [
+  { id: '1', ticker: '2222.SR', name: 'Saudi Aramco', exchange: 'TASI', shares: 100, avgCost: 32.5, currentPrice: 35.2, sector: 'Energy', isShariah: true },
+  { id: '2', ticker: '1120.SR', name: 'Al Rajhi Bank', exchange: 'TASI', shares: 50, avgCost: 98, currentPrice: 105.5, sector: 'Banking', isShariah: true },
+  { id: '3', ticker: '1180.SR', name: 'Maaden', exchange: 'TASI', shares: 75, avgCost: 45, currentPrice: 48.2, sector: 'Mining', isShariah: true },
+  { id: '4', ticker: 'COMI.CA', name: 'CIB Egypt', exchange: 'EGX', shares: 200, avgCost: 45, currentPrice: 52.3, sector: 'Banking', isShariah: false },
+  { id: '5', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', shares: 25, avgCost: 175, currentPrice: 182.5, sector: 'Technology', isShariah: false },
+  { id: '6', ticker: '1050.SR', name: 'SABIC', exchange: 'TASI', shares: 30, avgCost: 85, currentPrice: 92.4, sector: 'Materials', isShariah: true },
+];
+
+const defaultReceiptScans: ReceiptScanResult[] = [
+  {
+    id: 'receipt-demo-1',
+    merchantName: 'Danube',
+    amount: 420,
+    date: new Date().toISOString().slice(0, 10),
+    currency: 'SAR',
+    confidence: 91,
+    suggestedCategory: 'Food',
+    rawText: 'DANUBE MARKET TOTAL 420 SAR',
+    imageName: 'danube-demo-receipt.jpg',
+  },
+];
+
+function buildDemoState() {
+  return {
+    appMode: 'demo' as const,
+    user: defaultUser,
+    notificationFeed: defaultNotificationFeed,
+    incomeEntries: defaultIncomeEntries,
+    expenseEntries: defaultExpenseEntries,
+    receiptScans: defaultReceiptScans,
+    portfolioHoldings: defaultPortfolioHoldings,
+  };
+}
+
+function buildLiveState() {
+  return {
+    appMode: 'live' as const,
+    user: null,
+    notificationFeed: [] as NotificationItem[],
+    incomeEntries: [] as IncomeEntry[],
+    expenseEntries: [] as ExpenseEntry[],
+    receiptScans: [] as ReceiptScanResult[],
+    portfolioHoldings: [] as PortfolioHolding[],
+  };
+}
+
 interface AppState {
   // User
   user: User | null;
@@ -196,6 +257,8 @@ interface AppState {
   setLocale: (locale: Locale) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  appMode: AppMode;
+  setAppMode: (mode: AppMode) => void;
   notificationPreferences: NotificationPreferences;
   updateNotificationPreferences: (updates: Partial<NotificationPreferences>) => void;
   notificationFeed: NotificationItem[];
@@ -209,6 +272,10 @@ interface AppState {
   deleteExpenseEntry: (id: string) => void;
   receiptScans: ReceiptScanResult[];
   addReceiptScan: (receipt: ReceiptScanResult) => void;
+  portfolioHoldings: PortfolioHolding[];
+  addPortfolioHolding: (holding: PortfolioHolding) => void;
+  deletePortfolioHolding: (id: string) => void;
+  replacePortfolioHoldings: (holdings: PortfolioHolding[]) => void;
   clearAllData: () => void;
   setSubscriptionTier: (tier: SubscriptionTier) => void;
   
@@ -259,6 +326,22 @@ export const useAppStore = create<AppState>()(
       setLocale: (locale) => set({ locale }),
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
+      appMode: 'demo',
+      setAppMode: (mode) => set(() => {
+        const seeded = mode === 'demo' ? buildDemoState() : buildLiveState();
+        return {
+          ...seeded,
+          notificationPreferences: defaultNotificationPreferences,
+          sidebarCollapsed: false,
+          activeDashboardTab: 'overview',
+          selectedExchange: 'all',
+          shariahFilterEnabled: false,
+          selectedMonth: new Date().toISOString().slice(0, 7),
+          activeChatSession: null,
+          attachPortfolioContext: false,
+          isLoading: false,
+        };
+      }),
       notificationPreferences: defaultNotificationPreferences,
       updateNotificationPreferences: (updates) => set((state) => ({
         notificationPreferences: {
@@ -292,10 +375,20 @@ export const useAppStore = create<AppState>()(
       deleteExpenseEntry: (id) => set((state) => ({
         expenseEntries: state.expenseEntries.filter((entry) => entry.id !== id),
       })),
-      receiptScans: [],
+      receiptScans: defaultReceiptScans,
       addReceiptScan: (receipt) => set((state) => ({
         receiptScans: [receipt, ...state.receiptScans].slice(0, 20),
       })),
+      portfolioHoldings: defaultPortfolioHoldings,
+      addPortfolioHolding: (holding) => set((state) => ({
+        portfolioHoldings: [holding, ...state.portfolioHoldings],
+      })),
+      deletePortfolioHolding: (id) => set((state) => ({
+        portfolioHoldings: state.portfolioHoldings.filter((holding) => holding.id !== id),
+      })),
+      replacePortfolioHoldings: (holdings) => set({
+        portfolioHoldings: holdings,
+      }),
       setSubscriptionTier: (tier) => set((state) => ({
         user: {
           ...(state.user ?? defaultUser),
@@ -308,14 +401,10 @@ export const useAppStore = create<AppState>()(
         }
 
         set({
-          user: null,
+          ...buildLiveState(),
           locale: 'ar',
           theme: 'dark',
           notificationPreferences: defaultNotificationPreferences,
-          notificationFeed: defaultNotificationFeed,
-          incomeEntries: defaultIncomeEntries,
-          expenseEntries: defaultExpenseEntries,
-          receiptScans: [],
           sidebarCollapsed: false,
           activeDashboardTab: 'overview',
           selectedExchange: 'all',
@@ -379,11 +468,13 @@ export const useAppStore = create<AppState>()(
         user: state.user,
         locale: state.locale,
         theme: state.theme,
+        appMode: state.appMode,
         notificationPreferences: state.notificationPreferences,
         notificationFeed: state.notificationFeed,
         incomeEntries: state.incomeEntries,
         expenseEntries: state.expenseEntries,
         receiptScans: state.receiptScans,
+        portfolioHoldings: state.portfolioHoldings,
         sidebarCollapsed: state.sidebarCollapsed,
         shariahFilterEnabled: state.shariahFilterEnabled,
       }),

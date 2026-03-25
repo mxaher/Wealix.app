@@ -118,14 +118,14 @@ const mockGeneratedReports = [
 ];
 
 export default function ReportsPage() {
-  const { locale } = useAppStore();
+  const { locale, appMode } = useAppStore();
   const isArabic = locale === 'ar';
   
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedYear, setSelectedYear] = useState('2025');
   const [selectedMonth, setSelectedMonth] = useState('01');
   const [generating, setGenerating] = useState<string | null>(null);
-  const [generatedReports, setGeneratedReports] = useState(mockGeneratedReports);
+  const [generatedReports, setGeneratedReports] = useState(() => appMode === 'demo' ? mockGeneratedReports : []);
 
   const handleGenerateReport = async (reportType: string) => {
     setGenerating(reportType);

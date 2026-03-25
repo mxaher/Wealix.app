@@ -117,18 +117,18 @@ const mockIncome = [
 ];
 
 export default function BudgetPage() {
-  const { locale } = useAppStore();
+  const { locale, appMode } = useAppStore();
   const isArabic = locale === 'ar';
   
-  const [expenses, setExpenses] = useState(mockExpenses);
-  const [budget, setBudget] = useState(mockBudget);
+  const [expenses, setExpenses] = useState(() => appMode === 'demo' ? mockExpenses : []);
+  const [budget, setBudget] = useState(() => appMode === 'demo' ? mockBudget : []);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: 'food', description: '', amount: '' });
 
   // Calculate totals
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalIncome = mockIncome.reduce((sum, i) => sum + i.amount, 0);
-  const savingsRate = ((totalIncome - totalExpenses) / totalIncome) * 100;
+  const totalIncome = appMode === 'demo' ? mockIncome.reduce((sum, i) => sum + i.amount, 0) : 0;
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
   // Calculate spending by category
   const spendingByCategory = expenses.reduce((acc, e) => {

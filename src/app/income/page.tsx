@@ -69,23 +69,26 @@ export default function IncomePage() {
 
   const handleAddIncome = () => {
     const amount = Number(form.amount);
-    if (!amount || amount <= 0 || !form.sourceName.trim()) {
+    if (!amount || amount <= 0) {
       toast({
         title: isArabic ? 'بيانات غير مكتملة' : 'Incomplete form',
         description: isArabic
-          ? 'أدخل المبلغ واسم المصدر قبل الحفظ.'
-          : 'Enter an amount and source name before saving.',
+          ? 'أدخل مبلغاً صالحاً قبل الحفظ.'
+          : 'Enter a valid amount before saving.',
         variant: 'destructive',
       });
       return;
     }
+
+    const selectedSourceName = incomeSources.find((source) => source.value === form.source);
+    const sourceName = form.sourceName.trim() || (isArabic ? selectedSourceName?.ar : selectedSourceName?.en) || form.source;
 
     const entry: IncomeEntry = {
       id: `income-${Date.now()}`,
       amount,
       currency: 'SAR',
       source: form.source,
-      sourceName: form.sourceName.trim(),
+      sourceName,
       frequency: form.frequency,
       date: form.date,
       isRecurring: form.isRecurring,

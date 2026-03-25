@@ -99,7 +99,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 };
 
 export default function DashboardPage() {
-  const { locale } = useAppStore();
+  const { locale, appMode, incomeEntries, expenseEntries } = useAppStore();
   const isArabic = locale === 'ar';
   const [isLoading, setIsLoading] = useState(true);
 
@@ -117,14 +117,21 @@ export default function DashboardPage() {
     );
   }
 
-  const totalNetWorth = 612450;
-  const totalAssets = 750000;
-  const totalLiabilities = 137550;
-  const portfolioValue = 485000;
-  const todayGain = 3250;
-  const todayGainPercent = 0.67;
-  const fireProgress = 40.8;
-  const yearsToFire = 18;
+  const isDemoMode = appMode === 'demo';
+  const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const totalNetWorth = isDemoMode ? 612450 : Math.max(totalIncome - totalExpenses, 0);
+  const totalAssets = isDemoMode ? 750000 : totalIncome;
+  const totalLiabilities = isDemoMode ? 137550 : totalExpenses;
+  const portfolioValue = isDemoMode ? 485000 : 0;
+  const todayGainPercent = isDemoMode ? 0.67 : 0;
+  const fireProgress = isDemoMode ? 40.8 : 0;
+  const yearsToFire = isDemoMode ? 18 : 0;
+  const holdings = isDemoMode ? mockHoldings : [];
+  const transactions = isDemoMode ? mockTransactions : [];
+  const marketData = isDemoMode ? mockMarketData : [];
+  const netWorthChartData = isDemoMode ? mockNetWorthData : [];
+  const spendingChartData = isDemoMode ? budgetData : [];
 
   return (
     <DashboardShell>
@@ -137,8 +144,12 @@ export default function DashboardPage() {
             </h1>
             <p className="text-muted-foreground">
               {isArabic
-                ? 'مرحباً بك مجدداً! إليك نظرة عامة على وضعك المالي'
-                : 'Welcome back! Here\'s your financial overview'}
+                ? isDemoMode
+                  ? 'مرحباً بك مجدداً! إليك نظرة عامة على وضعك المالي'
+                  : 'الوضع المباشر نشط. ابدأ بإضافة بياناتك الحقيقية من الدخل والمصروفات والمحفظة.'
+                : isDemoMode
+                  ? 'Welcome back! Here\'s your financial overview'
+                  : 'Live mode is active. Start adding your real income, expenses, and holdings.'}
             </p>
           </div>
           <Button className="gap-2 bg-gold hover:bg-gold-dark text-navy-dark">
@@ -197,7 +208,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockNetWorthData}>
+                  <AreaChart data={netWorthChartData}>
                     <defs>
                       <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--gold)" stopOpacity={0.3} />
@@ -319,7 +330,7 @@ export default function DashboardPage() {
             <CardContent>
               <ScrollArea className="h-64">
                 <div className="space-y-3">
-                  {mockHoldings.map((holding, index) => {
+                  {holdings.map((holding, index) => {
                     const marketValue = holding.shares * holding.currentPrice;
                     const gainLoss = (holding.currentPrice - holding.avgCost) * holding.shares;
                     const gainLossPercent = ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100;
@@ -425,7 +436,7 @@ export default function DashboardPage() {
             <CardContent>
               <ScrollArea className="h-64">
                 <div className="space-y-3">
-                  {mockTransactions.map((tx, index) => (
+                  {transactions.map((tx, index) => (
                     <motion.div
                       key={tx.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -461,7 +472,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockMarketData.map((market, index) => (
+                {marketData.map((market, index) => (
                   <div
                     key={market.name}
                     className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
