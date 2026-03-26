@@ -359,7 +359,8 @@ async function runDatalabMarker(file: File) {
 
 async function runVisionFallback(file: File) {
   const bytes = await file.arrayBuffer();
-  const base64 = Buffer.from(bytes).toString('base64');
+  const binary = Array.from(new Uint8Array(bytes), (byte) => String.fromCharCode(byte)).join('');
+  const base64 = btoa(binary);
   const imageUrl = `data:${file.type};base64,${base64}`;
 
   const zai = await ZAI.create();
