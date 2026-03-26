@@ -99,7 +99,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 };
 
 export default function DashboardPage() {
-  const { locale, appMode, incomeEntries, expenseEntries } = useAppStore();
+  const { locale, appMode, incomeEntries, expenseEntries, portfolioHoldings } = useAppStore();
   const isArabic = locale === 'ar';
   const [isLoading, setIsLoading] = useState(true);
 
@@ -120,18 +120,28 @@ export default function DashboardPage() {
   const isDemoMode = appMode === 'demo';
   const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const totalNetWorth = isDemoMode ? 612450 : Math.max(totalIncome - totalExpenses, 0);
+  const livePortfolioValue = portfolioHoldings.reduce((sum, item) => sum + item.shares * item.currentPrice, 0);
+  const totalNetWorth = isDemoMode ? 612450 : Math.max(totalIncome + livePortfolioValue - totalExpenses, 0);
   const totalAssets = isDemoMode ? 750000 : totalIncome;
   const totalLiabilities = isDemoMode ? 137550 : totalExpenses;
-  const portfolioValue = isDemoMode ? 485000 : 0;
+  const portfolioValue = isDemoMode ? 485000 : livePortfolioValue;
   const todayGainPercent = isDemoMode ? 0.67 : 0;
   const fireProgress = isDemoMode ? 40.8 : 0;
   const yearsToFire = isDemoMode ? 18 : 0;
-  const holdings = isDemoMode ? mockHoldings : [];
+  const holdings = isDemoMode ? mockHoldings : portfolioHoldings.map((holding) => ({
+    ...holding,
+    change: holding.avgCost > 0 ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100 : 0,
+  }));
   const transactions = isDemoMode ? mockTransactions : [];
   const marketData = isDemoMode ? mockMarketData : [];
   const netWorthChartData = isDemoMode ? mockNetWorthData : [];
   const spendingChartData = isDemoMode ? budgetData : [];
+  const hasLiveData = totalIncome > 0 || totalExpenses > 0 || portfolioValue > 0 || holdings.length > 0;
+  const budgetUsage = isDemoMode
+    ? 67
+    : totalIncome > 0
+      ? Math.min(100, Math.round((totalExpenses / totalIncome) * 100))
+      : 0;
 
   return (
     <DashboardShell>
@@ -163,8 +173,8 @@ export default function DashboardPage() {
           <StatCard
             title={isArabic ? 'صافي الثروة' : 'Net Worth'}
             value={formatCurrency(totalNetWorth, 'SAR', locale)}
-            change={5.2}
-            changeLabel={isArabic ? 'هذا الشهر' : 'this month'}
+            change={isDemoMode ? 5.2 : undefined}
+            changeLabel={isDemoMode ? (isArabic ? 'هذا الشهر' : 'this month') : undefined}
             icon={Wallet}
             iconColor="text-gold bg-gold/10"
           />
@@ -184,13 +194,35 @@ export default function DashboardPage() {
           />
           <StatCard
             title={isArabic ? 'الميزانية الشهرية' : 'Monthly Budget'}
-            value="67%"
-            change={-12}
-            changeLabel={isArabic ? 'متبقي' : 'remaining'}
+            value={`${budgetUsage}%`}
+            change={isDemoMode ? -12 : undefined}
+            changeLabel={isDemoMode ? (isArabic ? 'متبقي' : 'remaining') : undefined}
             icon={Receipt}
             iconColor="text-blue-500 bg-blue-500/10"
           />
         </div>
+
+        {!isDemoMode && !hasLiveData && (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {isArabic ? 'الحساب جديد وجاهز للبدء' : 'This account is clean and ready'}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {isArabic
+                    ? 'لا توجد أي بيانات تجريبية لهذا المستخدم. ابدأ بإضافة الدخل أو المصروفات أو مراكز المحفظة لتظهر لك لوحة التحكم بالأرقام الحقيقية.'
+                    : 'There is no demo data for this user. Add income, expenses, or portfolio holdings to start populating the dashboard with real values.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline"><a href="/income">{isArabic ? 'إضافة دخل' : 'Add Income'}</a></Button>
+                <Button asChild variant="outline"><a href="/expenses">{isArabic ? 'إضافة مصروف' : 'Add Expense'}</a></Button>
+                <Button asChild><a href="/portfolio">{isArabic ? 'إضافة محفظة' : 'Add Portfolio'}</a></Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -330,6 +362,11 @@ export default function DashboardPage() {
             <CardContent>
               <ScrollArea className="h-64">
                 <div className="space-y-3">
+                  {holdings.length === 0 && (
+                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      {isArabic ? 'لا توجد مراكز استثمارية بعد.' : 'No holdings yet.'}
+                    </div>
+                  )}
                   {holdings.map((holding, index) => {
                     const marketValue = holding.shares * holding.currentPrice;
                     const gainLoss = (holding.currentPrice - holding.avgCost) * holding.shares;
@@ -393,7 +430,7 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={budgetData}
+                      data={spendingChartData}
                       cx="50%"
                       cy="50%"
                       innerRadius={40}
@@ -401,7 +438,7 @@ export default function DashboardPage() {
                       paddingAngle={2}
                       dataKey="value"
                     >
-                      {budgetData.map((entry, index) => (
+                      {spendingChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -409,7 +446,12 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
               <div className="space-y-2">
-                {budgetData.slice(0, 4).map((item) => (
+                {spendingChartData.length === 0 && (
+                  <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'لا توجد ميزانية أو مصروفات بعد.' : 'No budget or expense data yet.'}
+                  </div>
+                )}
+                {spendingChartData.slice(0, 4).map((item) => (
                   <div key={item.name} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div
@@ -436,6 +478,11 @@ export default function DashboardPage() {
             <CardContent>
               <ScrollArea className="h-64">
                 <div className="space-y-3">
+                  {transactions.length === 0 && (
+                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      {isArabic ? 'لا توجد معاملات بعد.' : 'No recent transactions yet.'}
+                    </div>
+                  )}
                   {transactions.map((tx, index) => (
                     <motion.div
                       key={tx.id}
@@ -472,6 +519,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
+                {marketData.length === 0 && (
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'بيانات السوق التجريبية غير مفعلة في الوضع المباشر.' : 'Market demo data is disabled in live mode.'}
+                  </div>
+                )}
                 {marketData.map((market, index) => (
                   <div
                     key={market.name}
@@ -500,9 +552,13 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                {isArabic
-                  ? 'محفظتك تظهر أداءً قوياً هذا الشهر مع عائد إجمالي 5.2%. فكر في إعادة توازن توزيعك بزيادة استثماراتك في القطاع المصرفي السعودي.'
-                  : 'Your portfolio is showing strong performance this month with a total return of 5.2%. Consider rebalancing your allocation by increasing your Saudi banking sector investments.'}
+                {isDemoMode
+                  ? (isArabic
+                      ? 'محفظتك تظهر أداءً قوياً هذا الشهر مع عائد إجمالي 5.2%. فكر في إعادة توازن توزيعك بزيادة استثماراتك في القطاع المصرفي السعودي.'
+                      : 'Your portfolio is showing strong performance this month with a total return of 5.2%. Consider rebalancing your allocation by increasing your Saudi banking sector investments.')
+                  : (isArabic
+                      ? 'أضف بيانات فعلية أكثر ليقدم الذكاء الاصطناعي توصيات مخصصة بناءً على محفظتك ودخلك ومصروفاتك.'
+                      : 'Add more real data so the AI can generate personalized insights from your portfolio, income, and expenses.')}
               </p>
               <Button className="w-full bg-gold hover:bg-gold-dark text-navy-dark">
                 <Sparkles className="w-4 h-4 mr-2" />
@@ -524,6 +580,13 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
+                {!isDemoMode && (
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'لا توجد أصول مسجلة بعد لهذا المستخدم.' : 'No assets recorded yet for this user.'}
+                  </div>
+                )}
+                {isDemoMode && (
+                  <>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
@@ -560,6 +623,8 @@ export default function DashboardPage() {
                   </div>
                   <span className="font-medium">{formatCurrency(15000, 'SAR', locale)}</span>
                 </div>
+                  </>
+                )}
               </div>
               <div className="mt-4 pt-4 border-t flex justify-between">
                 <span className="font-medium">{isArabic ? 'إجمالي الأصول' : 'Total Assets'}</span>
@@ -578,6 +643,13 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
+                {!isDemoMode && (
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'لا توجد التزامات مسجلة بعد لهذا المستخدم.' : 'No liabilities recorded yet for this user.'}
+                  </div>
+                )}
+                {isDemoMode && (
+                  <>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center">
@@ -602,6 +674,8 @@ export default function DashboardPage() {
                   </div>
                   <span className="font-medium">{formatCurrency(17550, 'SAR', locale)}</span>
                 </div>
+                  </>
+                )}
               </div>
               <div className="mt-4 pt-4 border-t flex justify-between">
                 <span className="font-medium">{isArabic ? 'إجمالي الالتزامات' : 'Total Liabilities'}</span>

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Search, Moon, Sun, Globe, User, LogOut, Settings } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Globe, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,15 +16,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { toast } from '@/hooks/use-toast';
 
 export function Header() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const locale = useAppStore((state) => state.locale);
   const setLocale = useAppStore((state) => state.setLocale);
-  const user = useAppStore((state) => state.user);
   const notificationFeed = useAppStore((state) => state.notificationFeed);
   const markAllNotificationsRead = useAppStore((state) => state.markAllNotificationsRead);
   const unreadCount = notificationFeed.filter((item) => !item.read).length;
@@ -123,57 +121,27 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.avatarUrl || ''} alt={user?.name || ''} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name?.[0] || 'U'}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align={isArabic ? 'start' : 'end'}>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">{user?.name || 'Demo User'}</p>
-                <p className="text-xs text-muted-foreground">
-                  {user?.email || 'demo@wealix.app'}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings?tab=profile">
-                <User className="mr-2 h-4 w-4" />
-                <span>{isArabic ? 'الملف الشخصي' : 'Profile'}</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings?tab=preferences">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>{isArabic ? 'الإعدادات' : 'Settings'}</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() =>
-                toast({
-                  title: isArabic ? 'تم تسجيل الخروج' : 'Signed out',
-                  description: isArabic
-                    ? 'التطبيق يعمل حالياً بملفات مستخدم محلية على هذا الجهاز.'
-                    : 'The app currently uses local user profiles on this device.',
-                })
-              }
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>{isArabic ? 'تسجيل الخروج' : 'Log out'}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/settings?tab=profile" title={isArabic ? 'الإعدادات' : 'Settings'}>
+            <Settings className="w-4 h-4" />
+          </Link>
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <Button variant="ghost" size="sm">{isArabic ? 'دخول' : 'Sign in'}</Button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <Button size="sm">{isArabic ? 'إنشاء حساب' : 'Sign up'}</Button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full">
+              <UserButton />
+            </div>
+          </Show>
+        </div>
       </div>
     </header>
   );

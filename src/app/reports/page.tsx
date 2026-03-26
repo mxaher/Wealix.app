@@ -58,6 +58,7 @@ interface GeneratedReport {
   periodLabel: string;
   summary: string;
   metrics: Array<{ label: string; value: string }>;
+  sections: string[];
   htmlContent: string;
 }
 
@@ -81,6 +82,20 @@ const reportTypes: ReportType[] = [
     name: { en: 'Net Worth Report', ar: 'تقرير صافي الثروة' },
     description: { en: 'Assets, liabilities, and balance snapshot', ar: 'الأصول والالتزامات ولقطة الميزانية الشخصية' },
     icon: <Wallet className="h-6 w-6" />,
+    tier: 'core',
+  },
+  {
+    id: 'income-report',
+    name: { en: 'Income Report', ar: 'تقرير الدخل' },
+    description: { en: 'Sources, recurring income, and entry mix', ar: 'مصادر الدخل والدخل المتكرر وتوزيع الإدخالات' },
+    icon: <TrendingUp className="h-6 w-6" />,
+    tier: 'core',
+  },
+  {
+    id: 'expenses-report',
+    name: { en: 'Expenses Report', ar: 'تقرير المصروفات' },
+    description: { en: 'Expense totals, merchants, and category behavior', ar: 'إجمالي المصروفات والتجار وسلوك الفئات' },
+    icon: <Receipt className="h-6 w-6" />,
     tier: 'core',
   },
   {
@@ -117,7 +132,7 @@ function downloadReportFile(report: GeneratedReport) {
 }
 
 export default function ReportsPage() {
-  const { locale, appMode, incomeEntries, expenseEntries, portfolioHoldings, user } = useAppStore();
+  const { locale, appMode, incomeEntries, expenseEntries, portfolioHoldings, receiptScans, user } = useAppStore();
   const isArabic = locale === 'ar';
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -157,10 +172,20 @@ export default function ReportsPage() {
         userName: user?.name || 'Demo User',
         reportType: reportTypes[0],
         periodLabel,
-        totals: { totalIncome, totalExpenses, portfolioValue, investedCost, netWorth, savingsRate },
-        holdingsCount: portfolioHoldings.length,
+        context: {
+          totalIncome,
+          totalExpenses,
+          portfolioValue,
+          investedCost,
+          netWorth,
+          savingsRate,
+          holdings: portfolioHoldings,
+          incomeEntries,
+          expenseEntries,
+          receiptScans,
+        },
       }),
-    [investedCost, locale, netWorth, periodLabel, portfolioHoldings.length, portfolioValue, savingsRate, totalExpenses, totalIncome, user?.name]
+    [expenseEntries, incomeEntries, investedCost, locale, netWorth, periodLabel, portfolioHoldings, portfolioValue, receiptScans, savingsRate, totalExpenses, totalIncome, user?.name]
   );
 
   const visibleReports = appMode === 'demo' && generatedReports.length === 0 ? [demoReport] : generatedReports;
@@ -180,8 +205,18 @@ export default function ReportsPage() {
       userName: user?.name || (isArabic ? 'مستخدم Wealix' : 'Wealix User'),
       reportType,
       periodLabel,
-      totals: { totalIncome, totalExpenses, portfolioValue, investedCost, netWorth, savingsRate },
-      holdingsCount: portfolioHoldings.length,
+      context: {
+        totalIncome,
+        totalExpenses,
+        portfolioValue,
+        investedCost,
+        netWorth,
+        savingsRate,
+        holdings: portfolioHoldings,
+        incomeEntries,
+        expenseEntries,
+        receiptScans,
+      },
     });
 
     setGeneratedReports((current) => [report, ...current.filter((item) => item.type !== report.type)]);
@@ -398,6 +433,9 @@ export default function ReportsPage() {
                   <div className="mb-2 text-sm font-medium">{isArabic ? 'محتوى التقرير' : 'Report Content'}</div>
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <p>{selectedReport.summary}</p>
+                    {selectedReport.sections.map((section) => (
+                      <p key={section}>{section}</p>
+                    ))}
                     <p>{isArabic ? 'يتم تنزيل هذه النسخة كملف HTML قابل للطباعة والمشاركة.' : 'This exact version is downloaded as a printable HTML file.'}</p>
                   </div>
                 </div>
@@ -423,27 +461,17 @@ function buildReport({
   userName,
   reportType,
   periodLabel,
-  totals,
-  holdingsCount,
+  context,
 }: {
   locale: 'ar' | 'en';
   userName: string;
   reportType: ReportType;
   periodLabel: string;
-  totals: {
-    totalIncome: number;
-    totalExpenses: number;
-    portfolioValue: number;
-    investedCost: number;
-    netWorth: number;
-    savingsRate: number;
-  };
-  holdingsCount: number;
+  context: ReportContext;
 }): GeneratedReport {
   const isArabic = locale === 'ar';
   const generatedAt = new Date().toISOString().slice(0, 10);
-  const metrics = buildMetrics(locale, totals, holdingsCount);
-  const summary = buildSummary(reportType.id, locale, totals, holdingsCount, periodLabel);
+  const content = buildReportContent(reportType.id, locale, context, periodLabel);
   const name = `${periodLabel} ${reportType.name[isArabic ? 'ar' : 'en']}`;
   const htmlContent = `<!DOCTYPE html>
 <html lang="${isArabic ? 'ar' : 'en'}" dir="${isArabic ? 'rtl' : 'ltr'}">
@@ -467,9 +495,9 @@ function buildReport({
       <p class="muted">Wealix App</p>
       <h1>${name}</h1>
       <p class="muted">${userName} • ${generatedAt}</p>
-      <p>${summary}</p>
+      <p>${content.summary}</p>
       <div class="grid">
-        ${metrics
+        ${content.metrics
           .map(
             (metric) => `
             <div class="metric">
@@ -479,6 +507,9 @@ function buildReport({
           `
           )
           .join('')}
+      </div>
+      <div>
+        ${content.sections.map((section) => `<p>${section}</p>`).join('')}
       </div>
     </div>
   </body>
@@ -491,76 +522,245 @@ function buildReport({
     generatedAt,
     size: `${(htmlContent.length / 1024).toFixed(0)} KB`,
     periodLabel,
-    summary,
-    metrics,
+    summary: content.summary,
+    metrics: content.metrics,
+    sections: content.sections,
     htmlContent,
   };
 }
 
-function buildMetrics(
-  locale: 'ar' | 'en',
-  totals: {
-    totalIncome: number;
-    totalExpenses: number;
-    portfolioValue: number;
-    investedCost: number;
-    netWorth: number;
-    savingsRate: number;
-  },
-  holdingsCount: number
-) {
-  const isArabic = locale === 'ar';
-  return [
-    { label: isArabic ? 'صافي الثروة' : 'Net Worth', value: formatCurrency(totals.netWorth, 'SAR', locale) },
-    { label: isArabic ? 'الدخل' : 'Income', value: formatCurrency(totals.totalIncome, 'SAR', locale) },
-    { label: isArabic ? 'المصروفات' : 'Expenses', value: formatCurrency(totals.totalExpenses, 'SAR', locale) },
-    { label: isArabic ? 'قيمة المحفظة' : 'Portfolio Value', value: formatCurrency(totals.portfolioValue, 'SAR', locale) },
-    { label: isArabic ? 'عدد المراكز' : 'Holdings Count', value: String(holdingsCount) },
-    { label: isArabic ? 'معدل الادخار' : 'Savings Rate', value: `${totals.savingsRate.toFixed(1)}%` },
-  ];
-}
+type ReportContext = {
+  totalIncome: number;
+  totalExpenses: number;
+  portfolioValue: number;
+  investedCost: number;
+  netWorth: number;
+  savingsRate: number;
+  holdings: Array<{
+    ticker: string;
+    name: string;
+    shares: number;
+    avgCost: number;
+    currentPrice: number;
+    sector: string;
+  }>;
+  incomeEntries: Array<{
+    amount: number;
+    source: string;
+    sourceName: string;
+    isRecurring: boolean;
+  }>;
+  expenseEntries: Array<{
+    amount: number;
+    category: string;
+    description: string;
+    merchantName?: string | null;
+  }>;
+  receiptScans: Array<{
+    merchantName: string;
+    amount: number;
+    confidence: number;
+  }>;
+};
 
-function buildSummary(
+function buildReportContent(
   reportTypeId: string,
   locale: 'ar' | 'en',
-  totals: {
-    totalIncome: number;
-    totalExpenses: number;
-    portfolioValue: number;
-    investedCost: number;
-    netWorth: number;
-    savingsRate: number;
-  },
-  holdingsCount: number,
+  context: ReportContext,
   periodLabel: string
 ) {
   const isArabic = locale === 'ar';
-  const portfolioPnL = totals.portfolioValue - totals.investedCost;
+  const holdingsCount = context.holdings.length;
+  const portfolioPnL = context.portfolioValue - context.investedCost;
+  const topHolding = [...context.holdings].sort(
+    (a, b) => b.shares * b.currentPrice - a.shares * a.currentPrice
+  )[0];
+  const topExpenseCategory = Object.entries(
+    context.expenseEntries.reduce((acc, entry) => {
+      acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
+      return acc;
+    }, {} as Record<string, number>)
+  ).sort((a, b) => b[1] - a[1])[0];
+  const topIncomeSource = Object.entries(
+    context.incomeEntries.reduce((acc, entry) => {
+      const key = entry.sourceName || entry.source;
+      acc[key] = (acc[key] || 0) + entry.amount;
+      return acc;
+    }, {} as Record<string, number>)
+  ).sort((a, b) => b[1] - a[1])[0];
+  const recurringIncome = context.incomeEntries
+    .filter((entry) => entry.isRecurring)
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const averageExpense = context.expenseEntries.length > 0
+    ? context.totalExpenses / context.expenseEntries.length
+    : 0;
+  const averageIncome = context.incomeEntries.length > 0
+    ? context.totalIncome / context.incomeEntries.length
+    : 0;
+  const avgReceiptConfidence = context.receiptScans.length > 0
+    ? context.receiptScans.reduce((sum, item) => sum + item.confidence, 0) / context.receiptScans.length
+    : 0;
 
   switch (reportTypeId) {
     case 'portfolio-report':
-      return isArabic
-        ? `يغطي هذا التقرير محفظة ${periodLabel}. لديك ${holdingsCount} مركزاً بقيمة إجمالية ${formatCurrency(totals.portfolioValue, 'SAR', locale)} مع ربح أو خسارة غير محققة قدرها ${formatCurrency(portfolioPnL, 'SAR', locale)}.`
-        : `This report covers the ${periodLabel} portfolio snapshot. You currently hold ${holdingsCount} positions worth ${formatCurrency(totals.portfolioValue, 'SAR', locale)} with an unrealized result of ${formatCurrency(portfolioPnL, 'SAR', locale)}.`;
-    case 'budget-report':
-      return isArabic
-        ? `يراجع هذا التقرير إنفاق ${periodLabel}. بلغ إجمالي المصروفات ${formatCurrency(totals.totalExpenses, 'SAR', locale)} مقابل دخل ${formatCurrency(totals.totalIncome, 'SAR', locale)} مع معدل ادخار ${totals.savingsRate.toFixed(1)}%.`
-        : `This report reviews ${periodLabel} spending. Total expenses reached ${formatCurrency(totals.totalExpenses, 'SAR', locale)} against income of ${formatCurrency(totals.totalIncome, 'SAR', locale)}, producing a savings rate of ${totals.savingsRate.toFixed(1)}%.`;
+      return {
+        summary: isArabic
+          ? `هذا تقرير مخصص للمحفظة في ${periodLabel}. يركز على المراكز الحالية، الربح والخسارة غير المحققة، وأكبر تعرض داخل المحفظة.`
+          : `This is a portfolio-specific report for ${periodLabel}. It focuses on current holdings, unrealized performance, and the largest exposures in the portfolio.`,
+        metrics: [
+          { label: isArabic ? 'قيمة المحفظة' : 'Portfolio Value', value: formatCurrency(context.portfolioValue, 'SAR', locale) },
+          { label: isArabic ? 'التكلفة الإجمالية' : 'Cost Basis', value: formatCurrency(context.investedCost, 'SAR', locale) },
+          { label: isArabic ? 'الربح/الخسارة' : 'Unrealized P&L', value: formatCurrency(portfolioPnL, 'SAR', locale) },
+          { label: isArabic ? 'عدد المراكز' : 'Holdings Count', value: String(holdingsCount) },
+        ],
+        sections: [
+          isArabic
+            ? `أكبر مركز حالياً هو ${topHolding?.ticker || 'لا يوجد'} بقيمة تقريبية ${formatCurrency(topHolding ? topHolding.shares * topHolding.currentPrice : 0, 'SAR', locale)}.`
+            : `The largest current position is ${topHolding?.ticker || 'none'} with an approximate market value of ${formatCurrency(topHolding ? topHolding.shares * topHolding.currentPrice : 0, 'SAR', locale)}.`,
+          isArabic
+            ? `يعتمد التقرير على بيانات شاشة المحفظة الحالية وليس على بيانات الميزانية أو المصروفات.`
+            : `This report is tied to the current portfolio holdings data rather than budget or expense data.`,
+        ],
+      };
     case 'net-worth-report':
-      return isArabic
-        ? `يعرض هذا التقرير لقطة صافي الثروة خلال ${periodLabel}. صافي الثروة الحالي ${formatCurrency(totals.netWorth, 'SAR', locale)} مع اعتماد واضح على المحفظة الاستثمارية والتدفق النقدي.`
-        : `This report presents the ${periodLabel} net worth snapshot. Current net worth stands at ${formatCurrency(totals.netWorth, 'SAR', locale)} with meaningful contribution from portfolio value and cash flow.`;
+      return {
+        summary: isArabic
+          ? `هذا تقرير صافي الثروة لفترة ${periodLabel}. يعرض توازن الأصول الحالية مقابل الالتزامات التقديرية الناتجة من المصروفات والتدفق المالي المسجل.`
+          : `This is a net worth report for ${periodLabel}. It shows the current balance between assets and liabilities derived from recorded financial activity.`,
+        metrics: [
+          { label: isArabic ? 'صافي الثروة' : 'Net Worth', value: formatCurrency(context.netWorth, 'SAR', locale) },
+          { label: isArabic ? 'الأصول المتاحة' : 'Tracked Assets', value: formatCurrency(context.totalIncome + context.portfolioValue, 'SAR', locale) },
+          { label: isArabic ? 'الالتزامات/الاستنزاف' : 'Outflows', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+          { label: isArabic ? 'قيمة المحفظة' : 'Portfolio Component', value: formatCurrency(context.portfolioValue, 'SAR', locale) },
+        ],
+        sections: [
+          isArabic
+            ? `قيمة صافي الثروة هنا مرتبطة مباشرة ببيانات الدخل والمصروفات والمحفظة، لذلك فهي تختلف عن تقرير الميزانية وتقرير المحفظة.`
+            : `Net worth here is tied directly to the income, expense, and portfolio datasets, so it differs from both the budget report and the portfolio report.`,
+          isArabic
+            ? `كلما زادت التدفقات الإيجابية والمحفظة مقارنة بالمصروفات، ارتفع صافي الثروة.`
+            : `As positive inflows and portfolio value outpace expenses, net worth improves.`,
+        ],
+      };
+    case 'income-report':
+      return {
+        summary: isArabic
+          ? `هذا تقرير دخل لفترة ${periodLabel}. يراجع مصادر الدخل، الدخل المتكرر، ومتوسط قيمة الإدخالات.`
+          : `This is an income report for ${periodLabel}. It reviews income sources, recurring income, and the average entry size.`,
+        metrics: [
+          { label: isArabic ? 'إجمالي الدخل' : 'Total Income', value: formatCurrency(context.totalIncome, 'SAR', locale) },
+          { label: isArabic ? 'الدخل المتكرر' : 'Recurring Income', value: formatCurrency(recurringIncome, 'SAR', locale) },
+          { label: isArabic ? 'متوسط الإدخال' : 'Average Entry', value: formatCurrency(averageIncome, 'SAR', locale) },
+          { label: isArabic ? 'أكبر مصدر' : 'Top Source', value: topIncomeSource ? topIncomeSource[0] : (isArabic ? 'لا يوجد' : 'None') },
+        ],
+        sections: [
+          isArabic
+            ? `أكبر مصدر دخل مسجل هو ${topIncomeSource?.[0] || 'لا يوجد'} بإجمالي ${formatCurrency(topIncomeSource?.[1] || 0, 'SAR', locale)}.`
+            : `The top recorded income source is ${topIncomeSource?.[0] || 'none'} with a total of ${formatCurrency(topIncomeSource?.[1] || 0, 'SAR', locale)}.`,
+          isArabic
+            ? `هذا التقرير يعتمد على إدخالات شاشة الدخل فقط ولا يعيد استخدام بيانات المصروفات أو المحفظة.`
+            : `This report is sourced only from income entries and does not reuse the expense or portfolio datasets.`,
+        ],
+      };
+    case 'expenses-report':
+      return {
+        summary: isArabic
+          ? `هذا تقرير مصروفات لفترة ${periodLabel}. يركز على إجمالي الصرف، متوسط العملية، والتاجر أو الفئة الأكثر ظهوراً.`
+          : `This is an expenses report for ${periodLabel}. It focuses on total spending, average ticket size, and the most visible category or merchant pattern.`,
+        metrics: [
+          { label: isArabic ? 'إجمالي المصروفات' : 'Total Expenses', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+          { label: isArabic ? 'عدد العمليات' : 'Expense Entries', value: String(context.expenseEntries.length) },
+          { label: isArabic ? 'متوسط العملية' : 'Average Expense', value: formatCurrency(averageExpense, 'SAR', locale) },
+          { label: isArabic ? 'أعلى فئة' : 'Top Category', value: topExpenseCategory ? topExpenseCategory[0] : (isArabic ? 'لا يوجد' : 'None') },
+        ],
+        sections: [
+          isArabic
+            ? `الفئة الأعلى إنفاقاً هي ${topExpenseCategory?.[0] || 'لا يوجد'} بإجمالي ${formatCurrency(topExpenseCategory?.[1] || 0, 'SAR', locale)}.`
+            : `The highest-spend category is ${topExpenseCategory?.[0] || 'none'} with a total of ${formatCurrency(topExpenseCategory?.[1] || 0, 'SAR', locale)}.`,
+          isArabic
+            ? `متوسط ثقة OCR للإيصالات الممسوحة هو ${avgReceiptConfidence.toFixed(1)}% عند توفر إيصالات محفوظة.`
+            : `Average OCR confidence across saved scanned receipts is ${avgReceiptConfidence.toFixed(1)}% when receipt data exists.`,
+        ],
+      };
+    case 'budget-report':
+      return {
+        summary: isArabic
+          ? `هذا تقرير ميزانية لفترة ${periodLabel}. يربط بين الدخل والمصروفات لاستخراج معدل الادخار ونمط الإنفاق حسب الفئات.`
+          : `This is a budget report for ${periodLabel}. It connects income and expenses to calculate savings rate and spending behavior by category.`,
+        metrics: [
+          { label: isArabic ? 'الدخل' : 'Income', value: formatCurrency(context.totalIncome, 'SAR', locale) },
+          { label: isArabic ? 'المصروفات' : 'Expenses', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+          { label: isArabic ? 'معدل الادخار' : 'Savings Rate', value: `${context.savingsRate.toFixed(1)}%` },
+          { label: isArabic ? 'أعلى فئة صرف' : 'Top Spending Category', value: topExpenseCategory ? topExpenseCategory[0] : (isArabic ? 'لا يوجد' : 'None') },
+        ],
+        sections: [
+          isArabic
+            ? `يعتمد تقرير الميزانية على مقارنة الدخل بالمصروفات، لذلك يختلف عن تقرير المصروفات الذي يركز فقط على الصرف، وعن تقرير الدخل الذي يركز فقط على المصادر الداخلة.`
+            : `The budget report compares income against expenses, so it differs from the expenses report, which focuses only on spending, and the income report, which focuses only on inflows.`,
+          isArabic
+            ? `حالة الادخار الحالية تبلغ ${context.savingsRate.toFixed(1)}% للفترة المحددة.`
+            : `Current savings performance stands at ${context.savingsRate.toFixed(1)}% for the selected period.`,
+        ],
+      };
     case 'fire-report':
-      return isArabic
-        ? `يعرض هذا التقرير تقدّم FIRE خلال ${periodLabel}. كلما ارتفع معدل الادخار فوق ${totals.savingsRate.toFixed(1)}% تحسنت سرعة الوصول إلى الاستقلال المالي.`
-        : `This report highlights FIRE progress for ${periodLabel}. As the savings rate moves above ${totals.savingsRate.toFixed(1)}%, the path to financial independence becomes stronger.`;
+      return {
+        summary: isArabic
+          ? `هذا تقرير FIRE لفترة ${periodLabel}. يعتمد على سرعة الادخار وصافي الثروة الحالي لتقدير الجاهزية للاستقلال المالي.`
+          : `This is a FIRE report for ${periodLabel}. It uses savings velocity and current net worth to estimate readiness for financial independence.`,
+        metrics: [
+          { label: isArabic ? 'معدل الادخار' : 'Savings Rate', value: `${context.savingsRate.toFixed(1)}%` },
+          { label: isArabic ? 'صافي الثروة' : 'Net Worth', value: formatCurrency(context.netWorth, 'SAR', locale) },
+          { label: isArabic ? 'الدخل' : 'Income', value: formatCurrency(context.totalIncome, 'SAR', locale) },
+          { label: isArabic ? 'المصروفات' : 'Expenses', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+        ],
+        sections: [
+          isArabic
+            ? `كلما ارتفع معدل الادخار الحالي وتحسن صافي الثروة، اقتربت الجاهزية لـ FIRE.`
+            : `As current savings rate and net worth improve, FIRE readiness becomes stronger.`,
+          isArabic
+            ? `هذا التقرير يرتبط مباشرة بالتدفق النقدي وصافي الثروة، وليس فقط بالمحفظة أو المصروفات منفردة.`
+            : `This report is tied directly to cash flow and net worth, not just portfolio or expenses in isolation.`,
+        ],
+      };
     case 'annual-review':
-      return isArabic
-        ? `هذه مراجعة سنوية مختصرة لنتائج ${periodLabel} تشمل صافي الثروة والدخل والمصروفات وأداء المحفظة لتحديد أهم نقاط القوة والتحسين.`
-        : `This is a concise annual review for ${periodLabel}, covering net worth, income, expenses, and portfolio performance to identify the main strengths and improvement areas.`;
+      return {
+        summary: isArabic
+          ? `هذه مراجعة مالية شاملة لفترة ${periodLabel}. تجمع بين الدخل والمصروفات والمحفظة وصافي الثروة في تقرير واحد.`
+          : `This is a full annual-style review for ${periodLabel}. It combines income, expenses, portfolio, and net worth into one report.`,
+        metrics: [
+          { label: isArabic ? 'صافي الثروة' : 'Net Worth', value: formatCurrency(context.netWorth, 'SAR', locale) },
+          { label: isArabic ? 'الدخل' : 'Income', value: formatCurrency(context.totalIncome, 'SAR', locale) },
+          { label: isArabic ? 'المصروفات' : 'Expenses', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+          { label: isArabic ? 'قيمة المحفظة' : 'Portfolio Value', value: formatCurrency(context.portfolioValue, 'SAR', locale) },
+        ],
+        sections: [
+          isArabic
+            ? `هذا التقرير هو الأكثر شمولاً لأنه يجمع مصادر البيانات المختلفة في Wealix.`
+            : `This is the broadest report because it combines the different data sources available in Wealix.`,
+          isArabic
+            ? `يمكن استخدامه كمراجعة عليا، بينما تبقى تقارير الدخل والمصروفات والميزانية والمحفظة أكثر تخصصاً.`
+            : `Use it as a high-level review, while the income, expenses, budget, and portfolio reports remain more specialized.`,
+        ],
+      };
     default:
-      return isArabic
-        ? `يلخص هذا التقرير المالي فترة ${periodLabel}. صافي الثروة الحالي ${formatCurrency(totals.netWorth, 'SAR', locale)} والدخل ${formatCurrency(totals.totalIncome, 'SAR', locale)} مقابل مصروفات ${formatCurrency(totals.totalExpenses, 'SAR', locale)}.`
-        : `This financial summary covers ${periodLabel}. Current net worth is ${formatCurrency(totals.netWorth, 'SAR', locale)}, with income of ${formatCurrency(totals.totalIncome, 'SAR', locale)} versus expenses of ${formatCurrency(totals.totalExpenses, 'SAR', locale)}.`;
+      return {
+        summary: isArabic
+          ? `هذا ملخص مالي شهري لفترة ${periodLabel}. يجمع الوضع العام دون الدخول في تخصص تقرير المحفظة أو الميزانية أو المصروفات.`
+          : `This is a monthly financial summary for ${periodLabel}. It provides an overall view without going as deep as the specialized portfolio, budget, or expenses reports.`,
+        metrics: [
+          { label: isArabic ? 'صافي الثروة' : 'Net Worth', value: formatCurrency(context.netWorth, 'SAR', locale) },
+          { label: isArabic ? 'الدخل' : 'Income', value: formatCurrency(context.totalIncome, 'SAR', locale) },
+          { label: isArabic ? 'المصروفات' : 'Expenses', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+          { label: isArabic ? 'معدل الادخار' : 'Savings Rate', value: `${context.savingsRate.toFixed(1)}%` },
+        ],
+        sections: [
+          isArabic
+            ? `يوفر هذا التقرير نظرة عامة متوازنة على الوضع المالي بدلاً من التركيز على مجال واحد فقط.`
+            : `This report provides a balanced overview of the financial picture instead of focusing on one area only.`,
+          isArabic
+            ? `لتحليل أكثر تخصصاً، استخدم تقارير الدخل أو المصروفات أو الميزانية أو المحفظة.`
+            : `For more specialized analysis, use the income, expenses, budget, or portfolio reports.`,
+        ],
+      };
   }
 }

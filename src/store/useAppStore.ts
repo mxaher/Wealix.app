@@ -64,6 +64,13 @@ export interface LocalProfile {
   portfolioHoldings: PortfolioHolding[];
 }
 
+interface AuthenticatedUserPayload {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
 export interface IncomeEntry {
   id: string;
   amount: number;
@@ -336,8 +343,8 @@ function profileToState(profile: LocalProfile) {
   };
 }
 
-const initialDemoProfile = createProfileSnapshot('profile-demo', 'Demo User', 'demo@wealix.app', buildDemoState(), {
-  user: defaultUser,
+const initialLiveProfile = createProfileSnapshot('guest', 'Guest', '', buildLiveState(), {
+  user: null,
   notificationPreferences: defaultNotificationPreferences,
 });
 
@@ -361,9 +368,8 @@ interface AppState {
   markAllNotificationsRead: () => void;
   profiles: LocalProfile[];
   activeProfileId: string;
-  createProfile: (label: string, email?: string) => void;
-  switchProfile: (id: string) => void;
-  deleteProfile: (id: string) => void;
+  syncClerkUser: (authUser: AuthenticatedUserPayload) => void;
+  clearClerkUser: () => void;
   incomeEntries: IncomeEntry[];
   addIncomeEntry: (entry: IncomeEntry) => void;
   deleteIncomeEntry: (id: string) => void;
@@ -415,7 +421,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       // User
-      user: initialDemoProfile.user,
+      user: initialLiveProfile.user,
       setUser: (user) => set((state) => syncActiveProfileState(state, { user })),
       updateUser: (updates) => set((state) =>
         syncActiveProfileState(state, {
@@ -428,20 +434,25 @@ export const useAppStore = create<AppState>()(
       setLocale: (locale) => set({ locale }),
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
-      appMode: initialDemoProfile.appMode,
+      appMode: initialLiveProfile.appMode,
       setAppMode: (mode) => set((state) => {
         const seeded = mode === 'demo' ? buildDemoState() : buildLiveState();
         const user =
           mode === 'demo'
-            ? defaultUser
-            : {
+            ? {
                 ...(state.user ?? defaultUser),
-                id: state.activeProfileId,
-                name: state.user?.name ?? '',
-                email: state.user?.email ?? '',
-                avatarUrl: state.user?.avatarUrl ?? null,
                 subscriptionTier: state.user?.subscriptionTier ?? 'free',
-              };
+              }
+            : state.user
+              ? {
+                  ...(state.user ?? defaultUser),
+                  id: state.activeProfileId,
+                  name: state.user?.name ?? '',
+                  email: state.user?.email ?? '',
+                  avatarUrl: state.user?.avatarUrl ?? null,
+                  subscriptionTier: state.user?.subscriptionTier ?? 'free',
+                }
+              : null;
 
         return syncActiveProfileState(state, {
           ...seeded,
@@ -457,7 +468,7 @@ export const useAppStore = create<AppState>()(
           isLoading: false,
         });
       }),
-      notificationPreferences: initialDemoProfile.notificationPreferences,
+      notificationPreferences: initialLiveProfile.notificationPreferences,
       updateNotificationPreferences: (updates) => set((state) =>
         syncActiveProfileState(state, {
           notificationPreferences: {
@@ -466,7 +477,7 @@ export const useAppStore = create<AppState>()(
           },
         })
       ),
-      notificationFeed: initialDemoProfile.notificationFeed,
+      notificationFeed: initialLiveProfile.notificationFeed,
       markNotificationAsRead: (id) => set((state) =>
         syncActiveProfileState(state, {
           notificationFeed: state.notificationFeed.map((item) =>
@@ -482,78 +493,66 @@ export const useAppStore = create<AppState>()(
           })),
         })
       ),
-      profiles: [initialDemoProfile],
-      activeProfileId: initialDemoProfile.id,
-      createProfile: (label, email = '') =>
+      profiles: [],
+      activeProfileId: initialLiveProfile.id,
+      syncClerkUser: (authUser) =>
         set((state) => {
-          const currentSnapshot = snapshotActiveProfile(state);
-          const id = `profile-${Date.now()}`;
-          const trimmedLabel = label.trim() || `User ${state.profiles.length + 1}`;
-          const liveUser: User = {
-            id,
-            email: email.trim(),
-            name: trimmedLabel,
-            avatarUrl: null,
+          const profiles = state.user ? upsertProfile(state.profiles, snapshotActiveProfile(state)) : state.profiles;
+          const existing = profiles.find((profile) => profile.id === authUser.id);
+          const nextUser: User = {
+            id: authUser.id,
+            email: authUser.email,
+            name: authUser.name,
+            avatarUrl: authUser.avatarUrl,
             locale: state.locale,
             currency: 'SAR',
-            subscriptionTier: 'free',
+            subscriptionTier: existing?.user?.subscriptionTier ?? 'free',
             onboardingDone: true,
           };
-          const liveProfile = createProfileSnapshot(id, trimmedLabel, email.trim(), buildLiveState(), {
-            user: liveUser,
-            notificationPreferences: defaultNotificationPreferences,
-          });
+
+          if (existing) {
+            const updatedProfile: LocalProfile = {
+              ...existing,
+              label: authUser.name?.trim() || existing.label || 'User',
+              email: authUser.email,
+              avatarUrl: authUser.avatarUrl,
+              user: {
+                ...(existing.user ?? nextUser),
+                ...nextUser,
+              },
+            };
+
+            return {
+              ...profileToState(updatedProfile),
+              profiles: upsertProfile(profiles, updatedProfile),
+              activeProfileId: authUser.id,
+            };
+          }
+
+          const liveProfile = createProfileSnapshot(
+            authUser.id,
+            authUser.name?.trim() || 'User',
+            authUser.email,
+            buildLiveState(),
+            {
+              user: nextUser,
+              notificationPreferences: defaultNotificationPreferences,
+            }
+          );
 
           return {
             ...profileToState(liveProfile),
-            profiles: [...upsertProfile(state.profiles, currentSnapshot), liveProfile],
-            activeProfileId: id,
+            profiles: upsertProfile(profiles, liveProfile),
+            activeProfileId: authUser.id,
           };
         }),
-      switchProfile: (id) =>
-        set((state) => {
-          if (id === state.activeProfileId) {
-            return {};
-          }
-
-          const target = state.profiles.find((profile) => profile.id === id);
-          if (!target) {
-            return {};
-          }
-
-          return {
-            ...profileToState(target),
-            profiles: upsertProfile(state.profiles, snapshotActiveProfile(state)),
-            activeProfileId: id,
-          };
-        }),
-      deleteProfile: (id) =>
-        set((state) => {
-          const syncedProfiles = upsertProfile(state.profiles, snapshotActiveProfile(state));
-          const remainingProfiles = syncedProfiles.filter((profile) => profile.id !== id);
-
-          if (remainingProfiles.length === 0) {
-            return {
-              ...profileToState(initialDemoProfile),
-              profiles: [initialDemoProfile],
-              activeProfileId: initialDemoProfile.id,
-            };
-          }
-
-          if (id !== state.activeProfileId) {
-            return {
-              profiles: remainingProfiles,
-            };
-          }
-
-          const nextActive = remainingProfiles[0];
-          return {
-            ...profileToState(nextActive),
-            profiles: remainingProfiles,
-            activeProfileId: nextActive.id,
-          };
-        }),
-      incomeEntries: initialDemoProfile.incomeEntries,
+      clearClerkUser: () =>
+        set((state) => ({
+          ...profileToState(initialLiveProfile),
+          profiles: state.user ? upsertProfile(state.profiles, snapshotActiveProfile(state)) : state.profiles,
+          activeProfileId: initialLiveProfile.id,
+        })),
+      incomeEntries: initialLiveProfile.incomeEntries,
       addIncomeEntry: (entry) => set((state) =>
         syncActiveProfileState(state, {
           incomeEntries: [entry, ...state.incomeEntries],
@@ -564,7 +563,7 @@ export const useAppStore = create<AppState>()(
           incomeEntries: state.incomeEntries.filter((entry) => entry.id !== id),
         })
       ),
-      expenseEntries: initialDemoProfile.expenseEntries,
+      expenseEntries: initialLiveProfile.expenseEntries,
       addExpenseEntry: (entry) => set((state) =>
         syncActiveProfileState(state, {
           expenseEntries: [entry, ...state.expenseEntries],
@@ -575,13 +574,13 @@ export const useAppStore = create<AppState>()(
           expenseEntries: state.expenseEntries.filter((entry) => entry.id !== id),
         })
       ),
-      receiptScans: initialDemoProfile.receiptScans,
+      receiptScans: initialLiveProfile.receiptScans,
       addReceiptScan: (receipt) => set((state) =>
         syncActiveProfileState(state, {
           receiptScans: [receipt, ...state.receiptScans].slice(0, 20),
         })
       ),
-      portfolioHoldings: initialDemoProfile.portfolioHoldings,
+      portfolioHoldings: initialLiveProfile.portfolioHoldings,
       addPortfolioHolding: (holding) => set((state) =>
         syncActiveProfileState(state, {
           portfolioHoldings: [holding, ...state.portfolioHoldings],
@@ -613,7 +612,12 @@ export const useAppStore = create<AppState>()(
         set((state) =>
           syncActiveProfileState(state, {
             ...buildLiveState(),
-            user: null,
+            user: state.user
+              ? {
+                  ...state.user,
+                  subscriptionTier: state.user.subscriptionTier ?? 'free',
+                }
+              : null,
             locale: 'ar',
             theme: 'dark',
             notificationPreferences: defaultNotificationPreferences,

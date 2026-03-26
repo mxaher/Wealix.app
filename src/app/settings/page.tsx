@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { UserButton, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import {
   Settings as SettingsIcon,
   User,
-  Users,
   Globe,
   Bell,
   Database,
@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -97,38 +95,17 @@ export default function SettingsPage({
     locale,
     setLocale,
     user,
-    updateUser,
     notificationPreferences,
     updateNotificationPreferences,
     clearAllData,
-    setUser,
     setSubscriptionTier,
     appMode,
     setAppMode,
-    profiles,
-    activeProfileId,
-    createProfile,
-    switchProfile,
-    deleteProfile,
   } = useAppStore();
+  const { user: clerkUser } = useUser();
   const { theme, setTheme } = useTheme();
   const isArabic = locale === 'ar';
-  const currentUser = user ?? {
-    id: 'guest',
-    name: '',
-    email: '',
-    avatarUrl: null,
-    locale,
-    currency: 'SAR',
-    subscriptionTier: 'free' as const,
-    onboardingDone: false,
-  };
-  const [name, setName] = useState(currentUser.name ?? '');
-  const [email, setEmail] = useState(currentUser.email);
-  const [newProfileName, setNewProfileName] = useState('');
-  const [newProfileEmail, setNewProfileEmail] = useState('');
   const currentPlan = user?.subscriptionTier ?? 'free';
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const validTabs = useMemo(() => ['profile', 'preferences', 'subscription', 'data'] as const, []);
   const activeTabParam = searchParams?.tab ?? null;
   const initialTab = validTabs.find((value) => value === activeTabParam) ?? 'profile';
@@ -146,7 +123,7 @@ export default function SettingsPage({
 
   const handleExportData = () => {
     const data = {
-      user: currentUser,
+      user,
       assets: [],
       liabilities: [],
       portfolio: [],
@@ -182,21 +159,6 @@ export default function SettingsPage({
     setAppMode(mode);
     setTheme('dark');
 
-    const nextUser = mode === 'demo'
-      ? {
-          id: 'demo-user',
-          name: 'Demo User',
-          email: 'demo@wealix.app',
-        }
-      : {
-          id: 'live-user',
-          name: '',
-          email: '',
-        };
-
-    setName(nextUser.name);
-    setEmail(nextUser.email);
-
     toast({
       title: mode === 'demo'
         ? (isArabic ? 'تم تفعيل الوضع التجريبي' : 'Demo mode enabled')
@@ -211,90 +173,6 @@ export default function SettingsPage({
     });
   };
 
-  const handleSaveProfile = () => {
-    updateUser({
-      name: name.trim() || null,
-      email: email.trim(),
-      locale,
-    });
-
-    toast({
-      title: isArabic ? 'تم حفظ الملف الشخصي' : 'Profile saved',
-      description: isArabic
-        ? 'تم تحديث بيانات حسابك بنجاح.'
-        : 'Your account details were updated successfully.',
-    });
-  };
-
-  const handleCreateProfile = () => {
-    const trimmedName = newProfileName.trim();
-    if (!trimmedName) {
-      toast({
-        title: isArabic ? 'الاسم مطلوب' : 'Name required',
-        description: isArabic
-          ? 'أدخل اسم المستخدم الجديد قبل الإنشاء.'
-          : 'Enter a profile name before creating it.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    createProfile(trimmedName, newProfileEmail.trim());
-    setName(trimmedName);
-    setEmail(newProfileEmail.trim());
-    setNewProfileName('');
-    setNewProfileEmail('');
-    toast({
-      title: isArabic ? 'تم إنشاء مستخدم جديد' : 'New profile created',
-      description: isArabic
-        ? 'تم إنشاء مساحة بيانات محلية منفصلة لهذا المستخدم.'
-        : 'A separate local workspace was created for this user.',
-    });
-  };
-
-  const handleSwitchProfile = (id: string) => {
-    const nextProfile = profiles.find((profile) => profile.id === id);
-    switchProfile(id);
-    if (nextProfile) {
-      setName(nextProfile.user?.name ?? nextProfile.label);
-      setEmail(nextProfile.user?.email ?? nextProfile.email);
-    }
-  };
-
-  const handleDeleteProfile = (id: string) => {
-    const isDeletingActive = id === activeProfileId;
-    const remainingProfiles = profiles.filter((profile) => profile.id !== id);
-    deleteProfile(id);
-
-    if (isDeletingActive && remainingProfiles[0]) {
-      setName(remainingProfiles[0].user?.name ?? remainingProfiles[0].label);
-      setEmail(remainingProfiles[0].user?.email ?? remainingProfiles[0].email);
-    }
-  };
-
-  const handleCancelProfile = () => {
-    setName(currentUser.name ?? '');
-    setEmail(currentUser.email);
-  };
-
-  const handleAvatarChange = async (file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      updateUser({ avatarUrl: typeof reader.result === 'string' ? reader.result : null });
-      toast({
-        title: isArabic ? 'تم تحديث الصورة' : 'Avatar updated',
-        description: isArabic
-          ? 'تم حفظ صورة الملف الشخصي محلياً.'
-          : 'Your profile image was saved locally.',
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleNotificationChange = (
     key: 'email' | 'push' | 'priceAlerts' | 'budgetAlerts' | 'weeklyDigest',
     value: boolean
@@ -304,11 +182,8 @@ export default function SettingsPage({
 
   const handleDeleteAllData = () => {
     clearAllData();
-    setUser(null);
     setTheme('dark');
     router.replace('/settings?tab=profile');
-    setName('');
-    setEmail('');
 
     toast({
       title: isArabic ? 'تم حذف البيانات' : 'All data deleted',
@@ -364,137 +239,46 @@ export default function SettingsPage({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Avatar */}
                 <div className="flex items-center gap-4">
-                  <Avatar className="w-20 h-20">
-                    <AvatarImage src={currentUser.avatarUrl || ''} />
-                    <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                      {name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                    <UserButton />
+                  </div>
                   <div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => avatarInputRef.current?.click()}
-                    >
-                      {isArabic ? 'تغيير الصورة' : 'Change Avatar'}
-                    </Button>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      onChange={(e) => handleAvatarChange(e.target.files?.[0] ?? null)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isArabic ? 'JPG, PNG بحد أقصى 2MB' : 'JPG, PNG up to 2MB'}
+                    <p className="font-medium">
+                      {clerkUser?.fullName || clerkUser?.firstName || (isArabic ? 'مستخدم Wealix' : 'Wealix User')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {clerkUser?.primaryEmailAddress?.emailAddress || (isArabic ? 'سجّل الدخول لإدارة حسابك' : 'Sign in to manage your account')}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {isArabic ? 'إدارة الحساب والصورة وكلمة المرور تتم عبر Clerk.' : 'Account identity, avatar, and password are managed by Clerk.'}
                     </p>
                   </div>
                 </div>
 
                 <Separator />
 
-                {/* Form */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{isArabic ? 'الاسم' : 'Name'}</Label>
-                    <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border p-4">
+                    <Label>{isArabic ? 'اسم الحساب' : 'Account Name'}</Label>
+                    <p className="mt-2 font-medium">
+                      {clerkUser?.fullName || clerkUser?.firstName || '-'}
+                    </p>
                   </div>
-                  <div className="space-y-2">
+                  <div className="rounded-xl border p-4">
                     <Label>{isArabic ? 'البريد الإلكتروني' : 'Email'}</Label>
-                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <p className="mt-2 font-medium">
+                      {clerkUser?.primaryEmailAddress?.emailAddress || '-'}
+                    </p>
                   </div>
                 </div>
 
                 <Separator />
 
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Users className="mt-0.5 h-5 w-5 text-gold" />
-                    <div>
-                      <h4 className="font-medium">{isArabic ? 'المستخدمون المحليّون' : 'Local Profiles'}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {isArabic
-                          ? 'كل مستخدم يملك بيانات محلية مستقلة على هذا الجهاز. عند مشاركة الرابط على جهاز آخر، تبدأ البيانات هناك بشكل منفصل أيضاً.'
-                          : 'Each profile has its own local data on this device. When you share the link to another device or browser, that data stays separate there too.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {profiles.map((profile) => (
-                      <div
-                        key={profile.id}
-                        className={`flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-center md:justify-between ${
-                          profile.id === activeProfileId ? 'border-gold bg-gold/10' : 'border-border'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-medium">{profile.label}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {profile.email || (isArabic ? 'بدون بريد إلكتروني' : 'No email')}
-                            {' • '}
-                            {profile.appMode === 'demo'
-                              ? (isArabic ? 'تجريبي' : 'Demo')
-                              : (isArabic ? 'مباشر' : 'Live')}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {profile.id !== activeProfileId && (
-                            <Button variant="outline" size="sm" onClick={() => handleSwitchProfile(profile.id)}>
-                              {isArabic ? 'التبديل إليه' : 'Switch To'}
-                            </Button>
-                          )}
-                          {profiles.length > 1 && (
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteProfile(profile.id)}>
-                              {isArabic ? 'حذف' : 'Delete'}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>{isArabic ? 'اسم المستخدم الجديد' : 'New Profile Name'}</Label>
-                      <Input value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{isArabic ? 'البريد الإلكتروني' : 'Email'}</Label>
-                      <Input type="email" value={newProfileEmail} onChange={(e) => setNewProfileEmail(e.target.value)} />
-                    </div>
-                    <div className="flex items-end">
-                      <Button className="w-full" onClick={handleCreateProfile}>
-                        {isArabic ? 'إنشاء مستخدم محلي' : 'Create Local Profile'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Password */}
-                <div>
-                  <h4 className="font-medium mb-4">{isArabic ? 'تغيير كلمة المرور' : 'Change Password'}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{isArabic ? 'كلمة المرور الحالية' : 'Current Password'}</Label>
-                      <Input type="password" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{isArabic ? 'كلمة المرور الجديدة' : 'New Password'}</Label>
-                      <Input type="password" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={handleCancelProfile}>
-                    {isArabic ? 'إلغاء' : 'Cancel'}
-                  </Button>
-                  <Button onClick={handleSaveProfile}>{isArabic ? 'حفظ التغييرات' : 'Save Changes'}</Button>
+                <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                  {isArabic
+                    ? 'إدارة المستخدمين أصبحت عبر Clerk. كل مستخدم Clerk يملك بيانات Wealix مستقلة، والمستخدم الجديد يبدأ بقاعدة بيانات نظيفة في الوضع المباشر.'
+                    : 'User management now runs through Clerk. Each Clerk user gets isolated Wealix data, and new users start with a clean live workspace.'}
                 </div>
               </CardContent>
             </Card>
@@ -805,7 +589,7 @@ export default function SettingsPage({
               </CardContent>
             </Card>
 
-            {/* Logout */}
+            {/* Account Access */}
             <Card>
               <CardContent className="p-6">
                 <Button
@@ -813,15 +597,15 @@ export default function SettingsPage({
                   className="w-full gap-2"
                   onClick={() =>
                     toast({
-                      title: isArabic ? 'تم تسجيل الخروج' : 'Signed out',
+                      title: isArabic ? 'إدارة الحساب عبر Clerk' : 'Account managed by Clerk',
                       description: isArabic
-                        ? 'تمت إزالة بيانات الجلسة المحلية.'
-                        : 'Local session data has been cleared.',
+                        ? 'استخدم أيقونة المستخدم في أعلى الصفحة لإدارة الحساب أو تسجيل الخروج.'
+                        : 'Use the user menu in the header to manage the account or sign out.',
                     })
                   }
                 >
                   <LogOut className="w-4 h-4" />
-                  {isArabic ? 'تسجيل الخروج' : 'Log Out'}
+                  {isArabic ? 'فتح تعليمات الحساب' : 'Open Account Help'}
                 </Button>
               </CardContent>
             </Card>
