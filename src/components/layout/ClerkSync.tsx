@@ -20,6 +20,10 @@ export function ClerkSync() {
         email: user.primaryEmailAddress?.emailAddress || '',
         name: user.fullName || user.firstName || null,
         avatarUrl: user.imageUrl || null,
+        subscriptionTier:
+          user.publicMetadata?.subscriptionTier === 'core' || user.publicMetadata?.subscriptionTier === 'pro'
+            ? user.publicMetadata.subscriptionTier
+            : 'free',
       });
       return;
     }

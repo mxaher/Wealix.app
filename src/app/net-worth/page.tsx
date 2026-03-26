@@ -89,12 +89,12 @@ const liabilityIcons: Record<string, React.ReactNode> = {
 };
 
 const mockHistory = [
-  { month: 'Jul 2024', assets: 980000, liabilities: 650000, netWorth: 330000 },
-  { month: 'Aug 2024', assets: 1020000, liabilities: 640000, netWorth: 380000 },
-  { month: 'Sep 2024', assets: 1050000, liabilities: 630000, netWorth: 420000 },
-  { month: 'Oct 2024', assets: 1100000, liabilities: 620000, netWorth: 480000 },
-  { month: 'Nov 2024', assets: 1120000, liabilities: 600000, netWorth: 520000 },
-  { month: 'Dec 2024', assets: 1155000, liabilities: 573500, netWorth: 581500 },
+  { month: 'Jul 2025', assets: 1125000, liabilities: 612000, netWorth: 513000 },
+  { month: 'Aug 2025', assets: 1134000, liabilities: 607000, netWorth: 527000 },
+  { month: 'Sep 2025', assets: 1141000, liabilities: 601500, netWorth: 539500 },
+  { month: 'Oct 2025', assets: 1155000, liabilities: 598000, netWorth: 557000 },
+  { month: 'Nov 2025', assets: 1162000, liabilities: 592000, netWorth: 570000 },
+  { month: 'Dec 2025', assets: 1170000, liabilities: 585500, netWorth: 584500 },
 ];
 
 export default function NetWorthPage() {

@@ -74,6 +74,7 @@ interface AuthenticatedUserPayload {
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  subscriptionTier?: SubscriptionTier;
 }
 
 export interface IncomeEntry {
@@ -199,7 +200,7 @@ const defaultNotificationFeed: NotificationItem[] = [
 const defaultIncomeEntries: IncomeEntry[] = [
   {
     id: 'income-salary',
-    amount: 18500,
+    amount: 22000,
     currency: 'SAR',
     source: 'salary',
     sourceName: 'Monthly Salary',
@@ -210,24 +211,36 @@ const defaultIncomeEntries: IncomeEntry[] = [
   },
   {
     id: 'income-freelance',
-    amount: 3200,
+    amount: 3500,
     currency: 'SAR',
     source: 'freelance',
-    sourceName: 'Product Design Client',
-    frequency: 'one_time',
-    date: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    isRecurring: false,
+    sourceName: 'Consulting Retainer',
+    frequency: 'monthly',
+    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    isRecurring: true,
     notes: null,
   },
 ];
 
 const defaultExpenseEntries: ExpenseEntry[] = [
   {
+    id: 'expense-rent',
+    amount: 7200,
+    currency: 'SAR',
+    category: 'Housing',
+    description: 'Monthly apartment rent',
+    merchantName: 'Riyadh Residence',
+    date: new Date().toISOString().slice(0, 10),
+    paymentMethod: 'Transfer',
+    notes: null,
+    receiptId: null,
+  },
+  {
     id: 'expense-grocery',
-    amount: 420,
+    amount: 1850,
     currency: 'SAR',
     category: 'Food',
-    description: 'Weekly groceries',
+    description: 'Groceries and pantry',
     merchantName: 'Danube',
     date: new Date().toISOString().slice(0, 10),
     paymentMethod: 'Card',
@@ -236,12 +249,36 @@ const defaultExpenseEntries: ExpenseEntry[] = [
   },
   {
     id: 'expense-transport',
-    amount: 84,
+    amount: 950,
     currency: 'SAR',
     category: 'Transport',
-    description: 'Ride sharing',
-    merchantName: 'Uber',
+    description: 'Fuel and ride sharing',
+    merchantName: 'Uber + Fuel',
     date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    paymentMethod: 'Card',
+    notes: null,
+    receiptId: null,
+  },
+  {
+    id: 'expense-utilities',
+    amount: 980,
+    currency: 'SAR',
+    category: 'Utilities',
+    description: 'Electricity, water, and internet',
+    merchantName: 'STC / SEC',
+    date: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    paymentMethod: 'Card',
+    notes: null,
+    receiptId: null,
+  },
+  {
+    id: 'expense-entertainment',
+    amount: 1350,
+    currency: 'SAR',
+    category: 'Entertainment',
+    description: 'Dining out and weekend activities',
+    merchantName: 'VOX + Restaurants',
+    date: new Date(Date.now() - 11 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     paymentMethod: 'Card',
     notes: null,
     receiptId: null,
@@ -258,27 +295,28 @@ const defaultPortfolioHoldings: PortfolioHolding[] = [
 ];
 
 const defaultAssets: AssetEntry[] = [
-  { id: 'asset-1', name: 'Al Rajhi Savings', category: 'cash', value: 150000, currency: 'SAR' },
-  { id: 'asset-2', name: 'SNB Current', category: 'cash', value: 45000, currency: 'SAR' },
-  { id: 'asset-3', name: 'Investment Portfolio', category: 'investment', value: 485000, currency: 'SAR' },
-  { id: 'asset-4', name: 'Apartment - Riyadh', category: 'real_estate', value: 850000, currency: 'SAR' },
-  { id: 'asset-5', name: 'Toyota Camry', category: 'vehicle', value: 75000, currency: 'SAR' },
+  { id: 'asset-1', name: 'Al Rajhi Savings', category: 'cash', value: 98000, currency: 'SAR' },
+  { id: 'asset-2', name: 'SNB Current', category: 'cash', value: 28000, currency: 'SAR' },
+  { id: 'asset-3', name: 'Investment Portfolio', category: 'investment', value: 340000, currency: 'SAR' },
+  { id: 'asset-4', name: 'Apartment - Riyadh', category: 'real_estate', value: 780000, currency: 'SAR' },
+  { id: 'asset-5', name: 'Toyota Camry', category: 'vehicle', value: 68000, currency: 'SAR' },
 ];
 
 const defaultLiabilities: LiabilityEntry[] = [
-  { id: 'liability-1', name: 'Mortgage - Riyadh', category: 'mortgage', balance: 520000, currency: 'SAR' },
-  { id: 'liability-2', name: 'Car Loan', category: 'loan', balance: 45000, currency: 'SAR' },
-  { id: 'liability-3', name: 'Credit Card', category: 'credit_card', balance: 8500, currency: 'SAR' },
+  { id: 'liability-1', name: 'Mortgage - Riyadh', category: 'mortgage', balance: 470000, currency: 'SAR' },
+  { id: 'liability-2', name: 'Car Loan', category: 'loan', balance: 32000, currency: 'SAR' },
+  { id: 'liability-3', name: 'Credit Card', category: 'credit_card', balance: 6200, currency: 'SAR' },
 ];
 
 const defaultBudgetLimits: BudgetLimit[] = [
-  { category: 'housing', limit: 5000, color: '#D4A843' },
-  { category: 'food', limit: 2000, color: '#10B981' },
-  { category: 'transport', limit: 800, color: '#3B82F6' },
-  { category: 'entertainment', limit: 500, color: '#8B5CF6' },
-  { category: 'investment', limit: 5000, color: '#06B6D4' },
-  { category: 'zakat', limit: 1500, color: '#EC4899' },
-  { category: 'other', limit: 1000, color: '#6B7280' },
+  { category: 'housing', limit: 7200, color: '#D4A843' },
+  { category: 'food', limit: 2200, color: '#10B981' },
+  { category: 'transport', limit: 1100, color: '#3B82F6' },
+  { category: 'entertainment', limit: 1400, color: '#8B5CF6' },
+  { category: 'utilities', limit: 1000, color: '#F59E0B' },
+  { category: 'investment', limit: 4000, color: '#06B6D4' },
+  { category: 'zakat', limit: 1000, color: '#EC4899' },
+  { category: 'other', limit: 1200, color: '#6B7280' },
 ];
 
 const defaultReceiptScans: ReceiptScanResult[] = [
@@ -580,7 +618,7 @@ export const useAppStore = create<AppState>()(
             avatarUrl: authUser.avatarUrl,
             locale: state.locale,
             currency: 'SAR',
-            subscriptionTier: existing?.user?.subscriptionTier ?? 'free',
+            subscriptionTier: authUser.subscriptionTier ?? existing?.user?.subscriptionTier ?? 'free',
             onboardingDone: true,
           };
 

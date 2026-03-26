@@ -105,6 +105,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 DATALAB_API_KEY=
 SAHMK_API_KEY=
+TWELVEDATA_API_KEY=
 ```
 
 ### Optional
@@ -113,6 +114,7 @@ SAHMK_API_KEY=
 DATALAB_API_BASE=https://www.datalab.to
 CHANDRA_API_KEY=
 SAHMK_API_BASE=https://app.sahmk.sa/api/v1
+TWELVEDATA_API_BASE=https://api.twelvedata.com
 ```
 
 Notes:
@@ -122,6 +124,9 @@ Notes:
 - `DATALAB_API_BASE` is optional unless you are pointing to a non-default Datalab base URL.
 - `SAHMK_API_KEY` is used to fetch Saudi market quotes for TASI holdings.
 - `SAHMK_API_BASE` is optional unless you are pointing to a custom SAHMK API base.
+- `TWELVEDATA_API_KEY` is used to fetch EGX, NASDAQ, NYSE, and FX data.
+- `TWELVEDATA_API_BASE` is optional unless you are pointing to a custom Twelve Data base.
+- `NEXT_PUBLIC_APP_URL` is helpful if you want the sitemap and production URLs to point somewhere other than `https://wealix.app`.
 
 ### Clerk
 
@@ -185,6 +190,15 @@ If you later move user data from local storage to Supabase, then new Supabase ru
 
 Wealix currently uses Clerk as the main user management system.
 
+### API protection
+
+All non-public API routes now enforce authentication at the route-handler level. Sensitive AI routes also require a Clerk subscription tier of `pro` from metadata.
+
+Current server-side auth helpers:
+
+- [src/lib/server-auth.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/lib/server-auth.ts)
+- [src/proxy.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/proxy.ts)
+
 ### Guest users
 
 Guests can:
@@ -237,6 +251,26 @@ Important note:
 - data is isolated per Clerk user in the app state
 - this is not yet a full cloud database for cross-device sync
 
+## Security Notes
+
+- security headers are configured in [next.config.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/next.config.ts)
+- `/api/*` routes are protected with Clerk middleware plus route-level auth checks
+- AI routes use:
+  - Pro subscription enforcement
+  - per-user rate limiting
+  - prompt-injection filtering
+  - audit logging of original user messages
+- receipt uploads are limited to JPEG, PNG, and WEBP and are re-encoded before OCR to strip metadata
+- spreadsheet imports are limited by MIME type, magic bytes, file size, and schema checks before parsing
+
+Current rate-limited/server-guarded routes:
+
+- [src/app/api/ai/chat/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/ai/chat/route.ts)
+- [src/app/api/portfolio/analyze/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/portfolio/analyze/route.ts)
+- [src/app/api/receipts/ocr/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/receipts/ocr/route.ts)
+- [src/app/api/market/saudi/quotes/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/market/saudi/quotes/route.ts)
+- [src/app/api/market/global/quotes/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/market/global/quotes/route.ts)
+
 ## OCR Flow
 
 Receipt OCR flow lives in:
@@ -253,6 +287,13 @@ Current OCR UX:
 - edit merchant, amount, date, category, description, and raw text
 - save as expense
 
+Upload safety:
+
+- accepted image types: JPEG, PNG, WEBP
+- max receipt size: 10MB
+- EXIF/device metadata is stripped before OCR submission
+- OCR never auto-saves into expenses without explicit user review and confirmation
+
 ## Portfolio Import
 
 Portfolio import supports Excel/CSV.
@@ -265,6 +306,23 @@ Sample files:
 Portfolio screen:
 
 - [src/app/portfolio/page.tsx](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/portfolio/page.tsx)
+
+Import safeguards:
+
+- accepted import types: XLSX, XLS, CSV
+- max spreadsheet size: 2MB
+- ZIP/XLSX magic bytes are verified
+- macro-enabled or external-link spreadsheets are rejected
+- formula cells are rejected before import
+- required columns:
+  - `ticker`
+  - `shares`
+  - `avgCost`
+
+Sample publishing note:
+
+- before committing a new sample XLSX, strip document metadata such as author/company/revision properties
+- current sample file has already been cleaned in this repository
 
 ## Saudi Market Live Prices
 
@@ -304,6 +362,55 @@ Notes:
 Reference:
 
 - [SAHMK tutorial: Build a Saudi Stock Tracker in Python](https://www.sahmk.sa/developers/tutorials/build-saudi-stock-tracker-python)
+
+## EGX And US Market Prices
+
+Wealix now also supports `EGX`, `NASDAQ`, and `NYSE` price refresh through Twelve Data.
+
+Used API docs:
+
+- [Twelve Data Overview](https://twelvedata.com/docs/introduction/overview)
+
+Current integration in this repo:
+
+- portfolio screen includes:
+  - `Refresh EGX & US Prices`
+- server route:
+  - [src/app/api/market/global/quotes/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/market/global/quotes/route.ts)
+
+Required env var:
+
+```env
+TWELVEDATA_API_KEY=
+```
+
+Optional:
+
+```env
+TWELVEDATA_API_BASE=https://api.twelvedata.com
+```
+
+What the route does:
+
+- refreshes `EGX`, `NASDAQ`, and `NYSE` holding prices
+- fetches FX rates for:
+  - `USD/SAR`
+  - `EGP/SAR`
+- lets the portfolio page show foreign holdings in local currency first, then SAR conversion with FX context when available
+
+Ticker behavior:
+
+- `NASDAQ` and `NYSE` holdings use the saved ticker directly, for example `AAPL`
+- `EGX` holdings are normalized from patterns like `COMI.CA` to `COMI:EGX`
+- if a symbol is not recognized by Twelve Data, that holding is left unchanged
+
+Portfolio UX behavior:
+
+- Saudi holdings refresh from SAHMK
+- EGX and US holdings refresh from Twelve Data
+- foreign holdings show local market value first
+- SAR conversion is only shown when an FX rate is available
+- the page includes a data-source footer and last refresh timestamp
 
 ## EGX Data Source Evaluation
 
@@ -408,6 +515,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 DATALAB_API_KEY=
 SAHMK_API_KEY=
+TWELVEDATA_API_KEY=
 ```
 
 Optional:
@@ -416,6 +524,8 @@ Optional:
 DATALAB_API_BASE=https://www.datalab.to
 CHANDRA_API_KEY=
 SAHMK_API_BASE=https://app.sahmk.sa/api/v1
+TWELVEDATA_API_BASE=https://api.twelvedata.com
+NEXT_PUBLIC_APP_URL=https://your-domain.example
 ```
 
 Recommended scope:
@@ -439,6 +549,8 @@ Check:
 5. Settings open correctly
 6. Reports open
 7. Receipt OCR works with a real Datalab key
+8. Unauthenticated API calls return `401`
+9. Non-Pro AI access returns `403`
 
 ## Deploy to Netlify
 
@@ -461,7 +573,45 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 DATALAB_API_KEY=
 SAHMK_API_KEY=
+TWELVEDATA_API_KEY=
 ```
+
+## Deploy to Cloudflare Workers
+
+This repo uses OpenNext for Cloudflare Workers deployments, not the deprecated `next-on-pages` adapter.
+
+Build command:
+
+```bash
+npm run cf:build
+```
+
+GitHub Actions workflow:
+
+- [.github/workflows/cloudflare-workers-deploy.yml](/Users/mohammedzaher/projects/Wealixapp%20v2/.github/workflows/cloudflare-workers-deploy.yml)
+
+Required GitHub secrets for the workflow:
+
+```env
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+DATALAB_API_KEY=
+SAHMK_API_KEY=
+TWELVEDATA_API_KEY=
+```
+
+Optional workflow secrets:
+
+```env
+DATALAB_API_BASE=
+SAHMK_API_BASE=
+TWELVEDATA_API_BASE=
+NEXT_PUBLIC_APP_URL=
+```
+
+The workflow now passes Saudi and Twelve Data keys alongside Clerk and OCR secrets.
 
 ## Deployment Troubleshooting
 
@@ -490,6 +640,16 @@ Check:
 - the key is valid for SAHMK
 - your deployment can reach `https://app.sahmk.sa`
 - your holdings are on `TASI`
+
+### EGX or US prices do not refresh
+
+Check:
+
+- `TWELVEDATA_API_KEY` is set
+- the key is valid for Twelve Data
+- your deployment can reach `https://api.twelvedata.com`
+- your holdings are on `EGX`, `NASDAQ`, or `NYSE`
+- your EGX ticker format is compatible after normalization, for example `COMI.CA` -> `COMI:EGX`
 
 ### EGX live prices are not connected yet
 

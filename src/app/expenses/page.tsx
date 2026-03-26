@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { Camera, Plus, Receipt, ScanSearch, Trash2 } from 'lucide-react';
+import { Camera, Info, Plus, Receipt, ScanSearch, Trash2 } from 'lucide-react';
 import { DashboardShell } from '@/components/layout';
 import { StatCard } from '@/components/shared';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppStore, formatCurrency, type ExpenseCategory, type ExpenseEntry, type PaymentMethod } from '@/store/useAppStore';
 import { toast } from '@/hooks/use-toast';
 
@@ -370,7 +371,23 @@ export default function ExpensesPage() {
                             <p className="font-medium">{ocrResult.date}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">{isArabic ? 'الثقة' : 'Confidence'}</p>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <span>{isArabic ? 'الثقة' : 'Confidence'}</span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="inline-flex text-muted-foreground hover:text-foreground">
+                                      <Info className="h-3.5 w-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs text-xs leading-5">
+                                    {isArabic
+                                      ? 'تمثل هذه النسبة مدى ثقة OCR في التاجر والمبلغ والتاريخ. إذا كانت منخفضة، راجع الحقول والنص الخام قبل الحفظ.'
+                                      : 'This score reflects OCR confidence across merchant, amount, and date extraction. If it is low, review the fields and raw text before saving.'}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
                             <p className="font-medium">{ocrResult.confidence}%</p>
                           </div>
                         </div>

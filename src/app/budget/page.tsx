@@ -114,11 +114,11 @@ const categoryLabels: Record<string, { en: string; ar: string }> = {
 };
 
 const mockTrendData = [
-  { month: 'Aug', expenses: 12000, income: 25000 },
-  { month: 'Sep', expenses: 13500, income: 25000 },
-  { month: 'Oct', expenses: 11200, income: 28500 },
-  { month: 'Nov', expenses: 14800, income: 25000 },
-  { month: 'Dec', expenses: 16500, income: 30000 },
+  { month: 'Oct', expenses: 16500, income: 25500 },
+  { month: 'Nov', expenses: 17100, income: 25500 },
+  { month: 'Dec', expenses: 16850, income: 25500 },
+  { month: 'Jan', expenses: 17400, income: 25500 },
+  { month: 'Feb', expenses: 17050, income: 25500 },
 ];
 
 export default function BudgetPage() {

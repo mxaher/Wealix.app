@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
+import { requireAuthenticatedUser } from '@/lib/server-auth';
 
 const DEFAULT_BASE_URL = 'https://app.sahmk.sa/api/v1';
 
@@ -32,23 +34,41 @@ async function fetchBatchQuotes(symbols: string[], apiKey: string, apiBase: stri
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireAuthenticatedUser();
+  if (authResult.error) {
+    return authResult.error;
+  }
+
+  const rateLimit = enforceRateLimit(`market-saudi:${authResult.userId}`, 120, 60 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+      { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+    );
+  }
+
   const apiKey = process.env.SAHMK_API_KEY;
   const apiBase = (process.env.SAHMK_API_BASE || DEFAULT_BASE_URL).replace(/\/$/, '');
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'SAHMK_API_KEY is not configured.' },
-      { status: 500 }
+      { error: 'Service unavailable.' },
+      { status: 503, headers: buildRateLimitHeaders(rateLimit) }
     );
   }
 
   try {
     const body = await request.json();
-    const requestedSymbols = Array.isArray(body?.symbols) ? body.symbols : [];
-    const symbols = [...new Set(requestedSymbols.map((symbol: string) => normalizeSaudiSymbol(String(symbol))).filter(Boolean))];
+    const requestedSymbols: Array<string | number> = Array.isArray(body?.symbols)
+      ? body.symbols.filter((symbol: unknown): symbol is string | number => typeof symbol === 'string' || typeof symbol === 'number')
+      : [];
+    const normalizedSymbols = requestedSymbols
+      .map((symbol) => normalizeSaudiSymbol(String(symbol)))
+      .filter((symbol): symbol is string => symbol.length > 0);
+    const symbols: string[] = [...new Set(normalizedSymbols)];
 
     if (symbols.length === 0) {
-      return NextResponse.json({ quotes: {} });
+      return NextResponse.json({ quotes: {} }, { headers: buildRateLimitHeaders(rateLimit) });
     }
 
     const chunks: string[][] = [];
@@ -82,13 +102,13 @@ export async function POST(request: Request) {
       return accumulator;
     }, {});
 
-    return NextResponse.json({ quotes });
+    return NextResponse.json({ quotes }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to fetch Saudi market quotes.',
+        error: 'Service unavailable.',
       },
-      { status: 500 }
+      { status: 503, headers: buildRateLimitHeaders(rateLimit) }
     );
   }
 }

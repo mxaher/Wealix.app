@@ -31,18 +31,18 @@ import {
 import { useState, useEffect } from 'react';
 
 const mockNetWorthData = [
-  { month: 'Jan', value: 450000 },
-  { month: 'Feb', value: 465000 },
-  { month: 'Mar', value: 448000 },
-  { month: 'Apr', value: 472000 },
-  { month: 'May', value: 489000 },
-  { month: 'Jun', value: 512000 },
-  { month: 'Jul', value: 525000 },
-  { month: 'Aug', value: 518000 },
-  { month: 'Sep', value: 542000 },
+  { month: 'Jan', value: 525000 },
+  { month: 'Feb', value: 531000 },
+  { month: 'Mar', value: 528500 },
+  { month: 'Apr', value: 536000 },
+  { month: 'May', value: 542000 },
+  { month: 'Jun', value: 549500 },
+  { month: 'Jul', value: 556000 },
+  { month: 'Aug', value: 552500 },
+  { month: 'Sep', value: 561500 },
   { month: 'Oct', value: 568000 },
-  { month: 'Nov', value: 585000 },
-  { month: 'Dec', value: 612450 },
+  { month: 'Nov', value: 576500 },
+  { month: 'Dec', value: 587500 },
 ];
 
 const mockHoldings = [
@@ -54,11 +54,11 @@ const mockHoldings = [
 ];
 
 const mockTransactions = [
-  { id: 1, category: 'food', description: 'Grocery Shopping', amount: -450, date: '2025-01-15' },
-  { id: 2, category: 'transport', description: 'Uber Rides', amount: -120, date: '2025-01-14' },
-  { id: 3, category: 'investment', description: 'Stock Purchase', amount: -5000, date: '2025-01-13' },
-  { id: 4, category: 'housing', description: 'Rent Payment', amount: -4500, date: '2025-01-01' },
-  { id: 5, category: 'zakat', description: 'Charity Donation', amount: -1000, date: '2025-01-10' },
+  { id: 1, category: 'food', description: 'Groceries and pantry', amount: -1850, date: '2026-03-15' },
+  { id: 2, category: 'transport', description: 'Fuel and ride sharing', amount: -950, date: '2026-03-14' },
+  { id: 3, category: 'investment', description: 'Monthly portfolio contribution', amount: -4000, date: '2026-03-13' },
+  { id: 4, category: 'housing', description: 'Rent payment', amount: -7200, date: '2026-03-01' },
+  { id: 5, category: 'other', description: 'Utilities and internet', amount: -980, date: '2026-03-10' },
 ];
 
 const mockMarketData = [
@@ -70,11 +70,11 @@ const mockMarketData = [
 ];
 
 const budgetData = [
-  { name: 'Housing', value: 4500, color: '#006aff' },
-  { name: 'Food', value: 2500, color: '#00bb7f' },
-  { name: 'Transport', value: 800, color: '#00b7d7' },
-  { name: 'Investment', value: 5000, color: '#00bfff' },
-  { name: 'Other', value: 1500, color: '#99a1af' },
+  { name: 'Housing', value: 7200, color: '#006aff' },
+  { name: 'Food', value: 1850, color: '#00bb7f' },
+  { name: 'Transport', value: 950, color: '#00b7d7' },
+  { name: 'Entertainment', value: 1350, color: '#00bfff' },
+  { name: 'Utilities', value: 980, color: '#99a1af' },
 ];
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -108,8 +108,8 @@ export default function AppDashboardPage() {
   const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const livePortfolioValue = portfolioHoldings.reduce((sum, item) => sum + item.shares * item.currentPrice, 0);
-  const totalNetWorth = isDemoMode ? 612450 : Math.max(totalIncome + livePortfolioValue - totalExpenses, 0);
-  const portfolioValue = isDemoMode ? 485000 : livePortfolioValue;
+  const totalNetWorth = isDemoMode ? 587500 : Math.max(totalIncome + livePortfolioValue - totalExpenses, 0);
+  const portfolioValue = isDemoMode ? 452000 : livePortfolioValue;
   const todayGainPercent = isDemoMode ? 0.67 : 0;
   const fireProgress = isDemoMode ? 40.8 : 0;
   const holdings = isDemoMode ? mockHoldings : portfolioHoldings.map((holding) => ({

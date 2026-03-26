@@ -55,7 +55,7 @@ function calculateRetirementProjection(
   const totalAtRetirement = fvCurrentSavings + fvContributions;
   
   // Year by year projection
-  const projection = [];
+  const projection: Array<{ year: number; age: number; value: number }> = [];
   let runningTotal = currentSavings;
   
   for (let year = 0; year <= years; year++) {

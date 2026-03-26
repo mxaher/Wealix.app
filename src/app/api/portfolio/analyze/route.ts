@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
+import { requireProUser } from '@/lib/server-auth';
 
 type Holding = {
   ticker: string;
@@ -54,6 +56,19 @@ function fallbackAnalysis(holdings: Holding[], locale: 'ar' | 'en') {
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireProUser();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
+    const rateLimit = enforceRateLimit(`portfolio-analyze:${authResult.userId}`, 20, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const body = await request.json();
     const holdings = Array.isArray(body.holdings) ? body.holdings as Holding[] : [];
     const locale = body.locale === 'ar' ? 'ar' : 'en';
@@ -65,7 +80,7 @@ export async function POST(request: NextRequest) {
             ? 'المحفظة فارغة حالياً. أضف أو استورد مراكز أولاً.'
             : 'The portfolio is currently empty. Add or import holdings first.',
         actions: [],
-      });
+      }, { headers: buildRateLimitHeaders(rateLimit) });
     }
 
     const holdingsPayload = holdings.map((holding) => ({
@@ -128,13 +143,13 @@ ${JSON.stringify(holdingsPayload, null, 2)}`;
     const parsed = parseJsonObject(content);
 
     if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.actions)) {
-      return Response.json(fallbackAnalysis(holdings, locale));
+      return Response.json(fallbackAnalysis(holdings, locale), { headers: buildRateLimitHeaders(rateLimit) });
     }
 
     return Response.json({
       summary: parsed.summary,
       actions: parsed.actions.slice(0, 6),
-    });
+    }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('Portfolio analysis error:', error);
     return Response.json({ error: 'Failed to analyze portfolio.' }, { status: 500 });

@@ -68,6 +68,16 @@ function calculateYearsToFire(
   return years;
 }
 
+type FireFieldKey =
+  | 'annualExpenses'
+  | 'withdrawalRate'
+  | 'expectedReturn'
+  | 'inflationRate'
+  | 'currentNetWorth'
+  | 'annualSavings';
+
+type FireErrors = Partial<Record<FireFieldKey, string>>;
+
 function calculateProjectedGrowth(
   currentNetWorth: number,
   annualSavings: number,
@@ -75,7 +85,7 @@ function calculateProjectedGrowth(
   years: number
 ): { year: number; netWorth: number }[] {
   const rate = expectedReturn / 100;
-  const data = [];
+  const data: { year: number; netWorth: number }[] = [];
   let netWorth = currentNetWorth;
   
   for (let i = 0; i <= years; i++) {
@@ -91,13 +101,14 @@ export default function FirePage() {
   const isArabic = locale === 'ar';
   
   // State for FIRE inputs
-  const [annualExpenses, setAnnualExpenses] = useState(120000);
+  const [annualExpenses, setAnnualExpenses] = useState(102000);
   const [withdrawalRate, setWithdrawalRate] = useState(4);
   const [expectedReturn, setExpectedReturn] = useState(7);
   const [inflationRate, setInflationRate] = useState(3);
-  const [currentNetWorth, setCurrentNetWorth] = useState(612450);
-  const [annualSavings, setAnnualSavings] = useState(84000);
+  const [currentNetWorth, setCurrentNetWorth] = useState(360000);
+  const [annualSavings, setAnnualSavings] = useState(78000);
   const [fireType, setFireType] = useState<'lean' | 'regular' | 'fat'>('regular');
+  const [errors, setErrors] = useState<FireErrors>({});
   
   // Additional savings slider
   const [additionalSavings, setAdditionalSavings] = useState(0);
@@ -135,6 +146,47 @@ export default function FirePage() {
   // FIRE type adjustments
   const fireTypeMultipliers = { lean: 0.7, regular: 1, fat: 1.5 };
   const adjustedFireNumber = fireNumber * fireTypeMultipliers[fireType];
+
+  const validateField = (field: FireFieldKey, value: number): string | undefined => {
+    if (!Number.isFinite(value) || value <= 0) {
+      return isArabic ? 'أدخل قيمة أكبر من صفر.' : 'Enter a value greater than zero.';
+    }
+
+    if (field === 'withdrawalRate' && value >= expectedReturn) {
+      return isArabic
+        ? 'يجب أن يكون معدل السحب أقل من العائد المتوقع لتجنب نتيجة غير منطقية.'
+        : 'Withdrawal rate must stay below expected return to avoid an impossible scenario.';
+    }
+
+    if (field === 'expectedReturn' && value <= withdrawalRate) {
+      return isArabic
+        ? 'يجب أن يكون العائد المتوقع أعلى من معدل السحب.'
+        : 'Expected return must be higher than the withdrawal rate.';
+    }
+
+    return undefined;
+  };
+
+  const updateField = (
+    field: FireFieldKey,
+    value: number,
+    setter: (next: number) => void
+  ) => {
+    setter(value);
+    setErrors((current) => ({
+      ...current,
+      [field]: validateField(field, value),
+    }));
+  };
+
+  const scenarioIssue =
+    withdrawalRate >= expectedReturn
+      ? (isArabic
+          ? 'هذا السيناريو غير ممكن حالياً لأن معدل السحب أعلى من العائد المتوقع. خفّض السحب أو ارفع العائد المتوقع.'
+          : 'This scenario is not mathematically viable because the withdrawal rate is higher than the expected return. Lower the withdrawal rate or raise expected return.')
+      : null;
+
+  const inputClassName = 'rounded-xl border-border bg-background';
 
   return (
     <DashboardShell>
@@ -184,6 +236,9 @@ export default function FirePage() {
                   ? `${withdrawalRate}% معدل سحب • ${formatCurrency(annualExpenses, 'SAR', locale)} مصروفات سنوية`
                   : `${withdrawalRate}% withdrawal rate • ${formatCurrency(annualExpenses, 'SAR', locale)} annual expenses`}
               </p>
+              {scenarioIssue && (
+                <p className="mt-3 text-sm text-destructive">{scenarioIssue}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -206,7 +261,9 @@ export default function FirePage() {
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">{isArabic ? 'سنوات حتى FIRE' : 'Years to FIRE'}</p>
               <p className="text-2xl font-bold mt-1">
-                {yearsToFire === 0 
+                {scenarioIssue
+                  ? (isArabic ? 'غير ممكن' : 'Not viable')
+                  : yearsToFire === 0 
                   ? (isArabic ? 'محقق!' : 'Achieved!')
                   : `${yearsToFire} ${isArabic ? 'سنة' : 'years'}`
               }
@@ -268,53 +325,71 @@ export default function FirePage() {
                   <div className="space-y-2">
                     <Label>{isArabic ? 'المصروفات السنوية' : 'Annual Expenses'}</Label>
                     <Input
+                      className={inputClassName}
                       type="number"
                       value={annualExpenses}
-                      onChange={(e) => setAnnualExpenses(parseFloat(e.target.value) || 0)}
+                      onBlur={(e) => updateField('annualExpenses', parseFloat(e.target.value) || 0, setAnnualExpenses)}
+                      onChange={(e) => updateField('annualExpenses', parseFloat(e.target.value) || 0, setAnnualExpenses)}
                     />
+                    {errors.annualExpenses && <p className="text-sm text-destructive">{errors.annualExpenses}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'معدل السحب (%)' : 'Withdrawal Rate (%)'}</Label>
                     <Input
+                      className={inputClassName}
                       type="number"
                       step="0.1"
                       value={withdrawalRate}
-                      onChange={(e) => setWithdrawalRate(parseFloat(e.target.value) || 4)}
+                      onBlur={(e) => updateField('withdrawalRate', parseFloat(e.target.value) || 0, setWithdrawalRate)}
+                      onChange={(e) => updateField('withdrawalRate', parseFloat(e.target.value) || 0, setWithdrawalRate)}
                     />
+                    {errors.withdrawalRate && <p className="text-sm text-destructive">{errors.withdrawalRate}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'العائد المتوقع (%)' : 'Expected Return (%)'}</Label>
                     <Input
+                      className={inputClassName}
                       type="number"
                       step="0.1"
                       value={expectedReturn}
-                      onChange={(e) => setExpectedReturn(parseFloat(e.target.value) || 7)}
+                      onBlur={(e) => updateField('expectedReturn', parseFloat(e.target.value) || 0, setExpectedReturn)}
+                      onChange={(e) => updateField('expectedReturn', parseFloat(e.target.value) || 0, setExpectedReturn)}
                     />
+                    {errors.expectedReturn && <p className="text-sm text-destructive">{errors.expectedReturn}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'معدل التضخم (%)' : 'Inflation Rate (%)'}</Label>
                     <Input
+                      className={inputClassName}
                       type="number"
                       step="0.1"
                       value={inflationRate}
-                      onChange={(e) => setInflationRate(parseFloat(e.target.value) || 3)}
+                      onBlur={(e) => updateField('inflationRate', parseFloat(e.target.value) || 0, setInflationRate)}
+                      onChange={(e) => updateField('inflationRate', parseFloat(e.target.value) || 0, setInflationRate)}
                     />
+                    {errors.inflationRate && <p className="text-sm text-destructive">{errors.inflationRate}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'صافي الثروة الحالي' : 'Current Net Worth'}</Label>
                     <Input
+                      className={inputClassName}
                       type="number"
                       value={currentNetWorth}
-                      onChange={(e) => setCurrentNetWorth(parseFloat(e.target.value) || 0)}
+                      onBlur={(e) => updateField('currentNetWorth', parseFloat(e.target.value) || 0, setCurrentNetWorth)}
+                      onChange={(e) => updateField('currentNetWorth', parseFloat(e.target.value) || 0, setCurrentNetWorth)}
                     />
+                    {errors.currentNetWorth && <p className="text-sm text-destructive">{errors.currentNetWorth}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'المدخرات السنوية' : 'Annual Savings'}</Label>
                     <Input
+                      className={inputClassName}
                       type="number"
                       value={annualSavings}
-                      onChange={(e) => setAnnualSavings(parseFloat(e.target.value) || 0)}
+                      onBlur={(e) => updateField('annualSavings', parseFloat(e.target.value) || 0, setAnnualSavings)}
+                      onChange={(e) => updateField('annualSavings', parseFloat(e.target.value) || 0, setAnnualSavings)}
                     />
+                    {errors.annualSavings && <p className="text-sm text-destructive">{errors.annualSavings}</p>}
                   </div>
                 </CardContent>
               </Card>

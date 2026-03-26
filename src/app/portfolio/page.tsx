@@ -69,6 +69,19 @@ type AnalysisAction = {
   description: string;
 };
 
+type FxRateMap = Partial<Record<'USD_SAR' | 'EGP_SAR', {
+  symbol: string;
+  rate: number;
+  datetime: string | null;
+  source: string;
+}>>;
+
+type MarketRefreshMeta = {
+  updatedAt: string | null;
+  sources: string[];
+  fxRates: FxRateMap;
+};
+
 const exchangeColors: Record<string, string> = {
   TASI: '#D4A843',
   EGX: '#10B981',
@@ -76,9 +89,39 @@ const exchangeColors: Record<string, string> = {
   NYSE: '#8B5CF6',
 };
 
+const MAX_IMPORT_FILE_SIZE = 2 * 1024 * 1024;
+const ACCEPTED_SPREADSHEET_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'text/csv',
+]);
+const REQUIRED_IMPORT_COLUMNS = ['ticker', 'shares', 'avgcost'];
+
+function assertSpreadsheetFile(file: File, bytes: Uint8Array) {
+  if (file.size > MAX_IMPORT_FILE_SIZE) {
+    throw new Error('Portfolio import files must be 2MB or smaller.');
+  }
+
+  if (!ACCEPTED_SPREADSHEET_TYPES.has(file.type) && !/\.xlsx?$|\.csv$/i.test(file.name)) {
+    throw new Error('Upload a valid XLSX, XLS, or CSV portfolio file.');
+  }
+
+  const isZipXlsx =
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04;
+  const isCsv = new TextDecoder().decode(bytes.slice(0, 128)).includes(',');
+
+  if (!isZipXlsx && !isCsv) {
+    throw new Error('The uploaded spreadsheet does not match a valid XLSX or CSV file signature.');
+  }
+}
+
 export default function PortfolioPage() {
   const {
     locale,
+    appMode,
     shariahFilterEnabled,
     toggleShariahFilter,
     selectedExchange,
@@ -97,6 +140,11 @@ export default function PortfolioPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+  const [marketRefreshMeta, setMarketRefreshMeta] = useState<MarketRefreshMeta>({
+    updatedAt: null,
+    sources: [],
+    fxRates: {},
+  });
   const [analysis, setAnalysis] = useState<{ summary: string; actions: AnalysisAction[] }>({
     summary: isArabic
       ? 'شغّل التحليل لمراجعة المحفظة الحالية.'
@@ -115,6 +163,41 @@ export default function PortfolioPage() {
   const holdings = portfolioHoldings;
 
   const normalizeSaudiTicker = (ticker: string) => ticker.trim().toUpperCase().replace(/\.SR$/i, '');
+  const getHoldingCurrency = (exchange: PortfolioExchange) => {
+    if (exchange === 'TASI') return 'SAR';
+    if (exchange === 'EGX') return 'EGP';
+    return 'USD';
+  };
+
+  const getFxPairForHolding = (exchange: PortfolioExchange) => {
+    if (exchange === 'EGX') return 'EGP_SAR';
+    if (exchange === 'NASDAQ' || exchange === 'NYSE') return 'USD_SAR';
+    return null;
+  };
+
+  const getConvertedSarValue = (value: number, exchange: PortfolioExchange) => {
+    if (exchange === 'TASI') {
+      return {
+        value,
+        rateLabel: null,
+        timestamp: null,
+        status: 'LIVE',
+      };
+    }
+
+    const pair = getFxPairForHolding(exchange);
+    const fxRate = pair ? marketRefreshMeta.fxRates[pair] : null;
+    if (!fxRate?.rate) {
+      return null;
+    }
+
+    return {
+      value: value * fxRate.rate,
+      rateLabel: `1 ${getHoldingCurrency(exchange)} = ${fxRate.rate.toFixed(4)} SAR`,
+      timestamp: fxRate.datetime,
+      status: exchange === 'EGX' ? 'EOD FX' : 'LIVE FX',
+    };
+  };
 
   const filteredHoldings = holdings.filter((holding) => {
     const matchesSearch =
@@ -125,8 +208,16 @@ export default function PortfolioPage() {
     return matchesSearch && matchesExchange && matchesShariah;
   });
 
-  const totalValue = filteredHoldings.reduce((sum, holding) => sum + holding.shares * holding.currentPrice, 0);
-  const totalCost = filteredHoldings.reduce((sum, holding) => sum + holding.shares * holding.avgCost, 0);
+  const totalValue = filteredHoldings.reduce((sum, holding) => {
+    const baseValue = holding.shares * holding.currentPrice;
+    const converted = getConvertedSarValue(baseValue, holding.exchange);
+    return sum + (converted?.value ?? (holding.exchange === 'TASI' ? baseValue : 0));
+  }, 0);
+  const totalCost = filteredHoldings.reduce((sum, holding) => {
+    const baseValue = holding.shares * holding.avgCost;
+    const converted = getConvertedSarValue(baseValue, holding.exchange);
+    return sum + (converted?.value ?? (holding.exchange === 'TASI' ? baseValue : 0));
+  }, 0);
   const totalGainLoss = totalValue - totalCost;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
@@ -199,9 +290,60 @@ export default function PortfolioPage() {
     try {
       const XLSX = await import('xlsx');
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
+      const bytes = new Uint8Array(buffer);
+      assertSpreadsheetFile(file, bytes);
+
+      const workbook = XLSX.read(buffer, {
+        type: 'array',
+        bookVBA: true,
+        cellFormula: true,
+        bookFiles: true,
+      });
+
+      const workbookWithFiles = workbook as typeof workbook & {
+        vbaraw?: unknown;
+        files?: Record<string, unknown>;
+      };
+      const workbookFiles = Object.keys(workbookWithFiles.files ?? {});
+      const hasExternalLinks = workbookFiles.some((entry) => entry.startsWith('xl/externalLinks/'));
+      const hasMacros = Boolean(workbookWithFiles.vbaraw) || workbookFiles.includes('xl/vbaProject.bin');
+
+      if (hasMacros || hasExternalLinks) {
+        throw new Error(
+          isArabic
+            ? 'الملف يحتوي على ماكرو أو روابط خارجية غير مدعومة.'
+            : 'This spreadsheet contains macros or external links and cannot be imported.'
+        );
+      }
+
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const sheetHasFormulas = Object.entries(sheet).some(([key, cell]) => {
+        if (key.startsWith('!') || typeof cell !== 'object' || !cell) {
+          return false;
+        }
+
+        return 'f' in cell;
+      });
+
+      if (sheetHasFormulas) {
+        throw new Error(
+          isArabic
+            ? 'أزل الصيغ الحسابية من الملف قبل الاستيراد.'
+            : 'Remove spreadsheet formulas before importing this file.'
+        );
+      }
+
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+      const headers = rows.length > 0 ? Object.keys(rows[0]).map((header) => header.replace(/[\s_]+/g, '').toLowerCase()) : [];
+      const missingColumns = REQUIRED_IMPORT_COLUMNS.filter((column) => !headers.includes(column));
+
+      if (missingColumns.length > 0) {
+        throw new Error(
+          isArabic
+            ? `الملف ينقصه أعمدة مطلوبة: ${missingColumns.join(', ')}`
+            : `The file is missing required columns: ${missingColumns.join(', ')}`
+        );
+      }
 
       const imported = rows
         .map((row, index) => {
@@ -215,7 +357,11 @@ export default function PortfolioPage() {
           const shariah = String(row.isShariah || row.Shariah || row.shariah || 'true').trim().toLowerCase();
 
           if (!ticker || !shares || !avgCost) {
-            return null;
+            throw new Error(
+              isArabic
+                ? `الصف ${index + 2} يحتوي على بيانات ناقصة أو غير صالحة.`
+                : `Row ${index + 2} contains incomplete or invalid holding data.`
+            );
           }
 
           return {
@@ -362,6 +508,11 @@ export default function PortfolioPage() {
       });
 
       replacePortfolioHoldings(nextHoldings);
+      setMarketRefreshMeta((current) => ({
+        ...current,
+        updatedAt: new Date().toISOString(),
+        sources: [...new Set([...current.sources, 'SAHMK'])],
+      }));
       toast({
         title: isArabic ? 'تم تحديث الأسعار' : 'Prices refreshed',
         description: isArabic
@@ -372,6 +523,82 @@ export default function PortfolioPage() {
       toast({
         title: isArabic ? 'فشل تحديث الأسعار' : 'Price refresh failed',
         description: error instanceof Error ? error.message : 'Could not refresh Saudi prices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshingPrices(false);
+    }
+  };
+
+  const handleRefreshGlobalPrices = async () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic ? 'تسجيل الدخول مطلوب لتحديث الأسعار العالمية.' : 'Sign in is required to refresh global prices.',
+      });
+      return;
+    }
+
+    const globalHoldings = holdings.filter((holding) => ['EGX', 'NASDAQ', 'NYSE'].includes(holding.exchange));
+    if (globalHoldings.length === 0) {
+      toast({
+        title: isArabic ? 'لا توجد مراكز عالمية' : 'No global holdings',
+        description: isArabic
+          ? 'أضف مراكز من EGX أو NASDAQ أو NYSE أولاً.'
+          : 'Add EGX, NASDAQ, or NYSE holdings first.',
+      });
+      return;
+    }
+
+    setIsRefreshingPrices(true);
+    try {
+      const response = await fetch('/api/market/global/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          holdings: globalHoldings.map((holding) => ({
+            ticker: holding.ticker,
+            exchange: holding.exchange,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to refresh global prices.');
+      }
+
+      const quotes = data.quotes ?? {};
+      const fxRates = data.fxRates ?? {};
+      const nextHoldings = holdings.map((holding) => {
+        const quote = quotes[holding.ticker.toUpperCase()];
+        if (!quote || !quote.price) {
+          return holding;
+        }
+
+        return {
+          ...holding,
+          name: quote.name || holding.name,
+          currentPrice: Number(quote.price),
+        };
+      });
+
+      replacePortfolioHoldings(nextHoldings);
+      setMarketRefreshMeta((current) => ({
+        updatedAt: new Date().toISOString(),
+        sources: [...new Set(['Twelve Data', ...current.sources])],
+        fxRates,
+      }));
+      toast({
+        title: isArabic ? 'تم تحديث الأسعار العالمية' : 'Global prices refreshed',
+        description: isArabic
+          ? `تم تحديث مراكز EGX وNASDAQ وNYSE باستخدام Twelve Data.`
+          : 'Updated EGX, NASDAQ, and NYSE holdings using Twelve Data.',
+      });
+    } catch (error) {
+      toast({
+        title: isArabic ? 'فشل تحديث الأسعار العالمية' : 'Global price refresh failed',
+        description: error instanceof Error ? error.message : 'Could not refresh global prices.',
         variant: 'destructive',
       });
     } finally {
@@ -448,6 +675,18 @@ export default function PortfolioPage() {
               {isRefreshingPrices
                 ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
                 : (isArabic ? 'تحديث أسعار السوق السعودي' : 'Refresh Saudi Prices')}
+            </Button>
+
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={!isSignedIn || isRefreshingPrices}
+              onClick={handleRefreshGlobalPrices}
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshingPrices ? 'animate-spin' : ''}`} />
+              {isRefreshingPrices
+                ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
+                : (isArabic ? 'تحديث أسعار EGX وUS' : 'Refresh EGX & US Prices')}
             </Button>
 
             <Button variant="outline" className="gap-2" disabled={!isSignedIn} asChild={false}>
@@ -662,6 +901,8 @@ export default function PortfolioPage() {
                         const costBasis = holding.shares * holding.avgCost;
                         const gainLoss = marketValue - costBasis;
                         const gainLossPercent = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
+                        const holdingCurrency = getHoldingCurrency(holding.exchange);
+                        const convertedMarketValue = getConvertedSarValue(marketValue, holding.exchange);
 
                         return (
                           <TableRow key={holding.id}>
@@ -682,14 +923,25 @@ export default function PortfolioPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">{formatNumber(holding.shares, locale)}</TableCell>
-                            <TableCell className="text-right">{holding.avgCost.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">{holding.currentPrice.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-medium">{formatCurrency(marketValue, 'SAR', locale)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(holding.avgCost, holdingCurrency, locale)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(holding.currentPrice, holdingCurrency, locale)}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              <div>{formatCurrency(marketValue, holdingCurrency, locale)}</div>
+                              {convertedMarketValue && holding.exchange !== 'TASI' ? (
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {formatCurrency(convertedMarketValue.value, 'SAR', locale)}
+                                </div>
+                              ) : holding.exchange !== 'TASI' ? (
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {isArabic ? 'غير محوّل إلى SAR بعد' : 'Unconverted to SAR'}
+                                </div>
+                              ) : null}
+                            </TableCell>
                             <TableCell className="text-right">
                               <div className={gainLoss >= 0 ? 'text-emerald-500' : 'text-rose-500'}>
                                 <div className="flex items-center justify-end gap-1">
                                   {gainLoss >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                                  {formatCurrency(Math.abs(gainLoss), 'SAR', locale)}
+                                  {formatCurrency(Math.abs(gainLoss), holdingCurrency, locale)}
                                 </div>
                                 <span className="text-xs">
                                   {gainLoss >= 0 ? '+' : ''}{gainLossPercent.toFixed(2)}%
@@ -773,6 +1025,37 @@ export default function PortfolioPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <Card className="border-dashed">
+          <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">
+            <p>
+              {appMode === 'demo'
+                ? (isArabic ? 'الأسعار الحالية تجريبية وليست بيانات سوق مباشرة.' : 'Current prices are demo values and not live market data.')
+                : (isArabic ? 'المصدر: سوق تداول عبر SAHMK للأسهم السعودية وTwelve Data لأسهم EGX وNASDAQ وNYSE.' : 'Source: SAHMK for Saudi market holdings and Twelve Data for EGX, NASDAQ, and NYSE holdings.')}
+            </p>
+            {marketRefreshMeta.updatedAt && (
+              <p>
+                {isArabic ? 'آخر تحديث:' : 'Last refresh:'} {new Date(marketRefreshMeta.updatedAt).toLocaleString(isArabic ? 'ar-SA-u-nu-latn' : 'en-US')}
+              </p>
+            )}
+            {Object.values(marketRefreshMeta.fxRates).some((rate) => Boolean(rate?.rate)) && (
+              <div className="space-y-1">
+                {marketRefreshMeta.fxRates.USD_SAR?.rate ? (
+                  <p>
+                    USD/SAR: {marketRefreshMeta.fxRates.USD_SAR.rate.toFixed(4)}
+                    {marketRefreshMeta.fxRates.USD_SAR.datetime ? ` · ${marketRefreshMeta.fxRates.USD_SAR.datetime}` : ''}
+                  </p>
+                ) : null}
+                {marketRefreshMeta.fxRates.EGP_SAR?.rate ? (
+                  <p>
+                    EGP/SAR: {marketRefreshMeta.fxRates.EGP_SAR.rate.toFixed(4)}
+                    {marketRefreshMeta.fxRates.EGP_SAR.datetime ? ` · ${marketRefreshMeta.fxRates.EGP_SAR.datetime}` : ''}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardShell>
   );

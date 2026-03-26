@@ -23,18 +23,16 @@ interface FeatureGateProps {
 export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
   const { canAccess } = useSubscription();
   const locale = useAppStore((state) => state.locale);
-  const setSubscriptionTier = useAppStore((state) => state.setSubscriptionTier);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const isArabic = locale === 'ar';
 
   const handleStartTrial = (tier: SubscriptionTier) => {
-    setSubscriptionTier(tier);
     setShowUpgrade(false);
     toast({
-      title: isArabic ? 'تم تفعيل الخطة' : 'Plan activated',
+      title: isArabic ? 'الترقية تتطلب تفعيل الفوترة' : 'Upgrade requires billing setup',
       description: isArabic
-        ? `تم تفعيل خطة ${tier === 'core' ? 'Core' : 'Pro'} للمستخدم الحالي.`
-        : `${tier === 'core' ? 'Core' : 'Pro'} has been activated for the current profile.`,
+        ? `خطة ${tier === 'core' ? 'Core' : 'Pro'} تُدار الآن من خلال إعدادات الاشتراك على الخادم أو لوحة Clerk.`
+        : `${tier === 'core' ? 'Core' : 'Pro'} access is now controlled from server-side subscription metadata or the Clerk dashboard.`,
     });
   };
 

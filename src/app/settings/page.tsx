@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Settings as SettingsIcon,
   User,
@@ -73,12 +73,9 @@ const subscriptionTiers = [
   },
 ];
 
-export default function SettingsPage({
-  searchParams,
-}: {
-  searchParams?: { tab?: string };
-}) {
+function SettingsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     locale,
     setLocale,
@@ -86,7 +83,6 @@ export default function SettingsPage({
     notificationPreferences,
     updateNotificationPreferences,
     clearAllData,
-    setSubscriptionTier,
     appMode,
     setAppMode,
   } = useAppStore();
@@ -96,17 +92,16 @@ export default function SettingsPage({
   const isArabic = locale === 'ar';
   const currentPlan = user?.subscriptionTier ?? 'free';
   const validTabs = useMemo(() => ['profile', 'preferences', 'subscription', 'data'] as const, []);
-  const activeTabParam = searchParams?.tab ?? null;
+  const activeTabParam = searchParams.get('tab');
   const initialTab = validTabs.find((value) => value === activeTabParam) ?? 'profile';
   const [activeTab, setActiveTabState] = useState<(typeof validTabs)[number]>(initialTab);
 
   const handleSubscriptionChange = (tier: 'free' | 'core' | 'pro') => {
-    setSubscriptionTier(tier);
     toast({
-      title: isArabic ? 'تم تحديث الاشتراك' : 'Subscription updated',
+      title: isArabic ? 'الاشتراك يُدار من الخادم' : 'Subscription is server-managed',
       description: isArabic
-        ? 'تم تطبيق الخطة الجديدة على المستخدم الحالي.'
-        : 'The new plan was applied to the current profile.',
+        ? `لا يمكن تغيير خطة ${tier} محلياً بعد الآن. حدّث اشتراك المستخدم من نظام الفوترة أو من Clerk metadata.`
+        : `The ${tier} plan can no longer be changed locally. Update the user subscription from billing or Clerk metadata instead.`,
     });
   };
 
@@ -601,5 +596,13 @@ export default function SettingsPage({
         </Tabs>
       </div>
     </DashboardShell>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

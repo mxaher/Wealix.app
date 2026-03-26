@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import sharp from 'sharp';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
+import { requireAuthenticatedUser } from '@/lib/server-auth';
 
 type DatalabOcrResponse = {
   success?: boolean;
@@ -29,6 +32,69 @@ type DatalabMarkerResult = {
   markdown?: string | null;
   html?: string | null;
 };
+
+const MAX_RECEIPT_FILE_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+function hasJpegSignature(bytes: Uint8Array) {
+  return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+function hasPngSignature(bytes: Uint8Array) {
+  return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+}
+
+function hasWebpSignature(bytes: Uint8Array) {
+  return (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  );
+}
+
+function assertReceiptImage(file: File, bytes: Uint8Array) {
+  if (file.size > MAX_RECEIPT_FILE_SIZE) {
+    throw new Error('Receipt image exceeds the 10MB upload limit.');
+  }
+
+  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+    throw new Error('Only JPEG, PNG, and WEBP receipt images are supported.');
+  }
+
+  const validSignature =
+    hasJpegSignature(bytes) ||
+    hasPngSignature(bytes) ||
+    hasWebpSignature(bytes);
+
+  if (!validSignature) {
+    throw new Error('The uploaded file does not match a valid JPEG, PNG, or WEBP image signature.');
+  }
+}
+
+async function sanitizeReceiptImage(file: File) {
+  const inputBytes = new Uint8Array(await file.arrayBuffer());
+  assertReceiptImage(file, inputBytes);
+
+  const image = sharp(inputBytes, { failOn: 'error' }).rotate();
+
+  if (file.type === 'image/png') {
+    const buffer = await image.png({ compressionLevel: 9 }).toBuffer();
+    return { buffer, type: 'image/png', name: file.name.replace(/\.[^.]+$/, '.png') };
+  }
+
+  if (file.type === 'image/webp') {
+    const buffer = await image.webp({ quality: 92 }).toBuffer();
+    return { buffer, type: 'image/webp', name: file.name.replace(/\.[^.]+$/, '.webp') };
+  }
+
+  const buffer = await image.jpeg({ quality: 92, mozjpeg: true }).toBuffer();
+  return { buffer, type: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '.jpg') };
+}
 
 function parseJsonObject(content: string): Record<string, unknown> | null {
   const match = content.match(/\{[\s\S]*\}/);
@@ -246,7 +312,7 @@ async function runDatalabOcr(file: File) {
   }
 
   const formData = new FormData();
-  formData.append('file.0', file, file.name);
+  formData.append('file.0', new Blob([file]), file.name);
   formData.append('langs', 'ar,en');
   formData.append('skip_cache', 'false');
 
@@ -300,7 +366,7 @@ async function runDatalabMarker(file: File) {
   }
 
   const formData = new FormData();
-  formData.append('file', file, file.name);
+  formData.append('file', new Blob([file]), file.name);
   formData.append('output_format', 'markdown');
   formData.append('force_ocr', 'true');
   formData.append('use_llm', 'true');
@@ -408,38 +474,46 @@ Look at this receipt image carefully and return JSON only with:
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAuthenticatedUser();
+    if (authResult.error) {
+      return authResult.error;
+    }
+
+    const rateLimit = enforceRateLimit(`ocr:${authResult.userId}`, 30, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 
     if (!(file instanceof File)) {
-      return Response.json({ error: 'No receipt image was provided.' }, { status: 400 });
+      return Response.json({ error: 'No receipt image was provided.' }, { status: 400, headers: buildRateLimitHeaders(rateLimit) });
     }
 
-    if (!file.type.startsWith('image/')) {
-      return Response.json({ error: 'Only image uploads are supported.' }, { status: 400 });
-    }
-
-    const shouldUseMarkerFirst = file.type === 'application/pdf';
+    const sanitizedImage = await sanitizeReceiptImage(file);
+    const normalizedFile = new File([new Uint8Array(sanitizedImage.buffer)], sanitizedImage.name, {
+      type: sanitizedImage.type,
+    });
 
     try {
-      const rawText = shouldUseMarkerFirst
-        ? await runDatalabMarker(file)
-        : await runDatalabOcr(file);
-      return Response.json(buildStructuredReceipt(rawText, file.name));
+      const rawText = await runDatalabOcr(normalizedFile);
+      return Response.json(buildStructuredReceipt(rawText, file.name), { headers: buildRateLimitHeaders(rateLimit) });
     } catch (primaryError) {
-      console.error(shouldUseMarkerFirst ? 'Datalab Marker Error:' : 'Datalab OCR Error:', primaryError);
+      console.error('Datalab OCR Error:', primaryError);
 
       try {
-        const rawText = shouldUseMarkerFirst
-          ? await runDatalabOcr(file)
-          : await runDatalabMarker(file);
-        return Response.json(buildStructuredReceipt(rawText, file.name));
+        const rawText = await runDatalabMarker(normalizedFile);
+        return Response.json(buildStructuredReceipt(rawText, file.name), { headers: buildRateLimitHeaders(rateLimit) });
       } catch (secondaryError) {
-        console.error(shouldUseMarkerFirst ? 'Datalab OCR Error:' : 'Datalab Marker Error:', secondaryError);
+        console.error('Datalab Marker Error:', secondaryError);
 
         try {
-          const fallbackResult = await runVisionFallback(file);
-          return Response.json(fallbackResult);
+          const fallbackResult = await runVisionFallback(normalizedFile);
+          return Response.json(fallbackResult, { headers: buildRateLimitHeaders(rateLimit) });
         } catch (visionError) {
           console.error('Vision OCR Error:', visionError);
           const message = [
@@ -450,7 +524,7 @@ export async function POST(request: NextRequest) {
 
           return Response.json(
             { error: message },
-            { status: 500 }
+            { status: 500, headers: buildRateLimitHeaders(rateLimit) }
           );
         }
       }
@@ -458,7 +532,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Receipt OCR Error:', error);
     return Response.json(
-      { error: 'Failed to process the receipt image.' },
+      { error: error instanceof Error ? error.message : 'Failed to process the receipt image.' },
       { status: 500 }
     );
   }
