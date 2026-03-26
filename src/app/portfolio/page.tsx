@@ -606,6 +606,149 @@ export default function PortfolioPage() {
     }
   };
 
+  const handleRefreshAllPrices = async () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic ? 'تسجيل الدخول مطلوب لتحديث الأسعار الحية.' : 'Sign in is required to refresh live prices.',
+      });
+      return;
+    }
+
+    const saudiHoldings = holdings.filter((holding) => holding.exchange === 'TASI');
+    const globalHoldings = holdings.filter((holding) => ['EGX', 'NASDAQ', 'NYSE'].includes(holding.exchange));
+
+    if (saudiHoldings.length === 0 && globalHoldings.length === 0) {
+      toast({
+        title: isArabic ? 'لا توجد مراكز لتحديثها' : 'No holdings to refresh',
+        description: isArabic
+          ? 'أضف مراكز استثمارية أولاً ثم حدّث الأسعار.'
+          : 'Add some holdings first, then refresh prices.',
+      });
+      return;
+    }
+
+    setIsRefreshingPrices(true);
+    try {
+      let nextHoldings = [...holdings];
+      let nextFxRates = { ...marketRefreshMeta.fxRates };
+      const nextSources = new Set(marketRefreshMeta.sources);
+      const successLabels: string[] = [];
+      const errorLabels: string[] = [];
+
+      if (saudiHoldings.length > 0) {
+        try {
+          const response = await fetch('/api/market/saudi/quotes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              symbols: saudiHoldings.map((holding) => normalizeSaudiTicker(holding.ticker)),
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to refresh Saudi prices.');
+          }
+
+          const quotes = data.quotes ?? {};
+          nextHoldings = nextHoldings.map((holding) => {
+            if (holding.exchange !== 'TASI') {
+              return holding;
+            }
+
+            const match = quotes[normalizeSaudiTicker(holding.ticker)];
+            if (!match || !match.price) {
+              return holding;
+            }
+
+            return {
+              ...holding,
+              ticker: holding.ticker.toUpperCase(),
+              name: isArabic ? (match.nameAr || holding.name) : (match.nameEn || holding.name),
+              currentPrice: Number(match.price),
+            };
+          });
+          nextSources.add('SAHMK');
+          successLabels.push(isArabic ? 'السوق السعودي' : 'Saudi market');
+        } catch (error) {
+          errorLabels.push(
+            error instanceof Error && error.message
+              ? `${isArabic ? 'السوق السعودي' : 'Saudi market'}: ${error.message}`
+              : (isArabic ? 'تعذّر تحديث السوق السعودي' : 'Saudi market refresh failed')
+          );
+        }
+      }
+
+      if (globalHoldings.length > 0) {
+        try {
+          const response = await fetch('/api/market/global/quotes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              holdings: globalHoldings.map((holding) => ({
+                ticker: holding.ticker,
+                exchange: holding.exchange,
+              })),
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to refresh global prices.');
+          }
+
+          const quotes = data.quotes ?? {};
+          nextFxRates = data.fxRates ?? nextFxRates;
+          nextHoldings = nextHoldings.map((holding) => {
+            const quote = quotes[holding.ticker.toUpperCase()];
+            if (!quote || !quote.price) {
+              return holding;
+            }
+
+            return {
+              ...holding,
+              name: quote.name || holding.name,
+              currentPrice: Number(quote.price),
+            };
+          });
+          nextSources.add('Twelve Data');
+          successLabels.push(isArabic ? 'EGX وUS' : 'EGX & US');
+        } catch (error) {
+          errorLabels.push(
+            error instanceof Error && error.message
+              ? `${isArabic ? 'EGX وUS' : 'EGX & US'}: ${error.message}`
+              : (isArabic ? 'تعذّر تحديث EGX وUS' : 'EGX & US refresh failed')
+          );
+        }
+      }
+
+      if (successLabels.length === 0) {
+        throw new Error(errorLabels.join(' | ') || 'Could not refresh prices.');
+      }
+
+      replacePortfolioHoldings(nextHoldings);
+      setMarketRefreshMeta({
+        updatedAt: new Date().toISOString(),
+        sources: [...nextSources],
+        fxRates: nextFxRates,
+      });
+
+      toast({
+        title: isArabic ? 'تم تحديث الأسعار' : 'Prices refreshed',
+        description: isArabic
+          ? `تم تحديث أسعار ${successLabels.join(' + ')}.${errorLabels.length ? ` مع ملاحظة: ${errorLabels.join(' | ')}` : ''}`
+          : `Updated ${successLabels.join(' + ')}.${errorLabels.length ? ` Note: ${errorLabels.join(' | ')}` : ''}`,
+      });
+    } catch (error) {
+      toast({
+        title: isArabic ? 'فشل تحديث الأسعار' : 'Price refresh failed',
+        description: error instanceof Error ? error.message : 'Could not refresh prices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshingPrices(false);
+    }
+  };
+
   return (
     <DashboardShell>
       <div className="space-y-6">
@@ -669,24 +812,12 @@ export default function PortfolioPage() {
               variant="outline"
               className="gap-2"
               disabled={!isSignedIn || isRefreshingPrices}
-              onClick={handleRefreshSaudiPrices}
+              onClick={handleRefreshAllPrices}
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshingPrices ? 'animate-spin' : ''}`} />
               {isRefreshingPrices
                 ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
-                : (isArabic ? 'تحديث أسعار السوق السعودي' : 'Refresh Saudi Prices')}
-            </Button>
-
-            <Button
-              variant="outline"
-              className="gap-2"
-              disabled={!isSignedIn || isRefreshingPrices}
-              onClick={handleRefreshGlobalPrices}
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshingPrices ? 'animate-spin' : ''}`} />
-              {isRefreshingPrices
-                ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
-                : (isArabic ? 'تحديث أسعار EGX وUS' : 'Refresh EGX & US Prices')}
+                : (isArabic ? 'تحديث كل الأسعار' : 'Refresh All Prices')}
             </Button>
 
             <Button variant="outline" className="gap-2" disabled={!isSignedIn} asChild={false}>

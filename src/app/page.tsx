@@ -85,29 +85,29 @@ const pricingByCycle = {
     {
       id: 'core',
       name: 'Core',
-      price: 281,
+      price: 31,
       suffix: { en: '/mo', ar: '/شهرياً' },
       description: {
-        en: 'Unlimited holdings, full financial history, reports, and the complete planning workspace for active users.',
-        ar: 'مراكز غير محدودة، وسجل مالي كامل، وتقارير، ومساحة تخطيط متكاملة للمستخدم الجاد.',
+        en: 'Essential wealth planning for individuals who want a clear operating layer for money, assets, and progress.',
+        ar: 'الخطة الأساسية لمن يريد طبقة تشغيل واضحة لإدارة الأموال والأصول ومتابعة التقدم المالي.',
       },
       features: {
-        en: ['Unlimited portfolio holdings', 'Full net worth and budget history', 'Reports and exports', '14-day free trial'],
-        ar: ['مراكز استثمارية غير محدودة', 'سجل كامل لصافي الثروة والميزانية', 'تقارير وتصدير بيانات', 'تجربة مجانية 14 يوماً'],
+        en: ['Income, expenses, budget, and net worth', 'Portfolio tracking and reports', 'Clean financial workspace', '14-day free trial'],
+        ar: ['الدخل والمصروفات والميزانية وصافي الثروة', 'متابعة المحفظة والتقارير', 'مساحة مالية منظمة وواضحة', 'تجربة مجانية لمدة 14 يوماً'],
       },
     },
     {
       id: 'pro',
       name: 'Pro',
-      price: 371,
+      price: 38,
       suffix: { en: '/mo', ar: '/شهرياً' },
       description: {
-        en: 'Advanced AI advisor workflows, deeper portfolio analysis, premium reports, and the full Wealix intelligence layer.',
-        ar: 'تحليلات ذكاء اصطناعي متقدمة، ومراجعة أعمق للمحفظة، وتقارير احترافية، وتجربة Wealix الكاملة.',
+        en: 'The full Wealix layer with deeper analysis, premium workflows, and advanced decision support.',
+        ar: 'تجربة Wealix الكاملة مع تحليلات أعمق، ومسارات احترافية، ودعم قرار متقدم.',
       },
       features: {
-        en: ['Everything in Core', 'AI advisor and portfolio analysis', 'Advanced reports', '14-day free trial'],
-        ar: ['كل ما في Core', 'المستشار الذكي وتحليل المحفظة', 'تقارير متقدمة', 'تجربة مجانية 14 يوماً'],
+        en: ['Everything in Core', 'AI advisor and portfolio analysis', 'Advanced reports and planning tools', '14-day free trial'],
+        ar: ['كل ما في Core', 'المستشار الذكي وتحليل المحفظة', 'تقارير متقدمة وأدوات تخطيط أوسع', 'تجربة مجانية لمدة 14 يوماً'],
       },
     },
   ],
@@ -115,29 +115,29 @@ const pricingByCycle = {
     {
       id: 'core',
       name: 'Core',
-      price: 3375,
+      price: 306,
       suffix: { en: '/year', ar: '/سنوياً' },
       description: {
-        en: 'Annual Core access for users who want the complete tracking stack with better long-term value.',
-        ar: 'اشتراك Core السنوي للمستخدمين الذين يريدون كامل أدوات المتابعة بقيمة أفضل على المدى الطويل.',
+        en: 'Annual Core access for users who want better value while keeping every essential money workflow in one place.',
+        ar: 'اشتراك سنوي لخطة Core بقيمة أفضل للمستخدم الذي يريد إدارة شؤونه المالية الأساسية في مكان واحد.',
       },
       features: {
-        en: ['Unlimited portfolio holdings', 'Full net worth and budget history', 'Reports and exports', '14-day free trial'],
-        ar: ['مراكز استثمارية غير محدودة', 'سجل كامل لصافي الثروة والميزانية', 'تقارير وتصدير بيانات', 'تجربة مجانية 14 يوماً'],
+        en: ['Income, expenses, budget, and net worth', 'Portfolio tracking and reports', 'Clean financial workspace', '14-day free trial'],
+        ar: ['الدخل والمصروفات والميزانية وصافي الثروة', 'متابعة المحفظة والتقارير', 'مساحة مالية منظمة وواضحة', 'تجربة مجانية لمدة 14 يوماً'],
       },
     },
     {
       id: 'pro',
       name: 'Pro',
-      price: 4455,
+      price: 375,
       suffix: { en: '/year', ar: '/سنوياً' },
       description: {
-        en: 'Annual Pro access for users who want the full AI and portfolio intelligence layer all year long.',
-        ar: 'اشتراك Pro السنوي لمن يريد طبقة الذكاء والتحليل المتقدمة طوال العام.',
+        en: 'Annual Pro access for users who want the full Wealix intelligence stack at the best long-term price.',
+        ar: 'اشتراك سنوي لخطة Pro للمستخدم الذي يريد طبقة الذكاء والتحليل الكاملة بأفضل قيمة على المدى الطويل.',
       },
       features: {
-        en: ['Everything in Core', 'AI advisor and portfolio analysis', 'Advanced reports', '14-day free trial'],
-        ar: ['كل ما في Core', 'المستشار الذكي وتحليل المحفظة', 'تقارير متقدمة', 'تجربة مجانية 14 يوماً'],
+        en: ['Everything in Core', 'AI advisor and portfolio analysis', 'Advanced reports and planning tools', '14-day free trial'],
+        ar: ['كل ما في Core', 'المستشار الذكي وتحليل المحفظة', 'تقارير متقدمة وأدوات تخطيط أوسع', 'تجربة مجانية لمدة 14 يوماً'],
       },
     },
   ],
@@ -169,7 +169,7 @@ export default function LandingPage() {
     <div className={`min-h-screen bg-background text-foreground ${isArabic ? 'font-[family-name:var(--font-arabic)]' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       <nav className="glass fixed inset-x-0 top-0 z-50 border-b border-border/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-0.5 text-xl font-bold">
+          <Link href="/" dir="ltr" className="flex flex-row items-center gap-0.5 text-xl font-bold">
             <span className="logo-weal">Weal</span>
             <span className="logo-ix">ix</span>
           </Link>

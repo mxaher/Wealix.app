@@ -12,7 +12,6 @@ import {
   CreditCard,
   Download,
   Crown,
-  Check,
   LogOut,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,37 +32,6 @@ import { DashboardShell } from '@/components/layout';
 import { useAppStore } from '@/store/useAppStore';
 import { useTheme } from 'next-themes';
 import { toast } from '@/hooks/use-toast';
-
-// Subscription tiers
-const subscriptionTiers = [
-  {
-    id: 'core',
-    name: { en: 'Core', ar: 'الأساسية' },
-    monthlyPrice: 281,
-    annualPrice: 3375,
-    features: [
-      { en: 'Unlimited portfolio holdings', ar: 'ممتلكات غير محدودة' },
-      { en: 'Full net worth history', ar: 'تاريخ كامل لصافي الثروة' },
-      { en: 'Full budget history', ar: 'تاريخ كامل للميزانية' },
-      { en: 'Basic PDF reports', ar: 'تقارير PDF أساسية' },
-      { en: '3 price alerts', ar: '3 تنبيهات أسعار' },
-    ],
-  },
-  {
-    id: 'pro',
-    name: { en: 'Pro', ar: 'المحترفة' },
-    monthlyPrice: 371,
-    annualPrice: 4455,
-    features: [
-      { en: 'Everything in Core', ar: 'كل ميزات الأساسية' },
-      { en: 'AI Financial Advisor', ar: 'مستشار مالي بالذكاء الاصطناعي' },
-      { en: 'AI Portfolio Analysis', ar: 'تحليل المحفظة بالذكاء الاصطناعي' },
-      { en: 'Multiple FIRE scenarios', ar: 'سيناريوهات FIRE متعددة' },
-      { en: 'Unlimited price alerts', ar: 'تنبيهات أسعار غير محدودة' },
-      { en: 'Full PDF reports', ar: 'تقارير PDF كاملة' },
-    ],
-  },
-];
 
 function SettingsPageContent() {
   const router = useRouter();
@@ -95,53 +63,10 @@ function SettingsPageContent() {
     Number.isFinite(new Date(metadata.trialEndsAt).getTime()) &&
     new Date(metadata.trialEndsAt).getTime() > Date.now();
   const currentPlan = actualPlan;
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const validTabs = useMemo(() => ['profile', 'preferences', 'subscription', 'data'] as const, []);
   const activeTabParam = searchParams.get('tab');
   const initialTab = validTabs.find((value) => value === activeTabParam) ?? 'profile';
   const [activeTab, setActiveTabState] = useState<(typeof validTabs)[number]>(initialTab);
-
-  const handleSubscriptionChange = async (tier: 'free' | 'core' | 'pro') => {
-    if (tier === 'free') {
-      return;
-    }
-
-    if (!isSignedIn) {
-      toast({
-        title: isArabic ? 'أنشئ حساباً لبدء التجربة' : 'Create an account to start the trial',
-        description: isArabic
-          ? 'كل مستخدم جديد يحصل على تجربة مجانية لمدة 14 يوماً تلقائياً عند التسجيل لأول مرة.'
-          : 'Every new user gets a 14-day free trial automatically on first signup.',
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/billing/trial/ensure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to start trial.');
-      }
-
-      updateUser({ subscriptionTier: data.effectiveTier });
-      toast({
-        title: isArabic ? 'تم تفعيل التجربة' : 'Trial activated',
-        description: isArabic
-          ? 'تم تفعيل التجربة المجانية لمدة 14 يوماً دون بطاقة ائتمان. بعد انتهائها ستختار Core أو Pro.'
-          : 'Your 14-day free trial is now active with no credit card required. After it ends, you can choose Core or Pro.',
-      });
-    } catch (error) {
-      toast({
-        title: isArabic ? 'تعذّر تفعيل التجربة' : 'Trial activation failed',
-        description: error instanceof Error ? error.message : 'Could not activate the trial.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleExportData = () => {
     if (!isSignedIn) {
@@ -513,108 +438,30 @@ function SettingsPageContent() {
                             ? (isArabic ? 'تجربة مجانية' : 'Free Trial')
                             : currentPlan === 'free'
                             ? (isArabic ? 'مجاني' : 'Free')
-                            : subscriptionTiers.find(t => t.id === currentPlan)?.name[isArabic ? 'ar' : 'en']}
+                            : currentPlan === 'core'
+                            ? 'Core'
+                            : 'Pro'}
                         </p>
                         {activeTrial && (
                           <p className="text-sm text-muted-foreground">
                             {isArabic ? '14 يوماً ثم تختار Core أو Pro' : '14 days, then choose Core or Pro'}
                           </p>
                         )}
+                        {!activeTrial && currentPlan !== 'free' && (
+                          <p className="text-sm text-muted-foreground">
+                            {isArabic ? 'الخطة المفعلة حالياً على حسابك.' : 'This is the plan currently active on your account.'}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    {!activeTrial && currentPlan !== 'pro' && (
-                        <Button
-                          className="bg-gold hover:bg-gold-dark text-navy-dark"
-                          onClick={() => handleSubscriptionChange('pro')}
-                          disabled={!isSignedIn}
-                        >
-                          {isArabic ? 'ترقية' : 'Upgrade'}
-                        </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Plans Comparison */}
-              <div className="flex items-center justify-center">
-                <div className="inline-flex rounded-full border border-border bg-background p-1">
-                  <button
-                    type="button"
-                    onClick={() => setBillingCycle('monthly')}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                      billingCycle === 'monthly' ? 'bg-gold text-navy-dark' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {isArabic ? 'شهري' : 'Monthly'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBillingCycle('annual')}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                      billingCycle === 'annual' ? 'bg-gold text-navy-dark' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {isArabic ? 'سنوي' : 'Annually'}
-                  </button>
-                </div>
-              </div>
-
               <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                 {isArabic
-                  ? 'ابدأ بتجربة مجانية لمدة 14 يوماً بدون بطاقة ائتمان، ثم اختر Core أو Pro.'
-                  : 'Start with a 14-day free trial with no credit card required, then continue on Core or Pro.'}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {subscriptionTiers.map((tier) => (
-                    <Card
-                      key={tier.id}
-                      className={!activeTrial && currentPlan === tier.id ? 'border-gold' : ''}
-                    >
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle>{tier.name[isArabic ? 'ar' : 'en']}</CardTitle>
-                        {!activeTrial && currentPlan === tier.id && (
-                          <Badge className="bg-gold text-navy-dark">
-                            <Check className="w-3 h-3 mr-1" />
-                            {isArabic ? 'الحالية' : 'Current'}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-3xl font-bold">
-                          {billingCycle === 'monthly' ? tier.monthlyPrice : tier.annualPrice}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {' '}SAR{billingCycle === 'monthly' ? (isArabic ? '/شهر' : '/mo') : (isArabic ? '/سنة' : '/year')}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {isArabic ? 'تجربة 14 يوماً بدون بطاقة' : '14-day trial, no credit card required'}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2">
-                        {tier.features.map((feature, index) => (
-                          <li key={index} className="flex items-center gap-2 text-sm">
-                            <Check className="w-4 h-4 text-emerald-500" />
-                            {feature[isArabic ? 'ar' : 'en']}
-                          </li>
-                        ))}
-                      </ul>
-                      {currentPlan !== tier.id && (
-                        <Button
-                          className="w-full mt-4"
-                          variant={tier.id === 'pro' ? 'default' : 'outline'}
-                          onClick={() => handleSubscriptionChange(tier.id as 'free' | 'core' | 'pro')}
-                          disabled={!isSignedIn}
-                        >
-                          {isArabic ? 'ابدأ التجربة' : 'Start Trial'}
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                  ? 'يحصل كل مستخدم جديد على تجربة مجانية لمدة 14 يوماً بدون بطاقة ائتمان. بعد انتهائها ستحتاج إلى اختيار Core أو Pro للمتابعة.'
+                  : 'Every new user starts with a 14-day free trial and no credit card. After the trial ends, choose Core or Pro to continue.'}
               </div>
             </div>
           </TabsContent>
