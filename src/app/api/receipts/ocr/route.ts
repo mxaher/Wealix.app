@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
     const imageUrl = `data:${file.type};base64,${base64}`;
 
     const zai = await ZAI.create();
-    const prompt = `Look at this receipt image carefully and return JSON only with:
+    const prompt = `You are an expert receipt OCR extraction engine for retail, restaurant, grocery, pharmacy, transport, and Arabic VAT receipts.
+
+Look at this receipt image carefully and return JSON only with:
 {
   "merchantName": "string",
   "amount": number,
@@ -90,6 +92,9 @@ Important:
 - Support Arabic and English receipts.
 - Use the FINAL total amount due, not subtotal.
 - Look for words like Total, GRAND TOTAL, Amount Due, المجموع, الإجمالي, الإجمالي شامل الضريبة.
+- Prefer VAT-inclusive grand total if both subtotal and total appear.
+- Preserve the most likely merchant brand name from the header, not branch slogans or address lines.
+- Extract the raw visible text as faithfully as possible, especially header, totals, dates, and tax lines.
 - Detect merchant name from the top/header of the receipt.
 - If the receipt is clear, confidence should usually be above 70.
 - If a field is uncertain, make your best effort instead of leaving everything blank.

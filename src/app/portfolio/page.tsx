@@ -629,8 +629,8 @@ export default function PortfolioPage() {
           </TabsContent>
 
           <TabsContent value="analysis">
-            <div className="space-y-4">
-              <Card className="h-full">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 auto-rows-fr">
+              <Card className="h-full lg:col-span-2">
                 <CardHeader>
                   <CardTitle>{isArabic ? 'ملخص التحليل' : 'Analysis Summary'}</CardTitle>
                   <CardDescription>{analysis.summary}</CardDescription>

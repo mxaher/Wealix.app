@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Settings as SettingsIcon,
   User,
+  Users,
   Globe,
   Bell,
   Database,
@@ -104,6 +105,11 @@ export default function SettingsPage({
     setSubscriptionTier,
     appMode,
     setAppMode,
+    profiles,
+    activeProfileId,
+    createProfile,
+    switchProfile,
+    deleteProfile,
   } = useAppStore();
   const { theme, setTheme } = useTheme();
   const isArabic = locale === 'ar';
@@ -119,6 +125,8 @@ export default function SettingsPage({
   };
   const [name, setName] = useState(currentUser.name ?? '');
   const [email, setEmail] = useState(currentUser.email);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileEmail, setNewProfileEmail] = useState('');
   const currentPlan = user?.subscriptionTier ?? 'free';
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const validTabs = useMemo(() => ['profile', 'preferences', 'subscription', 'data'] as const, []);
@@ -131,8 +139,8 @@ export default function SettingsPage({
     toast({
       title: isArabic ? 'تم تحديث الاشتراك' : 'Subscription updated',
       description: isArabic
-        ? 'تم تطبيق الخطة الجديدة على حساب العرض التجريبي.'
-        : 'The new plan was applied to the demo account.',
+        ? 'تم تطبيق الخطة الجديدة على المستخدم الحالي.'
+        : 'The new plan was applied to the current profile.',
     });
   };
 
@@ -178,7 +186,7 @@ export default function SettingsPage({
       ? {
           id: 'demo-user',
           name: 'Demo User',
-          email: 'demo@wealthos.com',
+          email: 'demo@wealix.app',
         }
       : {
           id: 'live-user',
@@ -216,6 +224,52 @@ export default function SettingsPage({
         ? 'تم تحديث بيانات حسابك بنجاح.'
         : 'Your account details were updated successfully.',
     });
+  };
+
+  const handleCreateProfile = () => {
+    const trimmedName = newProfileName.trim();
+    if (!trimmedName) {
+      toast({
+        title: isArabic ? 'الاسم مطلوب' : 'Name required',
+        description: isArabic
+          ? 'أدخل اسم المستخدم الجديد قبل الإنشاء.'
+          : 'Enter a profile name before creating it.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    createProfile(trimmedName, newProfileEmail.trim());
+    setName(trimmedName);
+    setEmail(newProfileEmail.trim());
+    setNewProfileName('');
+    setNewProfileEmail('');
+    toast({
+      title: isArabic ? 'تم إنشاء مستخدم جديد' : 'New profile created',
+      description: isArabic
+        ? 'تم إنشاء مساحة بيانات محلية منفصلة لهذا المستخدم.'
+        : 'A separate local workspace was created for this user.',
+    });
+  };
+
+  const handleSwitchProfile = (id: string) => {
+    const nextProfile = profiles.find((profile) => profile.id === id);
+    switchProfile(id);
+    if (nextProfile) {
+      setName(nextProfile.user?.name ?? nextProfile.label);
+      setEmail(nextProfile.user?.email ?? nextProfile.email);
+    }
+  };
+
+  const handleDeleteProfile = (id: string) => {
+    const isDeletingActive = id === activeProfileId;
+    const remainingProfiles = profiles.filter((profile) => profile.id !== id);
+    deleteProfile(id);
+
+    if (isDeletingActive && remainingProfiles[0]) {
+      setName(remainingProfiles[0].user?.name ?? remainingProfiles[0].label);
+      setEmail(remainingProfiles[0].user?.email ?? remainingProfiles[0].email);
+    }
   };
 
   const handleCancelProfile = () => {
@@ -350,6 +404,72 @@ export default function SettingsPage({
                   <div className="space-y-2">
                     <Label>{isArabic ? 'البريد الإلكتروني' : 'Email'}</Label>
                     <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Users className="mt-0.5 h-5 w-5 text-gold" />
+                    <div>
+                      <h4 className="font-medium">{isArabic ? 'المستخدمون المحليّون' : 'Local Profiles'}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {isArabic
+                          ? 'كل مستخدم يملك بيانات محلية مستقلة على هذا الجهاز. عند مشاركة الرابط على جهاز آخر، تبدأ البيانات هناك بشكل منفصل أيضاً.'
+                          : 'Each profile has its own local data on this device. When you share the link to another device or browser, that data stays separate there too.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {profiles.map((profile) => (
+                      <div
+                        key={profile.id}
+                        className={`flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-center md:justify-between ${
+                          profile.id === activeProfileId ? 'border-gold bg-gold/10' : 'border-border'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-medium">{profile.label}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {profile.email || (isArabic ? 'بدون بريد إلكتروني' : 'No email')}
+                            {' • '}
+                            {profile.appMode === 'demo'
+                              ? (isArabic ? 'تجريبي' : 'Demo')
+                              : (isArabic ? 'مباشر' : 'Live')}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {profile.id !== activeProfileId && (
+                            <Button variant="outline" size="sm" onClick={() => handleSwitchProfile(profile.id)}>
+                              {isArabic ? 'التبديل إليه' : 'Switch To'}
+                            </Button>
+                          )}
+                          {profiles.length > 1 && (
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteProfile(profile.id)}>
+                              {isArabic ? 'حذف' : 'Delete'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? 'اسم المستخدم الجديد' : 'New Profile Name'}</Label>
+                      <Input value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? 'البريد الإلكتروني' : 'Email'}</Label>
+                      <Input type="email" value={newProfileEmail} onChange={(e) => setNewProfileEmail(e.target.value)} />
+                    </div>
+                    <div className="flex items-end">
+                      <Button className="w-full" onClick={handleCreateProfile}>
+                        {isArabic ? 'إنشاء مستخدم محلي' : 'Create Local Profile'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 

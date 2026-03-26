@@ -118,6 +118,16 @@ const mockIncome = [
 
 export default function BudgetPage() {
   const { locale, appMode } = useAppStore();
+  return <BudgetPageContent key={appMode} locale={locale} appMode={appMode} />;
+}
+
+function BudgetPageContent({
+  locale,
+  appMode,
+}: {
+  locale: 'ar' | 'en';
+  appMode: 'demo' | 'live';
+}) {
   const isArabic = locale === 'ar';
   
   const [expenses, setExpenses] = useState(() => appMode === 'demo' ? mockExpenses : []);

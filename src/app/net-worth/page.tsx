@@ -111,6 +111,16 @@ const mockHistory = [
 
 export default function NetWorthPage() {
   const { locale, appMode } = useAppStore();
+  return <NetWorthPageContent key={appMode} locale={locale} appMode={appMode} />;
+}
+
+function NetWorthPageContent({
+  locale,
+  appMode,
+}: {
+  locale: 'ar' | 'en';
+  appMode: 'demo' | 'live';
+}) {
   const isArabic = locale === 'ar';
   
   const [assets, setAssets] = useState(() => appMode === 'demo' ? mockAssets : []);
@@ -119,6 +129,7 @@ export default function NetWorthPage() {
   const [showAddLiability, setShowAddLiability] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', category: 'cash', value: '' });
   const [newLiability, setNewLiability] = useState({ name: '', category: 'loan', balance: '' });
+  const historyData = appMode === 'demo' ? mockHistory : [];
 
   const totalAssets = assets.reduce((sum, a) => sum + a.value, 0);
   const totalLiabilities = liabilities.reduce((sum, l) => sum + l.balance, 0);
@@ -389,7 +400,7 @@ export default function NetWorthPage() {
                 <CardContent>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={mockHistory}>
+                      <AreaChart data={historyData}>
                         <defs>
                           <linearGradient id="netWorthGradientFill" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="var(--gold)" stopOpacity={0.3} />
@@ -418,7 +429,7 @@ export default function NetWorthPage() {
                 <CardContent>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={mockHistory}>
+                      <BarChart data={historyData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                         <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} />
                         <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
@@ -628,7 +639,7 @@ export default function NetWorthPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {mockHistory.map((row, index) => (
+                      {historyData.map((row, index) => (
                         <motion.tr
                           key={row.month}
                           initial={{ opacity: 0 }}

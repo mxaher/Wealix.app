@@ -49,6 +49,21 @@ interface NotificationItem {
   href: string;
 }
 
+export interface LocalProfile {
+  id: string;
+  label: string;
+  email: string;
+  avatarUrl: string | null;
+  appMode: AppMode;
+  user: User | null;
+  notificationPreferences: NotificationPreferences;
+  notificationFeed: NotificationItem[];
+  incomeEntries: IncomeEntry[];
+  expenseEntries: ExpenseEntry[];
+  receiptScans: ReceiptScanResult[];
+  portfolioHoldings: PortfolioHolding[];
+}
+
 export interface IncomeEntry {
   id: string;
   amount: number;
@@ -100,7 +115,7 @@ export interface PortfolioHolding {
 
 const defaultUser: User = {
   id: 'demo-user',
-  email: 'demo@wealthos.com',
+  email: 'demo@wealix.app',
   name: 'Demo User',
   avatarUrl: null,
   locale: 'ar',
@@ -246,6 +261,86 @@ function buildLiveState() {
   };
 }
 
+function createProfileSnapshot(
+  id: string,
+  label: string,
+  email: string,
+  state: ReturnType<typeof buildDemoState> | ReturnType<typeof buildLiveState>,
+  overrides?: {
+    user?: User | null;
+    notificationPreferences?: NotificationPreferences;
+  }
+): LocalProfile {
+  return {
+    id,
+    label,
+    email,
+    avatarUrl: overrides?.user?.avatarUrl ?? state.user?.avatarUrl ?? null,
+    appMode: state.appMode,
+    user: overrides?.user ?? state.user,
+    notificationPreferences: overrides?.notificationPreferences ?? defaultNotificationPreferences,
+    notificationFeed: state.notificationFeed,
+    incomeEntries: state.incomeEntries,
+    expenseEntries: state.expenseEntries,
+    receiptScans: state.receiptScans,
+    portfolioHoldings: state.portfolioHoldings,
+  };
+}
+
+function snapshotActiveProfile(state: AppState): LocalProfile {
+  const existing = state.profiles.find((profile) => profile.id === state.activeProfileId);
+  return {
+    id: state.activeProfileId,
+    label: state.user?.name?.trim() || existing?.label || 'User',
+    email: state.user?.email || existing?.email || '',
+    avatarUrl: state.user?.avatarUrl || existing?.avatarUrl || null,
+    appMode: state.appMode,
+    user: state.user,
+    notificationPreferences: state.notificationPreferences,
+    notificationFeed: state.notificationFeed,
+    incomeEntries: state.incomeEntries,
+    expenseEntries: state.expenseEntries,
+    receiptScans: state.receiptScans,
+    portfolioHoldings: state.portfolioHoldings,
+  };
+}
+
+function upsertProfile(profiles: LocalProfile[], nextProfile: LocalProfile) {
+  const existing = profiles.some((profile) => profile.id === nextProfile.id);
+  if (!existing) {
+    return [...profiles, nextProfile];
+  }
+
+  return profiles.map((profile) => (profile.id === nextProfile.id ? nextProfile : profile));
+}
+
+function syncActiveProfileState(state: AppState, partial: Partial<AppState>) {
+  const nextState = { ...state, ...partial } as AppState;
+  const nextProfile = snapshotActiveProfile(nextState);
+  return {
+    ...partial,
+    profiles: upsertProfile(state.profiles, nextProfile),
+  };
+}
+
+function profileToState(profile: LocalProfile) {
+  return {
+    appMode: profile.appMode,
+    user: profile.user,
+    notificationPreferences: profile.notificationPreferences,
+    notificationFeed: profile.notificationFeed,
+    incomeEntries: profile.incomeEntries,
+    expenseEntries: profile.expenseEntries,
+    receiptScans: profile.receiptScans,
+    portfolioHoldings: profile.portfolioHoldings,
+  };
+}
+
+const initialDemoProfile = createProfileSnapshot('profile-demo', 'Demo User', 'demo@wealix.app', buildDemoState(), {
+  user: defaultUser,
+  notificationPreferences: defaultNotificationPreferences,
+});
+
 interface AppState {
   // User
   user: User | null;
@@ -264,6 +359,11 @@ interface AppState {
   notificationFeed: NotificationItem[];
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  profiles: LocalProfile[];
+  activeProfileId: string;
+  createProfile: (label: string, email?: string) => void;
+  switchProfile: (id: string) => void;
+  deleteProfile: (id: string) => void;
   incomeEntries: IncomeEntry[];
   addIncomeEntry: (entry: IncomeEntry) => void;
   deleteIncomeEntry: (id: string) => void;
@@ -315,22 +415,37 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       // User
-      user: defaultUser,
-      setUser: (user) => set({ user }),
-      updateUser: (updates) => set((state) => ({
-        user: { ...(state.user ?? defaultUser), ...updates }
-      })),
+      user: initialDemoProfile.user,
+      setUser: (user) => set((state) => syncActiveProfileState(state, { user })),
+      updateUser: (updates) => set((state) =>
+        syncActiveProfileState(state, {
+          user: { ...(state.user ?? defaultUser), ...updates },
+        })
+      ),
       
       // Locale & Theme
       locale: 'ar',
       setLocale: (locale) => set({ locale }),
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
-      appMode: 'demo',
-      setAppMode: (mode) => set(() => {
+      appMode: initialDemoProfile.appMode,
+      setAppMode: (mode) => set((state) => {
         const seeded = mode === 'demo' ? buildDemoState() : buildLiveState();
-        return {
+        const user =
+          mode === 'demo'
+            ? defaultUser
+            : {
+                ...(state.user ?? defaultUser),
+                id: state.activeProfileId,
+                name: state.user?.name ?? '',
+                email: state.user?.email ?? '',
+                avatarUrl: state.user?.avatarUrl ?? null,
+                subscriptionTier: state.user?.subscriptionTier ?? 'free',
+              };
+
+        return syncActiveProfileState(state, {
           ...seeded,
+          user,
           notificationPreferences: defaultNotificationPreferences,
           sidebarCollapsed: false,
           activeDashboardTab: 'overview',
@@ -340,81 +455,179 @@ export const useAppStore = create<AppState>()(
           activeChatSession: null,
           attachPortfolioContext: false,
           isLoading: false,
-        };
+        });
       }),
-      notificationPreferences: defaultNotificationPreferences,
-      updateNotificationPreferences: (updates) => set((state) => ({
-        notificationPreferences: {
-          ...state.notificationPreferences,
-          ...updates,
-        },
-      })),
-      notificationFeed: defaultNotificationFeed,
-      markNotificationAsRead: (id) => set((state) => ({
-        notificationFeed: state.notificationFeed.map((item) =>
-          item.id === id ? { ...item, read: true } : item
-        ),
-      })),
-      markAllNotificationsRead: () => set((state) => ({
-        notificationFeed: state.notificationFeed.map((item) => ({
-          ...item,
-          read: true,
-        })),
-      })),
-      incomeEntries: defaultIncomeEntries,
-      addIncomeEntry: (entry) => set((state) => ({
-        incomeEntries: [entry, ...state.incomeEntries],
-      })),
-      deleteIncomeEntry: (id) => set((state) => ({
-        incomeEntries: state.incomeEntries.filter((entry) => entry.id !== id),
-      })),
-      expenseEntries: defaultExpenseEntries,
-      addExpenseEntry: (entry) => set((state) => ({
-        expenseEntries: [entry, ...state.expenseEntries],
-      })),
-      deleteExpenseEntry: (id) => set((state) => ({
-        expenseEntries: state.expenseEntries.filter((entry) => entry.id !== id),
-      })),
-      receiptScans: defaultReceiptScans,
-      addReceiptScan: (receipt) => set((state) => ({
-        receiptScans: [receipt, ...state.receiptScans].slice(0, 20),
-      })),
-      portfolioHoldings: defaultPortfolioHoldings,
-      addPortfolioHolding: (holding) => set((state) => ({
-        portfolioHoldings: [holding, ...state.portfolioHoldings],
-      })),
-      deletePortfolioHolding: (id) => set((state) => ({
-        portfolioHoldings: state.portfolioHoldings.filter((holding) => holding.id !== id),
-      })),
-      replacePortfolioHoldings: (holdings) => set({
-        portfolioHoldings: holdings,
-      }),
-      setSubscriptionTier: (tier) => set((state) => ({
-        user: {
-          ...(state.user ?? defaultUser),
-          subscriptionTier: tier,
-        },
-      })),
+      notificationPreferences: initialDemoProfile.notificationPreferences,
+      updateNotificationPreferences: (updates) => set((state) =>
+        syncActiveProfileState(state, {
+          notificationPreferences: {
+            ...state.notificationPreferences,
+            ...updates,
+          },
+        })
+      ),
+      notificationFeed: initialDemoProfile.notificationFeed,
+      markNotificationAsRead: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          notificationFeed: state.notificationFeed.map((item) =>
+            item.id === id ? { ...item, read: true } : item
+          ),
+        })
+      ),
+      markAllNotificationsRead: () => set((state) =>
+        syncActiveProfileState(state, {
+          notificationFeed: state.notificationFeed.map((item) => ({
+            ...item,
+            read: true,
+          })),
+        })
+      ),
+      profiles: [initialDemoProfile],
+      activeProfileId: initialDemoProfile.id,
+      createProfile: (label, email = '') =>
+        set((state) => {
+          const currentSnapshot = snapshotActiveProfile(state);
+          const id = `profile-${Date.now()}`;
+          const trimmedLabel = label.trim() || `User ${state.profiles.length + 1}`;
+          const liveUser: User = {
+            id,
+            email: email.trim(),
+            name: trimmedLabel,
+            avatarUrl: null,
+            locale: state.locale,
+            currency: 'SAR',
+            subscriptionTier: 'free',
+            onboardingDone: true,
+          };
+          const liveProfile = createProfileSnapshot(id, trimmedLabel, email.trim(), buildLiveState(), {
+            user: liveUser,
+            notificationPreferences: defaultNotificationPreferences,
+          });
+
+          return {
+            ...profileToState(liveProfile),
+            profiles: [...upsertProfile(state.profiles, currentSnapshot), liveProfile],
+            activeProfileId: id,
+          };
+        }),
+      switchProfile: (id) =>
+        set((state) => {
+          if (id === state.activeProfileId) {
+            return {};
+          }
+
+          const target = state.profiles.find((profile) => profile.id === id);
+          if (!target) {
+            return {};
+          }
+
+          return {
+            ...profileToState(target),
+            profiles: upsertProfile(state.profiles, snapshotActiveProfile(state)),
+            activeProfileId: id,
+          };
+        }),
+      deleteProfile: (id) =>
+        set((state) => {
+          const syncedProfiles = upsertProfile(state.profiles, snapshotActiveProfile(state));
+          const remainingProfiles = syncedProfiles.filter((profile) => profile.id !== id);
+
+          if (remainingProfiles.length === 0) {
+            return {
+              ...profileToState(initialDemoProfile),
+              profiles: [initialDemoProfile],
+              activeProfileId: initialDemoProfile.id,
+            };
+          }
+
+          if (id !== state.activeProfileId) {
+            return {
+              profiles: remainingProfiles,
+            };
+          }
+
+          const nextActive = remainingProfiles[0];
+          return {
+            ...profileToState(nextActive),
+            profiles: remainingProfiles,
+            activeProfileId: nextActive.id,
+          };
+        }),
+      incomeEntries: initialDemoProfile.incomeEntries,
+      addIncomeEntry: (entry) => set((state) =>
+        syncActiveProfileState(state, {
+          incomeEntries: [entry, ...state.incomeEntries],
+        })
+      ),
+      deleteIncomeEntry: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          incomeEntries: state.incomeEntries.filter((entry) => entry.id !== id),
+        })
+      ),
+      expenseEntries: initialDemoProfile.expenseEntries,
+      addExpenseEntry: (entry) => set((state) =>
+        syncActiveProfileState(state, {
+          expenseEntries: [entry, ...state.expenseEntries],
+        })
+      ),
+      deleteExpenseEntry: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          expenseEntries: state.expenseEntries.filter((entry) => entry.id !== id),
+        })
+      ),
+      receiptScans: initialDemoProfile.receiptScans,
+      addReceiptScan: (receipt) => set((state) =>
+        syncActiveProfileState(state, {
+          receiptScans: [receipt, ...state.receiptScans].slice(0, 20),
+        })
+      ),
+      portfolioHoldings: initialDemoProfile.portfolioHoldings,
+      addPortfolioHolding: (holding) => set((state) =>
+        syncActiveProfileState(state, {
+          portfolioHoldings: [holding, ...state.portfolioHoldings],
+        })
+      ),
+      deletePortfolioHolding: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          portfolioHoldings: state.portfolioHoldings.filter((holding) => holding.id !== id),
+        })
+      ),
+      replacePortfolioHoldings: (holdings) => set((state) =>
+        syncActiveProfileState(state, {
+          portfolioHoldings: holdings,
+        })
+      ),
+      setSubscriptionTier: (tier) => set((state) =>
+        syncActiveProfileState(state, {
+          user: {
+            ...(state.user ?? defaultUser),
+            subscriptionTier: tier,
+          },
+        })
+      ),
       clearAllData: () => {
         if (typeof window !== 'undefined') {
           window.localStorage.removeItem('wealthos-storage');
         }
 
-        set({
-          ...buildLiveState(),
-          locale: 'ar',
-          theme: 'dark',
-          notificationPreferences: defaultNotificationPreferences,
-          sidebarCollapsed: false,
-          activeDashboardTab: 'overview',
-          selectedExchange: 'all',
-          shariahFilterEnabled: false,
-          selectedMonth: new Date().toISOString().slice(0, 7),
-          activeChatSession: null,
-          attachPortfolioContext: false,
-          isLoading: false,
-          isMobile: false,
-        });
+        set((state) =>
+          syncActiveProfileState(state, {
+            ...buildLiveState(),
+            user: null,
+            locale: 'ar',
+            theme: 'dark',
+            notificationPreferences: defaultNotificationPreferences,
+            sidebarCollapsed: false,
+            activeDashboardTab: 'overview',
+            selectedExchange: 'all',
+            shariahFilterEnabled: false,
+            selectedMonth: new Date().toISOString().slice(0, 7),
+            activeChatSession: null,
+            attachPortfolioContext: false,
+            isLoading: false,
+            isMobile: false,
+          })
+        );
       },
       
       // Sidebar
@@ -469,6 +682,8 @@ export const useAppStore = create<AppState>()(
         locale: state.locale,
         theme: state.theme,
         appMode: state.appMode,
+        profiles: state.profiles,
+        activeProfileId: state.activeProfileId,
         notificationPreferences: state.notificationPreferences,
         notificationFeed: state.notificationFeed,
         incomeEntries: state.incomeEntries,

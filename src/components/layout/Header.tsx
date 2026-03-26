@@ -140,7 +140,7 @@ export function Header() {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">{user?.name || 'Demo User'}</p>
                 <p className="text-xs text-muted-foreground">
-                  {user?.email || 'demo@wealthos.com'}
+                  {user?.email || 'demo@wealix.app'}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -164,8 +164,8 @@ export function Header() {
                 toast({
                   title: isArabic ? 'تم تسجيل الخروج' : 'Signed out',
                   description: isArabic
-                    ? 'واجهة العرض التجريبية لا تستخدم مصادقة حقيقية بعد.'
-                    : 'The demo UI does not use a real auth backend yet.',
+                    ? 'التطبيق يعمل حالياً بملفات مستخدم محلية على هذا الجهاز.'
+                    : 'The app currently uses local user profiles on this device.',
                 })
               }
             >

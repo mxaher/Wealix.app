@@ -33,8 +33,8 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
     toast({
       title: isArabic ? 'تم تفعيل الخطة' : 'Plan activated',
       description: isArabic
-        ? `تم تفعيل خطة ${tier === 'core' ? 'Core' : 'Pro'} لحساب العرض التجريبي.`
-        : `${tier === 'core' ? 'Core' : 'Pro'} has been activated for the demo account.`,
+        ? `تم تفعيل خطة ${tier === 'core' ? 'Core' : 'Pro'} للمستخدم الحالي.`
+        : `${tier === 'core' ? 'Core' : 'Pro'} has been activated for the current profile.`,
     });
   };
 

@@ -60,6 +60,16 @@ export default function ExpensesPage() {
     suggestedCategory: ExpenseCategory;
     rawText: string;
   }>(null);
+  const [ocrDraft, setOcrDraft] = useState<null | {
+    merchantName: string;
+    amount: string;
+    date: string;
+    currency: string;
+    confidence: number;
+    suggestedCategory: ExpenseCategory;
+    rawText: string;
+    description: string;
+  }>(null);
 
   const summary = useMemo(() => {
     const monthKey = new Date().toISOString().slice(0, 7);
@@ -138,6 +148,18 @@ export default function ExpensesPage() {
       }
 
       setOcrResult(data);
+      setOcrDraft({
+        merchantName: data.merchantName || '',
+        amount: data.amount ? String(data.amount) : '',
+        date: data.date || new Date().toISOString().slice(0, 10),
+        currency: data.currency || 'SAR',
+        confidence: data.confidence || 0,
+        suggestedCategory: data.suggestedCategory || 'Other',
+        rawText: data.rawText || '',
+        description: data.merchantName
+          ? `${data.merchantName} receipt`
+          : `${selectedFile.name} receipt`,
+      });
       toast({
         title: isArabic ? 'تمت قراءة الإيصال' : 'Receipt scanned',
         description: isArabic
@@ -156,39 +178,52 @@ export default function ExpensesPage() {
   };
 
   const handleSaveScannedExpense = () => {
-    if (!ocrResult || !selectedFile) {
+    if (!ocrResult || !ocrDraft || !selectedFile) {
+      return;
+    }
+
+    const amount = Number(ocrDraft.amount);
+    if (!amount || amount <= 0) {
+      toast({
+        title: isArabic ? 'المبلغ غير صالح' : 'Invalid amount',
+        description: isArabic
+          ? 'عدّل مبلغ الإيصال قبل الحفظ.'
+          : 'Please correct the receipt amount before saving.',
+        variant: 'destructive',
+      });
       return;
     }
 
     const receiptId = `receipt-${Date.now()}`;
     addReceiptScan({
       id: receiptId,
-      merchantName: ocrResult.merchantName,
-      amount: ocrResult.amount,
-      date: ocrResult.date,
-      currency: ocrResult.currency,
-      confidence: ocrResult.confidence,
-      suggestedCategory: ocrResult.suggestedCategory,
-      rawText: ocrResult.rawText,
+      merchantName: ocrDraft.merchantName.trim() || (isArabic ? 'إيصال بدون اسم' : 'Unnamed receipt'),
+      amount,
+      date: ocrDraft.date,
+      currency: ocrDraft.currency,
+      confidence: ocrDraft.confidence,
+      suggestedCategory: ocrDraft.suggestedCategory,
+      rawText: ocrDraft.rawText,
       imageName: selectedFile.name,
     });
 
     addExpenseEntry({
       id: `expense-${Date.now()}`,
-      amount: ocrResult.amount,
-      currency: ocrResult.currency,
-      category: ocrResult.suggestedCategory,
-      description: `${selectedFile.name} receipt`,
-      merchantName: ocrResult.merchantName,
-      date: ocrResult.date,
+      amount,
+      currency: ocrDraft.currency,
+      category: ocrDraft.suggestedCategory,
+      description: ocrDraft.description.trim() || `${selectedFile.name} receipt`,
+      merchantName: ocrDraft.merchantName.trim() || null,
+      date: ocrDraft.date,
       paymentMethod: 'Card',
-      notes: ocrResult.rawText.slice(0, 200) || null,
+      notes: ocrDraft.rawText.trim().slice(0, 200) || null,
       receiptId,
     });
 
     setScannerOpen(false);
     setSelectedFile(null);
     setOcrResult(null);
+    setOcrDraft(null);
     toast({
       title: isArabic ? 'تم حفظ الإيصال' : 'Receipt saved',
       description: isArabic
@@ -235,6 +270,7 @@ export default function ExpensesPage() {
                       onChange={(e) => {
                         setSelectedFile(e.target.files?.[0] ?? null);
                         setOcrResult(null);
+                        setOcrDraft(null);
                       }}
                     />
                   </div>
@@ -263,6 +299,83 @@ export default function ExpensesPage() {
                             <p className="font-medium">{ocrResult.confidence}%</p>
                           </div>
                         </div>
+                        {ocrDraft && (
+                          <div className="space-y-4 rounded-xl border bg-background/80 p-4">
+                            <div>
+                              <p className="text-sm font-medium">
+                                {isArabic ? 'راجع البيانات المستخرجة قبل الحفظ' : 'Review and correct the extracted data before saving'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {isArabic
+                                  ? 'يمكنك تعديل اسم التاجر والمبلغ والتاريخ والوصف والنص الخام.'
+                                  : 'You can edit the merchant, amount, date, description, category, and raw OCR text.'}
+                              </p>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label>{isArabic ? 'التاجر' : 'Merchant'}</Label>
+                                <Input
+                                  value={ocrDraft.merchantName}
+                                  onChange={(e) => setOcrDraft((current) => current ? { ...current, merchantName: e.target.value } : current)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>{isArabic ? 'المبلغ' : 'Amount'}</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={ocrDraft.amount}
+                                  onChange={(e) => setOcrDraft((current) => current ? { ...current, amount: e.target.value } : current)}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label>{isArabic ? 'التاريخ' : 'Date'}</Label>
+                                <Input
+                                  type="date"
+                                  value={ocrDraft.date}
+                                  onChange={(e) => setOcrDraft((current) => current ? { ...current, date: e.target.value } : current)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>{isArabic ? 'الفئة' : 'Category'}</Label>
+                                <Select
+                                  value={ocrDraft.suggestedCategory}
+                                  onValueChange={(value: ExpenseCategory) =>
+                                    setOcrDraft((current) => current ? { ...current, suggestedCategory: value } : current)
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {expenseCategories.map((category) => (
+                                      <SelectItem key={category} value={category}>
+                                        {category}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>{isArabic ? 'الوصف' : 'Description'}</Label>
+                              <Input
+                                value={ocrDraft.description}
+                                onChange={(e) => setOcrDraft((current) => current ? { ...current, description: e.target.value } : current)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>{isArabic ? 'النص الخام المستخرج' : 'Extracted Raw Text'}</Label>
+                              <Textarea
+                                className="min-h-[140px]"
+                                value={ocrDraft.rawText}
+                                onChange={(e) => setOcrDraft((current) => current ? { ...current, rawText: e.target.value } : current)}
+                              />
+                            </div>
+                          </div>
+                        )}
                         <Button className="w-full" onClick={handleSaveScannedExpense}>
                           {isArabic ? 'حفظ كمصروف' : 'Save as Expense'}
                         </Button>
