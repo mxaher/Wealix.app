@@ -3,12 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Wealix Theme - Navy & Gold */
+/* Wealix Design System extracted from the live site */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "SF Pro Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-sans: Inter, "Inter Variable", "Segoe UI", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
   --font-arabic: "Tajawal", "Tahoma", "Geeza Pro", "Arial Unicode MS", sans-serif;
   
   /* Sidebar */
@@ -46,15 +46,19 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   
-  /* Custom Wealix Colors */
-  --color-navy: var(--navy);
-  --color-navy-light: var(--navy-light);
-  --color-navy-dark: var(--navy-dark);
+  --color-weal: var(--weal);
+  --color-ix-gradient-start: var(--ix-gradient-start);
+  --color-ix-gradient-end: var(--ix-gradient-end);
   --color-gold: var(--gold);
   --color-gold-light: var(--gold-light);
   --color-gold-dark: var(--gold-dark);
+  --color-navy: var(--navy);
+  --color-navy-light: var(--navy-light);
+  --color-navy-dark: var(--navy-dark);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-profit: var(--profit);
+  --color-loss: var(--loss);
   
   /* Radius */
   --radius-sm: calc(var(--radius) - 4px);
@@ -68,132 +72,116 @@
   --radius: 0.625rem;
   
   /* Base Colors */
-  --background: oklch(0.988 0.002 247.839);
-  --foreground: oklch(0.176 0.02 261.587);
+  --background: #ffffff;
+  --foreground: #17171c;
   
   /* Card */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.176 0.02 261.587);
+  --card: #ffffff;
+  --card-foreground: #17171c;
   
   /* Popover */
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.176 0.02 261.587);
+  --popover: #ffffff;
+  --popover-foreground: #17171c;
   
-  /* Primary - Navy */
-  --primary: oklch(0.255 0.042 261.587);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #006aff;
+  --primary-foreground: #ffffff;
   
   /* Secondary */
-  --secondary: oklch(0.94 0.01 261.587);
-  --secondary-foreground: oklch(0.255 0.042 261.587);
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
   
   /* Muted */
-  --muted: oklch(0.94 0.01 261.587);
-  --muted-foreground: oklch(0.5 0.02 261.587);
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
   
-  /* Accent - Gold */
-  --accent: oklch(0.79 0.14 75.5);
-  --accent-foreground: oklch(0.255 0.042 261.587);
+  --accent: #00cc99;
+  --accent-foreground: #ffffff;
   
   /* Destructive */
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: #ef4343;
   
   /* Borders */
-  --border: oklch(0.9 0.01 261.587);
-  --input: oklch(0.9 0.01 261.587);
-  --ring: oklch(0.255 0.042 261.587);
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #006aff;
   
   /* Charts */
-  --chart-1: oklch(0.79 0.14 75.5);      /* Gold */
-  --chart-2: oklch(0.646 0.222 41.116);  /* Emerald */
-  --chart-3: oklch(0.6 0.118 184.704);   /* Cyan */
-  --chart-4: oklch(0.398 0.07 227.392);  /* Indigo */
-  --chart-5: oklch(0.704 0.191 22.216);  /* Rose */
+  --chart-1: #006aff;
+  --chart-2: #00bb7f;
+  --chart-3: #00b7d7;
+  --chart-4: #00bfff;
+  --chart-5: #99a1af;
   
   /* Sidebar */
-  --sidebar: oklch(0.98 0.005 261.587);
-  --sidebar-foreground: oklch(0.176 0.02 261.587);
-  --sidebar-primary: oklch(0.255 0.042 261.587);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.94 0.01 261.587);
-  --sidebar-accent-foreground: oklch(0.255 0.042 261.587);
-  --sidebar-border: oklch(0.9 0.01 261.587);
-  --sidebar-ring: oklch(0.255 0.042 261.587);
+  --sidebar: #fafafa;
+  --sidebar-foreground: #18181b;
+  --sidebar-primary: #006aff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #e9e9ec;
+  --sidebar-ring: #006aff;
   
-  /* Custom Colors */
-  --navy: oklch(0.255 0.042 261.587);
-  --navy-light: oklch(0.35 0.04 261.587);
-  --navy-dark: oklch(0.18 0.04 261.587);
-  --gold: oklch(0.79 0.14 75.5);
-  --gold-light: oklch(0.85 0.12 75.5);
-  --gold-dark: oklch(0.68 0.15 75.5);
-  --success: oklch(0.646 0.222 145.3);
-  --danger: oklch(0.577 0.245 27.325);
+  --weal: #006aff;
+  --ix-gradient-start: #00e6ac;
+  --ix-gradient-end: #00bfff;
+  --gold: #00cc99;
+  --gold-light: #7cebcf;
+  --gold-dark: #009978;
+  --navy: #006aff;
+  --navy-light: #3f8cff;
+  --navy-dark: #0046a8;
+  --success: #16a249;
+  --danger: #ef4343;
+  --profit: #16a249;
+  --loss: #ef4343;
 }
 
-/* Dark Theme (Default) */
 .dark {
-  --background: oklch(0.12 0.03 261.587);
-  --foreground: oklch(0.95 0.01 261.587);
-  
-  /* Card */
-  --card: oklch(0.16 0.035 261.587);
-  --card-foreground: oklch(0.95 0.01 261.587);
-  
-  /* Popover */
-  --popover: oklch(0.16 0.035 261.587);
-  --popover-foreground: oklch(0.95 0.01 261.587);
-  
-  /* Primary - Gold in dark mode for contrast */
-  --primary: oklch(0.79 0.14 75.5);
-  --primary-foreground: oklch(0.12 0.03 261.587);
-  
-  /* Secondary */
-  --secondary: oklch(0.22 0.03 261.587);
-  --secondary-foreground: oklch(0.95 0.01 261.587);
-  
-  /* Muted */
-  --muted: oklch(0.22 0.03 261.587);
-  --muted-foreground: oklch(0.65 0.02 261.587);
-  
-  /* Accent */
-  --accent: oklch(0.25 0.04 261.587);
-  --accent-foreground: oklch(0.79 0.14 75.5);
-  
-  /* Destructive */
-  --destructive: oklch(0.65 0.2 25);
-  
-  /* Borders */
-  --border: oklch(0.28 0.03 261.587);
-  --input: oklch(0.25 0.03 261.587);
-  --ring: oklch(0.79 0.14 75.5);
-  
-  /* Charts */
-  --chart-1: oklch(0.79 0.14 75.5);      /* Gold */
-  --chart-2: oklch(0.65 0.2 145.3);      /* Emerald */
-  --chart-3: oklch(0.65 0.15 184.704);   /* Cyan */
-  --chart-4: oklch(0.55 0.2 261.587);    /* Navy */
-  --chart-5: oklch(0.65 0.2 25);         /* Rose */
-  
-  /* Sidebar */
-  --sidebar: oklch(0.14 0.03 261.587);
-  --sidebar-foreground: oklch(0.95 0.01 261.587);
-  --sidebar-primary: oklch(0.79 0.14 75.5);
-  --sidebar-primary-foreground: oklch(0.12 0.03 261.587);
-  --sidebar-accent: oklch(0.22 0.03 261.587);
-  --sidebar-accent-foreground: oklch(0.79 0.14 75.5);
-  --sidebar-border: oklch(0.25 0.03 261.587);
-  --sidebar-ring: oklch(0.79 0.14 75.5);
-  
-  /* Custom Colors */
-  --navy: oklch(0.255 0.042 261.587);
-  --navy-light: oklch(0.35 0.04 261.587);
-  --navy-dark: oklch(0.18 0.04 261.587);
-  --gold: oklch(0.79 0.14 75.5);
-  --gold-light: oklch(0.85 0.12 75.5);
-  --gold-dark: oklch(0.68 0.15 75.5);
-  --success: oklch(0.65 0.2 145.3);
-  --danger: oklch(0.65 0.2 25);
+  --background: #0f1115;
+  --foreground: #f6f7f8;
+  --card: #141821;
+  --card-foreground: #f6f7f8;
+  --popover: #141821;
+  --popover-foreground: #f6f7f8;
+  --primary: #4d94ff;
+  --primary-foreground: #ffffff;
+  --secondary: #1c212c;
+  --secondary-foreground: #f6f7f8;
+  --muted: #1c212c;
+  --muted-foreground: #a7adba;
+  --accent: #11d7a0;
+  --accent-foreground: #04140f;
+  --destructive: #ff6262;
+  --border: #222938;
+  --input: #222938;
+  --ring: #4d94ff;
+  --chart-1: #4d94ff;
+  --chart-2: #11d7a0;
+  --chart-3: #00b7d7;
+  --chart-4: #8d54ff;
+  --chart-5: #ff7f50;
+  --sidebar: #12161e;
+  --sidebar-foreground: #f6f7f8;
+  --sidebar-primary: #4d94ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c212c;
+  --sidebar-accent-foreground: #f6f7f8;
+  --sidebar-border: #222938;
+  --sidebar-ring: #4d94ff;
+  --weal: #4d94ff;
+  --ix-gradient-start: #00e6ac;
+  --ix-gradient-end: #00bfff;
+  --gold: #11d7a0;
+  --gold-light: #63ebc6;
+  --gold-dark: #0aa67b;
+  --navy: #4d94ff;
+  --navy-light: #76acff;
+  --navy-dark: #c5dcff;
+  --success: #22c55e;
+  --danger: #ff6262;
+  --profit: #22c55e;
+  --loss: #ff6262;
 }
 
 @layer base {
@@ -206,6 +194,9 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
   }
 }
 
@@ -234,22 +225,21 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--muted);
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--foreground);
+  background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
 }
 
 /* Custom Animations */
@@ -259,6 +249,123 @@
   }
   100% {
     background-position: 200% 0;
+  }
+}
+
+@layer components {
+  .logo-weal {
+    color: var(--color-weal);
+  }
+
+  .logo-ix {
+    background: linear-gradient(135deg, var(--color-ix-gradient-start), var(--color-ix-gradient-end));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .glass {
+    background: color-mix(in srgb, var(--background) 82%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 12px 30px -14px color-mix(in srgb, var(--primary) 60%, transparent);
+  }
+
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--primary) 88%, black);
+  }
+
+  .card-hover {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.14), 0 4px 8px -4px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-card {
+    background: var(--card);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.14), 0 4px 8px -4px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .financial-number {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text-profit {
+    color: var(--profit);
+  }
+
+  .text-loss {
+    color: var(--loss);
+  }
+
+  .sidebar {
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .sidebar-item:hover {
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+
+  .sidebar-item.active {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+  }
+
+  .hero-orbit {
+    background:
+      radial-gradient(circle at 20% 20%, rgba(0, 106, 255, 0.09), transparent 28%),
+      radial-gradient(circle at 80% 10%, rgba(0, 204, 153, 0.1), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(0, 106, 255, 0.02));
   }
 }
 
@@ -278,16 +385,6 @@
   font-feature-settings: "numr" on;
 }
 
-/* Card Hover Effects */
-.card-hover {
-  @apply transition-all duration-200 hover:shadow-lg hover:scale-[1.01];
-}
-
-/* Gradient Text */
-.gradient-text {
-  @apply bg-gradient-to-r from-gold to-gold-light bg-clip-text text-transparent;
-}
-
 /* Status Colors */
 .status-positive {
   @apply text-emerald-500;
@@ -299,9 +396,4 @@
 
 .status-neutral {
   @apply text-muted-foreground;
-}
-
-/* Gold Glow Effect */
-.gold-glow {
-  box-shadow: 0 0 20px rgba(212, 168, 67, 0.3);
 }

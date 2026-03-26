@@ -45,24 +45,20 @@ export function DashboardShell({ children }: DashboardShellProps) {
         className={cn(
           'transition-all duration-200',
           'md:transition-none',
-          // Desktop: Add margin for sidebar
           !isMobile && (
             sidebarCollapsed
-              ? isArabic ? 'md:mr-[72px]' : 'md:ml-[72px]'
-              : isArabic ? 'md:mr-[240px]' : 'md:ml-[240px]'
+              ? isArabic ? 'md:mr-[84px]' : 'md:ml-[84px]'
+              : isArabic ? 'md:mr-[280px]' : 'md:ml-[280px]'
           )
         )}
       >
-        {/* Header */}
         <Header />
 
-        {/* Page Content */}
-        <main className="p-4 md:p-6 pb-24 md:pb-6">
+        <main className="p-4 pb-24 md:p-6 md:pb-6 xl:p-8">
           {children}
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
       <BottomNav />
     </div>
   );

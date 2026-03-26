@@ -1,690 +1,323 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  Briefcase,
-  Flame,
-  Receipt,
-  Bot,
-  ArrowUpRight,
-  ArrowDownRight,
-  Sparkles,
-  Building2,
-  Car,
-  Landmark,
-  MoreHorizontal,
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ArrowRight, Bot, Briefcase, Flame, Globe, LineChart, Moon, Receipt, ShieldCheck, Sun, Wallet } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { Show, SignInButton, SignUpButton } from '@clerk/nextjs';
+import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DashboardShell } from '@/components/layout';
-import { StatCard, CurrencyDisplay, DashboardSkeleton } from '@/components/shared';
-import { useAppStore, formatCurrency, formatPercent } from '@/store/useAppStore';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
-import { useState, useEffect } from 'react';
 
-// Mock data for demonstration
-const mockNetWorthData = [
-  { month: 'Jan', value: 450000 },
-  { month: 'Feb', value: 465000 },
-  { month: 'Mar', value: 448000 },
-  { month: 'Apr', value: 472000 },
-  { month: 'May', value: 489000 },
-  { month: 'Jun', value: 512000 },
-  { month: 'Jul', value: 525000 },
-  { month: 'Aug', value: 518000 },
-  { month: 'Sep', value: 542000 },
-  { month: 'Oct', value: 568000 },
-  { month: 'Nov', value: 585000 },
-  { month: 'Dec', value: 612450 },
+const sections = [
+  { id: 'features', label: 'Features' },
+  { id: 'pricing', label: 'Pricing' },
+  { id: 'faq', label: 'FAQ' },
 ];
 
-const mockHoldings = [
-  { ticker: '2222.SR', name: 'Saudi Aramco', shares: 100, avgCost: 32.5, currentPrice: 35.2, change: 2.3, isShariah: true },
-  { ticker: '1120.SR', name: 'Al Rajhi Bank', shares: 50, avgCost: 98.0, currentPrice: 105.5, change: 1.8, isShariah: true },
-  { ticker: 'COMI.CA', name: 'CIB Egypt', shares: 200, avgCost: 45.0, currentPrice: 52.3, change: -0.5, isShariah: false },
-  { ticker: 'AAPL', name: 'Apple Inc.', shares: 25, avgCost: 175.0, currentPrice: 182.5, change: 1.2, isShariah: false },
-  { ticker: '1180.SR', name: 'Maaden', shares: 75, avgCost: 45.0, currentPrice: 48.2, change: 0.8, isShariah: true },
+const featureCards = [
+  {
+    icon: Wallet,
+    title: 'Financial Command Center',
+    description: 'Track income, expenses, assets, liabilities, and net worth from one clean operating layer.',
+  },
+  {
+    icon: Briefcase,
+    title: 'Portfolio Intelligence',
+    description: 'Import holdings, review allocation, and get AI-guided decisions for hold, trim, add, or diversify.',
+  },
+  {
+    icon: Receipt,
+    title: 'Receipt Capture & OCR',
+    description: 'Scan or upload receipts, review the extracted fields, then accept corrected data into expenses.',
+  },
+  {
+    icon: Flame,
+    title: 'FIRE Planning',
+    description: 'Model financial independence progress and connect day-to-day budgeting with long-term freedom.',
+  },
+  {
+    icon: Bot,
+    title: 'AI Wealth Advisor',
+    description: 'Turn your current numbers into practical guidance, summaries, and next-best actions.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Clerk-Based Accounts',
+    description: 'Each signed-in user gets an isolated workspace with clean live data and a safe demo experience for guests.',
+  },
 ];
 
-const mockTransactions = [
-  { id: 1, category: 'food', description: 'Grocery Shopping', amount: -450, date: '2025-01-15' },
-  { id: 2, category: 'transport', description: 'Uber Rides', amount: -120, date: '2025-01-14' },
-  { id: 3, category: 'investment', description: 'Stock Purchase', amount: -5000, date: '2025-01-13' },
-  { id: 4, category: 'housing', description: 'Rent Payment', amount: -4500, date: '2025-01-01' },
-  { id: 5, category: 'zakat', description: 'Charity Donation', amount: -1000, date: '2025-01-10' },
+const stats = [
+  { value: '14 Days', label: 'Free Trial' },
+  { value: '5+', label: 'Markets' },
+  { value: 'FIRE', label: 'Planning' },
+  { value: 'AI', label: 'Advisor' },
 ];
 
-const mockMarketData = [
-  { name: 'TASI', value: '12,458.32', change: 1.2 },
-  { name: 'EGX 30', value: '32,156.78', change: -0.5 },
-  { name: 'S&P 500', value: '5,842.15', change: 0.8 },
-  { name: 'Gold', value: '2,648.50', change: 0.3 },
-  { name: 'USD/SAR', value: '3.75', change: 0.0 },
-];
-
-const budgetData = [
-  { name: 'Housing', value: 4500, color: '#D4A843' },
-  { name: 'Food', value: 2500, color: '#10B981' },
-  { name: 'Transport', value: 800, color: '#3B82F6' },
-  { name: 'Investment', value: 5000, color: '#8B5CF6' },
-  { name: 'Other', value: 1500, color: '#6B7280' },
-];
-
-const categoryIcons: Record<string, React.ReactNode> = {
-  food: '🍽️',
-  transport: '🚗',
-  investment: '📈',
-  housing: '🏠',
-  zakat: '🕌',
-  other: '📦',
-};
-
-export default function DashboardPage() {
-  const { locale, appMode, incomeEntries, expenseEntries, portfolioHoldings } = useAppStore();
+export default function LandingPage() {
+  const { theme, setTheme } = useTheme();
+  const locale = useAppStore((state) => state.locale);
+  const setLocale = useAppStore((state) => state.setLocale);
   const isArabic = locale === 'ar';
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <DashboardShell>
-        <DashboardSkeleton />
-      </DashboardShell>
-    );
-  }
-
-  const isDemoMode = appMode === 'demo';
-  const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const livePortfolioValue = portfolioHoldings.reduce((sum, item) => sum + item.shares * item.currentPrice, 0);
-  const totalNetWorth = isDemoMode ? 612450 : Math.max(totalIncome + livePortfolioValue - totalExpenses, 0);
-  const totalAssets = isDemoMode ? 750000 : totalIncome;
-  const totalLiabilities = isDemoMode ? 137550 : totalExpenses;
-  const portfolioValue = isDemoMode ? 485000 : livePortfolioValue;
-  const todayGainPercent = isDemoMode ? 0.67 : 0;
-  const fireProgress = isDemoMode ? 40.8 : 0;
-  const yearsToFire = isDemoMode ? 18 : 0;
-  const holdings = isDemoMode ? mockHoldings : portfolioHoldings.map((holding) => ({
-    ...holding,
-    change: holding.avgCost > 0 ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100 : 0,
-  }));
-  const transactions = isDemoMode ? mockTransactions : [];
-  const marketData = isDemoMode ? mockMarketData : [];
-  const netWorthChartData = isDemoMode ? mockNetWorthData : [];
-  const spendingChartData = isDemoMode ? budgetData : [];
-  const hasLiveData = totalIncome > 0 || totalExpenses > 0 || portfolioValue > 0 || holdings.length > 0;
-  const budgetUsage = isDemoMode
-    ? 67
-    : totalIncome > 0
-      ? Math.min(100, Math.round((totalExpenses / totalIncome) * 100))
-      : 0;
 
   return (
-    <DashboardShell>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {isArabic ? 'لوحة التحكم' : 'Dashboard'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isArabic
-                ? isDemoMode
-                  ? 'مرحباً بك مجدداً! إليك نظرة عامة على وضعك المالي'
-                  : 'الوضع المباشر نشط. ابدأ بإضافة بياناتك الحقيقية من الدخل والمصروفات والمحفظة.'
-                : isDemoMode
-                  ? 'Welcome back! Here\'s your financial overview'
-                  : 'Live mode is active. Start adding your real income, expenses, and holdings.'}
-            </p>
+    <div className="min-h-screen bg-background text-foreground" dir={isArabic ? 'rtl' : 'ltr'}>
+      <nav className="glass fixed inset-x-0 top-0 z-50 border-b border-border/70">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-0.5 text-xl font-bold">
+            <span className="logo-weal">Weal</span>
+            <span className="logo-ix">ix</span>
+          </Link>
+
+          <div className="hidden items-center gap-8 md:flex">
+            {sections.map((section) => (
+              <a key={section.id} href={`#${section.id}`} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                {section.label}
+              </a>
+            ))}
+            <a href="#contact" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Contact
+            </a>
           </div>
-          <Button className="gap-2 bg-gold hover:bg-gold-dark text-navy-dark">
-            <Sparkles className="w-4 h-4" />
-            {isArabic ? 'رؤية الذكاء الاصطناعي' : 'AI Insight'}
-          </Button>
-        </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title={isArabic ? 'صافي الثروة' : 'Net Worth'}
-            value={formatCurrency(totalNetWorth, 'SAR', locale)}
-            change={isDemoMode ? 5.2 : undefined}
-            changeLabel={isDemoMode ? (isArabic ? 'هذا الشهر' : 'this month') : undefined}
-            icon={Wallet}
-            iconColor="text-gold bg-gold/10"
-          />
-          <StatCard
-            title={isArabic ? 'قيمة المحفظة' : 'Portfolio Value'}
-            value={formatCurrency(portfolioValue, 'SAR', locale)}
-            change={todayGainPercent}
-            changeLabel={isArabic ? 'اليوم' : 'today'}
-            icon={Briefcase}
-            iconColor="text-emerald-500 bg-emerald-500/10"
-          />
-          <StatCard
-            title={isArabic ? 'تقدم FIRE' : 'FIRE Progress'}
-            value={`${fireProgress.toFixed(1)}%`}
-            icon={Flame}
-            iconColor="text-orange-500 bg-orange-500/10"
-          />
-          <StatCard
-            title={isArabic ? 'الميزانية الشهرية' : 'Monthly Budget'}
-            value={`${budgetUsage}%`}
-            change={isDemoMode ? -12 : undefined}
-            changeLabel={isDemoMode ? (isArabic ? 'متبقي' : 'remaining') : undefined}
-            icon={Receipt}
-            iconColor="text-blue-500 bg-blue-500/10"
-          />
-        </div>
-
-        {!isDemoMode && !hasLiveData && (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  {isArabic ? 'الحساب جديد وجاهز للبدء' : 'This account is clean and ready'}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {isArabic
-                    ? 'لا توجد أي بيانات تجريبية لهذا المستخدم. ابدأ بإضافة الدخل أو المصروفات أو مراكز المحفظة لتظهر لك لوحة التحكم بالأرقام الحقيقية.'
-                    : 'There is no demo data for this user. Add income, expenses, or portfolio holdings to start populating the dashboard with real values.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline"><a href="/income">{isArabic ? 'إضافة دخل' : 'Add Income'}</a></Button>
-                <Button asChild variant="outline"><a href="/expenses">{isArabic ? 'إضافة مصروف' : 'Add Expense'}</a></Button>
-                <Button asChild><a href="/portfolio">{isArabic ? 'إضافة محفظة' : 'Add Portfolio'}</a></Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Net Worth Chart */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-gold" />
-                {isArabic ? 'اتجاه صافي الثروة' : 'Net Worth Trend'}
-              </CardTitle>
-              <CardDescription>
-                {isArabic ? 'آخر 12 شهراً' : 'Last 12 months'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={netWorthChartData}>
-                    <defs>
-                      <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--gold)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="var(--gold)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis
-                      dataKey="month"
-                      stroke="var(--muted-foreground)"
-                      fontSize={12}
-                    />
-                    <YAxis
-                      stroke="var(--muted-foreground)"
-                      fontSize={12}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                      }}
-                      formatter={(value: number) => [formatCurrency(value, 'SAR', locale), '']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="var(--gold)"
-                      strokeWidth={2}
-                      fill="url(#netWorthGradient)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* FIRE Progress */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Flame className="w-5 h-5 text-orange-500" />
-                {isArabic ? 'تقدم FIRE' : 'FIRE Progress'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Progress Ring */}
-              <div className="relative w-40 h-40 mx-auto">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="70"
-                    fill="none"
-                    stroke="var(--muted)"
-                    strokeWidth="12"
-                  />
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="70"
-                    fill="none"
-                    stroke="var(--gold)"
-                    strokeWidth="12"
-                    strokeLinecap="round"
-                    strokeDasharray={`${fireProgress * 4.4} 440`}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold">{fireProgress.toFixed(0)}%</span>
-                  <span className="text-sm text-muted-foreground">
-                    {isArabic ? 'مكتمل' : 'complete'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {isArabic ? 'الهدف' : 'Target'}
-                  </span>
-                  <span className="font-medium">1,500,000 SAR</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {isArabic ? 'الحالي' : 'Current'}
-                  </span>
-                  <span className="font-medium">{formatCurrency(totalNetWorth, 'SAR', locale)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {isArabic ? 'سنوات متبقية' : 'Years to FIRE'}
-                  </span>
-                  <span className="font-medium text-gold">{yearsToFire} {isArabic ? 'سنة' : 'years'}</span>
-                </div>
-              </div>
-
-              <Button className="w-full" variant="outline">
-                {isArabic ? 'عرض التفاصيل' : 'View Details'}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => setLocale(isArabic ? 'en' : 'ar')}
+              title={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}
+            >
+              <Globe className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={isArabic ? 'تبديل الوضع' : 'Toggle theme'}
+            >
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </Button>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <Button variant="ghost" className="hidden rounded-full md:inline-flex">
+                  {isArabic ? 'دخول' : 'Log In'}
+                </Button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <Button className="btn-primary rounded-full">
+                  {isArabic ? 'ابدأ الآن' : 'Get Started'}
+                </Button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <Button asChild className="btn-primary rounded-full">
+                <Link href="/app">
+                  {isArabic ? 'فتح التطبيق' : 'Open App'}
+                </Link>
               </Button>
-            </CardContent>
-          </Card>
+            </Show>
+          </div>
         </div>
+      </nav>
 
-        {/* Second Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Top Holdings */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{isArabic ? 'أفضل الممتلكات' : 'Top Holdings'}</CardTitle>
-                <Button variant="ghost" size="sm">
-                  {isArabic ? 'عرض الكل' : 'View All'}
+      <main>
+        <section className="relative overflow-hidden px-4 pt-28 pb-16 sm:px-6 lg:px-8 lg:pt-36 lg:pb-24">
+          <div className="hero-orbit pointer-events-none absolute inset-0 opacity-80" />
+          <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="relative z-10"
+            >
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+                Personal Wealth Operating System
+              </span>
+              <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+                Master your wealth with <span className="gradient-text">intelligent</span> insights
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-8 text-muted-foreground md:text-lg">
+                Wealix combines budgeting, investing, FIRE planning, OCR-powered expense capture, and AI analysis into one calm operating system for personal wealth.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Show when="signed-out">
+                  <SignUpButton mode="modal">
+                    <Button className="btn-primary rounded-xl px-5 py-6 text-sm">
+                      Start Free Trial - 14 Days
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </SignUpButton>
+                </Show>
+                <Show when="signed-in">
+                  <Button asChild className="btn-primary rounded-xl px-5 py-6 text-sm">
+                    <Link href="/app">
+                      Open Wealix
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </Show>
+                <Button asChild variant="outline" className="rounded-xl border-border bg-card/70 px-5 py-6 text-sm">
+                  <a href="#features">Explore Features</a>
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-64">
-                <div className="space-y-3">
-                  {holdings.length === 0 && (
-                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                      {isArabic ? 'لا توجد مراكز استثمارية بعد.' : 'No holdings yet.'}
-                    </div>
-                  )}
-                  {holdings.map((holding, index) => {
-                    const marketValue = holding.shares * holding.currentPrice;
-                    const gainLoss = (holding.currentPrice - holding.avgCost) * holding.shares;
-                    const gainLossPercent = ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100;
+            </motion.div>
 
-                    return (
-                      <motion.div
-                        key={holding.ticker}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                          {holding.ticker.slice(0, 2)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{holding.ticker}</span>
-                            {holding.isShariah && (
-                              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                                {isArabic ? 'شريعة' : 'Shariah'}
-                              </Badge>
-                            )}
-                          </div>
-                          <span className="text-sm text-muted-foreground truncate block">
-                            {holding.name}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">
-                            {formatCurrency(marketValue, 'SAR', locale)}
-                          </div>
-                          <div className={`text-sm flex items-center justify-end gap-1 ${gainLoss >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            {gainLoss >= 0 ? (
-                              <ArrowUpRight className="w-3 h-3" />
-                            ) : (
-                              <ArrowDownRight className="w-3 h-3" />
-                            )}
-                            {gainLossPercent.toFixed(2)}%
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.1 }}
+              className="relative"
+            >
+              <div className="absolute -inset-6 rounded-[32px] bg-gradient-to-br from-primary/18 via-accent/12 to-transparent blur-3xl" />
+              <div className="relative overflow-hidden rounded-[28px] border border-border bg-card/90 p-6 shadow-[0_30px_90px_-35px_rgba(0,106,255,0.35)]">
+                <div className="flex items-center justify-between border-b border-border pb-5">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Wealix App</p>
+                    <p className="text-xs text-muted-foreground">Unified financial operating layer</p>
+                  </div>
+                  <span className="rounded-full bg-accent/12 px-3 py-1 text-xs font-medium text-accent">Live Design System</span>
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Budget Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{isArabic ? 'الميزانية الشهرية' : 'Monthly Budget'}</CardTitle>
-              <CardDescription>
-                {isArabic ? 'يناير 2025' : 'January 2025'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48 mb-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={spendingChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {spendingChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-2">
-                {spendingChartData.length === 0 && (
-                  <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'لا توجد ميزانية أو مصروفات بعد.' : 'No budget or expense data yet.'}
-                  </div>
-                )}
-                {spendingChartData.slice(0, 4).map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span>{isArabic ? item.name : item.name}</span>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {stats.map((stat) => (
+                    <div key={stat.label} className="stat-card p-5">
+                      <div className="stat-value">{stat.value}</div>
+                      <div className="stat-label mt-1">{stat.label}</div>
                     </div>
-                    <span>{formatCurrency(item.value, 'SAR', locale)}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Third Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Transactions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{isArabic ? 'المعاملات الأخيرة' : 'Recent Transactions'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-64">
-                <div className="space-y-3">
-                  {transactions.length === 0 && (
-                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                      {isArabic ? 'لا توجد معاملات بعد.' : 'No recent transactions yet.'}
-                    </div>
-                  )}
-                  {transactions.map((tx, index) => (
-                    <motion.div
-                      key={tx.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-lg">
-                        {categoryIcons[tx.category] || '📦'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium text-sm truncate block">
-                          {tx.description}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {tx.date}
-                        </span>
-                      </div>
-                      <span className={`font-medium ${tx.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                        {tx.amount < 0 ? '' : '+'}{formatCurrency(Math.abs(tx.amount), 'SAR', locale)}
-                      </span>
-                    </motion.div>
                   ))}
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* Market Snapshot */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{isArabic ? 'نظرة السوق' : 'Market Snapshot'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {marketData.length === 0 && (
-                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'بيانات السوق التجريبية غير مفعلة في الوضع المباشر.' : 'Market demo data is disabled in live mode.'}
-                  </div>
-                )}
-                {marketData.map((market, index) => (
-                  <div
-                    key={market.name}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <span className="font-medium">{market.name}</span>
-                    <div className="text-right">
-                      <div className="font-medium">{market.value}</div>
-                      <div className={`text-xs ${market.change >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {market.change >= 0 ? '+' : ''}{market.change.toFixed(2)}%
+                <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                  <div className="card-hover rounded-[20px] border border-border bg-background p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Portfolio Health</p>
+                        <p className="mt-1 text-2xl font-semibold financial-number">$612,450</p>
+                      </div>
+                      <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                        <LineChart className="h-5 w-5" />
                       </div>
                     </div>
+                    <div className="mt-5 h-28 rounded-2xl bg-[linear-gradient(180deg,rgba(0,106,255,0.14),rgba(0,106,255,0.02))]" />
                   </div>
-                ))}
+                  <div className="card-hover rounded-[20px] border border-border bg-background p-5">
+                    <p className="text-sm text-muted-foreground">AI Focus</p>
+                    <p className="mt-2 text-base leading-7 text-foreground">
+                      Reduce concentration in energy, add income diversification, and rebalance to improve resilience.
+                    </p>
+                    <div className="mt-5 flex gap-2">
+                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">Buy</span>
+                      <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">Hold</span>
+                      <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">Review</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </motion.div>
+          </div>
+        </section>
 
-          {/* AI Insight */}
-          <Card className="bg-gradient-to-br from-primary/10 to-gold/10 border-gold/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-gold" />
-                {isArabic ? 'رؤية الذكاء الاصطناعي' : 'AI Insight'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                {isDemoMode
-                  ? (isArabic
-                      ? 'محفظتك تظهر أداءً قوياً هذا الشهر مع عائد إجمالي 5.2%. فكر في إعادة توازن توزيعك بزيادة استثماراتك في القطاع المصرفي السعودي.'
-                      : 'Your portfolio is showing strong performance this month with a total return of 5.2%. Consider rebalancing your allocation by increasing your Saudi banking sector investments.')
-                  : (isArabic
-                      ? 'أضف بيانات فعلية أكثر ليقدم الذكاء الاصطناعي توصيات مخصصة بناءً على محفظتك ودخلك ومصروفاتك.'
-                      : 'Add more real data so the AI can generate personalized insights from your portfolio, income, and expenses.')}
+        <section id="features" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-2xl text-center">
+              <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                Features
+              </span>
+              <h2 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Everything you need in one place
+              </h2>
+              <p className="mt-4 text-base leading-8 text-muted-foreground">
+                The live Wealix design is built around calm surfaces, focused financial cards, and a side menu split into overview, planning, investing, and system tools.
               </p>
-              <Button className="w-full bg-gold hover:bg-gold-dark text-navy-dark">
-                <Sparkles className="w-4 h-4 mr-2" />
-                {isArabic ? 'تحليل كامل' : 'Full Analysis'}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {featureCards.map((feature, index) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{ duration: 0.35, delay: index * 0.05 }}
+                  className="card-hover rounded-[20px] border border-border bg-card p-6"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <feature.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="mt-5 text-xl font-semibold">{feature.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-muted-foreground">{feature.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        {/* Assets & Liabilities Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Assets */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-emerald-500" />
-                {isArabic ? 'الأصول' : 'Assets'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {!isDemoMode && (
-                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'لا توجد أصول مسجلة بعد لهذا المستخدم.' : 'No assets recorded yet for this user.'}
-                  </div>
-                )}
-                {isDemoMode && (
-                  <>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                      <Landmark className="w-5 h-5 text-emerald-500" />
-                    </div>
-                    <div>
-                      <span className="font-medium">{isArabic ? 'نقد ومدخرات' : 'Cash & Savings'}</span>
-                      <span className="text-xs text-muted-foreground block">4 {isArabic ? 'حسابات' : 'accounts'}</span>
-                    </div>
-                  </div>
-                  <span className="font-medium">{formatCurrency(250000, 'SAR', locale)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                      <Briefcase className="w-5 h-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <span className="font-medium">{isArabic ? 'استثمارات' : 'Investments'}</span>
-                      <span className="text-xs text-muted-foreground block">5 {isArabic ? 'أسهم' : 'stocks'}</span>
-                    </div>
-                  </div>
-                  <span className="font-medium">{formatCurrency(485000, 'SAR', locale)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-purple-500" />
-                    </div>
-                    <div>
-                      <span className="font-medium">{isArabic ? 'عقارات' : 'Real Estate'}</span>
-                      <span className="text-xs text-muted-foreground block">1 {isArabic ? 'عقار' : 'property'}</span>
-                    </div>
-                  </div>
-                  <span className="font-medium">{formatCurrency(15000, 'SAR', locale)}</span>
-                </div>
-                  </>
-                )}
+        <section id="pricing" className="border-y border-border bg-secondary/35 px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mx-auto max-w-2xl text-center">
+              <span className="inline-flex items-center rounded-full bg-card px-3 py-1 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                Pricing
+              </span>
+              <h2 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">Start simple, scale when you need deeper analysis</h2>
+            </div>
+            <div className="mt-12 grid gap-5 md:grid-cols-2">
+              <div className="card-hover rounded-[24px] border border-border bg-card p-8">
+                <p className="text-sm font-medium text-muted-foreground">Core</p>
+                <h3 className="mt-3 text-4xl font-semibold">$0</h3>
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">Budgeting, receipts, net worth, portfolio tracking, and demo access for guided exploration.</p>
               </div>
-              <div className="mt-4 pt-4 border-t flex justify-between">
-                <span className="font-medium">{isArabic ? 'إجمالي الأصول' : 'Total Assets'}</span>
-                <span className="font-bold text-emerald-500">{formatCurrency(totalAssets, 'SAR', locale)}</span>
+              <div className="card-hover rounded-[24px] border border-primary/20 bg-card p-8 ring-1 ring-primary/10">
+                <p className="text-sm font-medium text-primary">Pro</p>
+                <h3 className="mt-3 text-4xl font-semibold">$12</h3>
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">AI advisor workflows, advanced portfolio analysis, richer reports, and future cloud sync capabilities.</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </section>
 
-          {/* Liabilities */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Car className="w-5 h-5 text-rose-500" />
-                {isArabic ? 'الالتزامات' : 'Liabilities'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {!isDemoMode && (
-                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'لا توجد التزامات مسجلة بعد لهذا المستخدم.' : 'No liabilities recorded yet for this user.'}
-                  </div>
-                )}
-                {isDemoMode && (
-                  <>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center">
-                      <Landmark className="w-5 h-5 text-rose-500" />
-                    </div>
-                    <div>
-                      <span className="font-medium">{isArabic ? 'قرض عقاري' : 'Mortgage'}</span>
-                      <span className="text-xs text-muted-foreground block">{isArabic ? 'متبقي 18 سنة' : '18 years left'}</span>
-                    </div>
-                  </div>
-                  <span className="font-medium">{formatCurrency(120000, 'SAR', locale)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                      <Car className="w-5 h-5 text-orange-500" />
-                    </div>
-                    <div>
-                      <span className="font-medium">{isArabic ? 'قرض سيارة' : 'Car Loan'}</span>
-                      <span className="text-xs text-muted-foreground block">{isArabic ? 'متبقي 3 سنوات' : '3 years left'}</span>
-                    </div>
-                  </div>
-                  <span className="font-medium">{formatCurrency(17550, 'SAR', locale)}</span>
-                </div>
-                  </>
-                )}
+        <section id="faq" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-3">
+            {[
+              ['What does the sidebar include?', 'Overview, Cash Flow, Investing, Planning, and System sections. The live app groups Dashboard, Income, Expenses, Net Worth, Portfolio, FIRE, Retirement, Reports, and Settings into a focused operating menu.'],
+              ['What fonts does Wealix use?', 'Inter drives the main interface, JetBrains Mono is used for numeric and code-like emphasis, and Tajawal handles Arabic typography with RTL support.'],
+              ['How are colors used?', 'Blue is primary for navigation and action, mint is accent for success and emphasis, white and soft gray surfaces keep the app calm, and green/red communicate financial gains and losses.'],
+            ].map(([title, body]) => (
+              <div key={title} className="card-hover rounded-[20px] border border-border bg-card p-6">
+                <h3 className="text-lg font-semibold">{title}</h3>
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">{body}</p>
               </div>
-              <div className="mt-4 pt-4 border-t flex justify-between">
-                <span className="font-medium">{isArabic ? 'إجمالي الالتزامات' : 'Total Liabilities'}</span>
-                <span className="font-bold text-rose-500">{formatCurrency(totalLiabilities, 'SAR', locale)}</span>
+            ))}
+          </div>
+        </section>
+
+        <section id="contact" className="px-4 pb-24 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl overflow-hidden rounded-[28px] border border-border bg-[linear-gradient(135deg,rgba(0,106,255,0.10),rgba(0,204,153,0.08))] p-8 md:p-12">
+            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <span className="inline-flex items-center rounded-full bg-background/80 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+                  Wealix
+                </span>
+                <h2 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">Personal Wealth Operating System</h2>
+                <p className="mt-4 text-base leading-8 text-muted-foreground">
+                  The landing page, token system, split logo, sidebar grouping, and app shell in this repo now follow the live Wealix frontend direction instead of the older navy-gold theme.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </DashboardShell>
+              <div className="flex flex-wrap gap-3">
+                <Show when="signed-out">
+                  <SignUpButton mode="modal">
+                    <Button className="btn-primary rounded-xl">Create your workspace</Button>
+                  </SignUpButton>
+                </Show>
+                <Show when="signed-in">
+                  <Button asChild className="btn-primary rounded-xl">
+                    <Link href="/app">Go to app</Link>
+                  </Button>
+                </Show>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Search, Moon, Sun, Globe, Settings } from 'lucide-react';
+import { Bell, Search, Moon, Sun, Globe, Settings, PanelLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
@@ -24,6 +24,7 @@ export function Header() {
   const setLocale = useAppStore((state) => state.setLocale);
   const notificationFeed = useAppStore((state) => state.notificationFeed);
   const markAllNotificationsRead = useAppStore((state) => state.markAllNotificationsRead);
+  const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const unreadCount = notificationFeed.filter((item) => !item.read).length;
 
   const isArabic = locale === 'ar';
@@ -37,36 +38,47 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 transition-all duration-200">
-      {/* Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
-        <div className="relative w-full hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <header className="glass sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/70 px-4 md:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <Button variant="ghost" size="icon" className="hidden rounded-xl md:inline-flex" onClick={toggleSidebar}>
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+        <div className="hidden sm:block">
+          <p className="text-sm font-medium text-foreground">
+            {isArabic ? 'مساحة Wealix' : 'Wealix Workspace'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {isArabic ? 'نظام تشغيل الثروة الشخصية' : 'Personal Wealth Operating System'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mx-4 hidden max-w-md flex-1 lg:block">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={isArabic ? 'بحث...' : 'Search...'}
-            className="pl-9 bg-muted/50"
+            className="h-10 rounded-xl border-border bg-secondary/60 pl-9 shadow-none"
           />
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2">
-        {/* Language Toggle */}
         <Button
           variant="ghost"
           size="icon"
           onClick={handleLanguageToggle}
-          className="hidden sm:flex"
+          className="hidden rounded-xl sm:flex"
           title={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}
         >
           <Globe className="w-4 h-4" />
         </Button>
 
-        {/* Theme Toggle - CSS-based icon switching for SSR compatibility */}
         <Button
           variant="ghost"
           size="icon"
           onClick={handleThemeToggle}
+          className="rounded-xl"
           title={isArabic ? 'تبديل الوضع' : 'Toggle theme'}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -77,7 +89,7 @@ export function Header() {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative rounded-xl">
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center">
@@ -121,23 +133,23 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" className="rounded-xl" asChild>
           <Link href="/settings?tab=profile" title={isArabic ? 'الإعدادات' : 'Settings'}>
             <Settings className="w-4 h-4" />
           </Link>
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-1 py-1 shadow-sm">
           <Show when="signed-out">
             <SignInButton mode="modal">
-              <Button variant="ghost" size="sm">{isArabic ? 'دخول' : 'Sign in'}</Button>
+              <Button variant="ghost" size="sm" className="rounded-full">{isArabic ? 'دخول' : 'Sign in'}</Button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <Button size="sm">{isArabic ? 'إنشاء حساب' : 'Sign up'}</Button>
+              <Button size="sm" className="btn-primary rounded-full">{isArabic ? 'إنشاء حساب' : 'Sign up'}</Button>
             </SignUpButton>
           </Show>
           <Show when="signed-in">
-            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full">
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full [&_.cl-userButtonBox]:h-9 [&_.cl-userButtonBox]:w-9 [&_.cl-avatarBox]:h-9 [&_.cl-avatarBox]:w-9">
               <UserButton />
             </div>
           </Show>

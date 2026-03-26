@@ -52,22 +52,21 @@ export function StatCard({
       transition={{ duration: 0.3 }}
       className="h-full"
     >
-      <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow duration-200">
+      <Card className="stat-card h-full overflow-hidden border-0 py-0">
         <CardContent
           className={cn(
             variant === 'large' ? 'p-6' : variant === 'compact' ? 'p-3' : 'p-4',
             'relative'
           )}
         >
-          {/* Background gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.07] to-transparent" />
 
           <div className="relative flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-sm text-muted-foreground mb-1">{title}</p>
+              <p className="stat-label mb-1">{title}</p>
               <p
                 className={cn(
-                  'font-bold tracking-tight',
+                  'stat-value tracking-tight',
                   variant === 'large' ? 'text-3xl' : 'text-2xl'
                 )}
               >
@@ -108,7 +107,7 @@ export function StatCard({
             {Icon && (
               <div
                 className={cn(
-                  'p-2 rounded-lg bg-muted',
+                  'rounded-2xl p-2.5',
                   iconColor
                 )}
               >

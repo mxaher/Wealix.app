@@ -1,0 +1,378 @@
+'use client';
+
+import {
+  TrendingUp,
+  Wallet,
+  Briefcase,
+  Flame,
+  Receipt,
+  Sparkles,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { DashboardShell } from '@/components/layout';
+import { StatCard, DashboardSkeleton } from '@/components/shared';
+import { useAppStore, formatCurrency } from '@/store/useAppStore';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
+import { useState, useEffect } from 'react';
+
+const mockNetWorthData = [
+  { month: 'Jan', value: 450000 },
+  { month: 'Feb', value: 465000 },
+  { month: 'Mar', value: 448000 },
+  { month: 'Apr', value: 472000 },
+  { month: 'May', value: 489000 },
+  { month: 'Jun', value: 512000 },
+  { month: 'Jul', value: 525000 },
+  { month: 'Aug', value: 518000 },
+  { month: 'Sep', value: 542000 },
+  { month: 'Oct', value: 568000 },
+  { month: 'Nov', value: 585000 },
+  { month: 'Dec', value: 612450 },
+];
+
+const mockHoldings = [
+  { ticker: '2222.SR', name: 'Saudi Aramco', shares: 100, avgCost: 32.5, currentPrice: 35.2, change: 2.3, isShariah: true },
+  { ticker: '1120.SR', name: 'Al Rajhi Bank', shares: 50, avgCost: 98.0, currentPrice: 105.5, change: 1.8, isShariah: true },
+  { ticker: 'COMI.CA', name: 'CIB Egypt', shares: 200, avgCost: 45.0, currentPrice: 52.3, change: -0.5, isShariah: false },
+  { ticker: 'AAPL', name: 'Apple Inc.', shares: 25, avgCost: 175.0, currentPrice: 182.5, change: 1.2, isShariah: false },
+  { ticker: '1180.SR', name: 'Maaden', shares: 75, avgCost: 45.0, currentPrice: 48.2, change: 0.8, isShariah: true },
+];
+
+const mockTransactions = [
+  { id: 1, category: 'food', description: 'Grocery Shopping', amount: -450, date: '2025-01-15' },
+  { id: 2, category: 'transport', description: 'Uber Rides', amount: -120, date: '2025-01-14' },
+  { id: 3, category: 'investment', description: 'Stock Purchase', amount: -5000, date: '2025-01-13' },
+  { id: 4, category: 'housing', description: 'Rent Payment', amount: -4500, date: '2025-01-01' },
+  { id: 5, category: 'zakat', description: 'Charity Donation', amount: -1000, date: '2025-01-10' },
+];
+
+const mockMarketData = [
+  { name: 'TASI', value: '12,458.32', change: 1.2 },
+  { name: 'EGX 30', value: '32,156.78', change: -0.5 },
+  { name: 'S&P 500', value: '5,842.15', change: 0.8 },
+  { name: 'Gold', value: '2,648.50', change: 0.3 },
+  { name: 'USD/SAR', value: '3.75', change: 0.0 },
+];
+
+const budgetData = [
+  { name: 'Housing', value: 4500, color: '#006aff' },
+  { name: 'Food', value: 2500, color: '#00bb7f' },
+  { name: 'Transport', value: 800, color: '#00b7d7' },
+  { name: 'Investment', value: 5000, color: '#00bfff' },
+  { name: 'Other', value: 1500, color: '#99a1af' },
+];
+
+const categoryIcons: Record<string, React.ReactNode> = {
+  food: '🍽️',
+  transport: '🚗',
+  investment: '📈',
+  housing: '🏠',
+  zakat: '🕌',
+  other: '📦',
+};
+
+export default function AppDashboardPage() {
+  const { locale, appMode, incomeEntries, expenseEntries, portfolioHoldings } = useAppStore();
+  const isArabic = locale === 'ar';
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 450);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <DashboardShell>
+        <DashboardSkeleton />
+      </DashboardShell>
+    );
+  }
+
+  const isDemoMode = appMode === 'demo';
+  const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const livePortfolioValue = portfolioHoldings.reduce((sum, item) => sum + item.shares * item.currentPrice, 0);
+  const totalNetWorth = isDemoMode ? 612450 : Math.max(totalIncome + livePortfolioValue - totalExpenses, 0);
+  const portfolioValue = isDemoMode ? 485000 : livePortfolioValue;
+  const todayGainPercent = isDemoMode ? 0.67 : 0;
+  const fireProgress = isDemoMode ? 40.8 : 0;
+  const holdings = isDemoMode ? mockHoldings : portfolioHoldings.map((holding) => ({
+    ...holding,
+    change: holding.avgCost > 0 ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100 : 0,
+  }));
+  const transactions = isDemoMode ? mockTransactions : [];
+  const marketData = isDemoMode ? mockMarketData : [];
+  const netWorthChartData = isDemoMode ? mockNetWorthData : [];
+  const spendingChartData = isDemoMode ? budgetData : [];
+  const hasLiveData = totalIncome > 0 || totalExpenses > 0 || portfolioValue > 0 || holdings.length > 0;
+  const budgetUsage = isDemoMode
+    ? 67
+    : totalIncome > 0
+      ? Math.min(100, Math.round((totalExpenses / totalIncome) * 100))
+      : 0;
+
+  return (
+    <DashboardShell>
+      <div className="space-y-6">
+        <section className="card-hover overflow-hidden rounded-[20px] border border-border bg-card p-6 shadow-card">
+          <div className="absolute" />
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-3">
+              <span className="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-primary uppercase">
+                {isArabic ? 'نظام تشغيل الثروة الشخصية' : 'Personal Wealth Operating System'}
+              </span>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+                  {isArabic ? 'نظرة أوضح على ثروتك الحالية' : 'A clearer operating view of your wealth'}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                  {isArabic
+                    ? isDemoMode
+                      ? 'هذا عرض تجريبي كامل لواجهة Wealix مع بيانات توضيحية لمتابعة الدخل والمصروفات والاستثمارات والتقدم نحو الاستقلال المالي.'
+                      : 'الوضع المباشر نشط. أضف الدخل والمصروفات والأصول لتبدأ لوحة التحكم بإظهار أرقامك الفعلية.'
+                    : isDemoMode
+                      ? 'This is the full Wealix demo workspace, showing how income, expenses, portfolio, and FIRE planning come together in one command center.'
+                      : 'Live mode is active. Add income, expenses, and assets to start building your real financial operating view.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button className="btn-primary gap-2 rounded-xl">
+                <Sparkles className="h-4 w-4" />
+                {isArabic ? 'تحليل ذكي' : 'Run AI Insight'}
+              </Button>
+              <Button variant="outline" className="rounded-xl border-border bg-background/80">
+                {isArabic ? 'فتح التقارير' : 'Open Reports'}
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            title={isArabic ? 'صافي الثروة' : 'Net Worth'}
+            value={formatCurrency(totalNetWorth, 'SAR', locale)}
+            change={isDemoMode ? 5.2 : undefined}
+            changeLabel={isDemoMode ? (isArabic ? 'هذا الشهر' : 'this month') : undefined}
+            icon={Wallet}
+            iconColor="text-primary bg-primary/10"
+          />
+          <StatCard
+            title={isArabic ? 'قيمة المحفظة' : 'Portfolio Value'}
+            value={formatCurrency(portfolioValue, 'SAR', locale)}
+            change={todayGainPercent}
+            changeLabel={isArabic ? 'اليوم' : 'today'}
+            icon={Briefcase}
+            iconColor="text-accent bg-accent/10"
+          />
+          <StatCard
+            title={isArabic ? 'تقدم FIRE' : 'FIRE Progress'}
+            value={`${fireProgress.toFixed(1)}%`}
+            icon={Flame}
+            iconColor="text-orange-500 bg-orange-500/10"
+          />
+          <StatCard
+            title={isArabic ? 'الميزانية الشهرية' : 'Monthly Budget'}
+            value={`${budgetUsage}%`}
+            change={isDemoMode ? -12 : undefined}
+            changeLabel={isDemoMode ? (isArabic ? 'متبقي' : 'remaining') : undefined}
+            icon={Receipt}
+            iconColor="text-cyan-500 bg-cyan-500/10"
+          />
+        </div>
+
+        {!isDemoMode && !hasLiveData && (
+          <Card className="rounded-[20px] border-dashed border-border bg-card shadow-card">
+            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {isArabic ? 'المساحة نظيفة وجاهزة' : 'This workspace is clean and ready'}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isArabic
+                    ? 'لا توجد بيانات تجريبية لهذا المستخدم. أضف الدخل والمصروفات والمحفظة لتبدأ Wealix في تكوين الصورة المالية الحقيقية.'
+                    : 'There is no demo data for this user. Add income, expenses, and holdings to start building your real financial picture.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" className="rounded-xl"><a href="/income">{isArabic ? 'إضافة دخل' : 'Add Income'}</a></Button>
+                <Button asChild variant="outline" className="rounded-xl"><a href="/expenses">{isArabic ? 'إضافة مصروف' : 'Add Expense'}</a></Button>
+                <Button asChild className="btn-primary rounded-xl"><a href="/portfolio">{isArabic ? 'إضافة محفظة' : 'Add Portfolio'}</a></Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <Card className="card-hover xl:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                {isArabic ? 'اتجاه صافي الثروة' : 'Net Worth Trend'}
+              </CardTitle>
+              <CardDescription>
+                {isArabic ? 'آخر 12 شهراً' : 'Last 12 months'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={netWorthChartData}>
+                    <defs>
+                      <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.24} />
+                        <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
+                    <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(value: number) => formatCurrency(value, 'SAR', locale)} />
+                    <Area type="monotone" dataKey="value" stroke="var(--color-primary)" fill="url(#netWorthGradient)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover">
+            <CardHeader>
+              <CardTitle>{isArabic ? 'الإنفاق حسب الفئة' : 'Spending Mix'}</CardTitle>
+              <CardDescription>{isArabic ? 'التوزيع الحالي' : 'Current distribution'}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={spendingChartData} dataKey="value" nameKey="name" innerRadius={66} outerRadius={96} paddingAngle={4}>
+                      {spendingChartData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatCurrency(value, 'SAR', locale)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <Card className="card-hover xl:col-span-2">
+            <CardHeader>
+              <CardTitle>{isArabic ? 'آخر المعاملات' : 'Recent Activity'}</CardTitle>
+              <CardDescription>{isArabic ? 'مراجعة سريعة لآخر الحركات' : 'A quick review of the latest financial moves'}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-80">
+                <div className="space-y-3">
+                  {transactions.length > 0 ? transactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg">
+                          {categoryIcons[transaction.category] ?? '•'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{transaction.description}</p>
+                          <p className="text-sm text-muted-foreground">{transaction.date}</p>
+                        </div>
+                      </div>
+                      <p className="financial-number text-sm font-semibold text-loss">
+                        {formatCurrency(Math.abs(transaction.amount), 'SAR', locale)}
+                      </p>
+                    </div>
+                  )) : (
+                    <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                      {isArabic ? 'لا توجد معاملات بعد' : 'No transactions yet'}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="card-hover">
+              <CardHeader>
+                <CardTitle>{isArabic ? 'الأسواق والمتابعة' : 'Markets Snapshot'}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {marketData.length > 0 ? marketData.map((market) => (
+                  <div key={market.name} className="flex items-center justify-between rounded-xl bg-secondary/60 px-4 py-3">
+                    <div>
+                      <p className="font-medium">{market.name}</p>
+                      <p className="text-sm text-muted-foreground">{market.value}</p>
+                    </div>
+                    <span className={market.change >= 0 ? 'text-profit' : 'text-loss'}>
+                      {market.change >= 0 ? '+' : ''}
+                      {market.change}%
+                    </span>
+                  </div>
+                )) : (
+                  <p className="text-sm text-muted-foreground">
+                    {isArabic ? 'أضف بياناتك لعرض لقطات السوق المرتبطة بمحفظتك.' : 'Add your live data to see market snapshots tied to your portfolio.'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="card-hover">
+              <CardHeader>
+                <CardTitle>{isArabic ? 'تقدم نحو FIRE' : 'FIRE Progress'}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{isArabic ? 'الوصول إلى الهدف' : 'Goal completion'}</span>
+                    <span className="financial-number font-semibold">{fireProgress.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={fireProgress} className="h-2.5" />
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {isArabic
+                    ? 'يصير هذا المؤشر أكثر دقة كلما أضفت الأصول والدخل والمصروفات الحقيقية.'
+                    : 'This indicator becomes more accurate as you add your actual assets, income, and expenses.'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="card-hover">
+              <CardHeader>
+                <CardTitle>{isArabic ? 'أكبر المراكز' : 'Top Holdings'}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {holdings.slice(0, 4).map((holding) => (
+                  <div key={holding.ticker} className="flex items-center justify-between rounded-xl bg-secondary/60 px-4 py-3">
+                    <div>
+                      <p className="font-medium">{holding.name}</p>
+                      <p className="text-sm text-muted-foreground">{holding.ticker}</p>
+                    </div>
+                    <span className={holding.change >= 0 ? 'text-profit' : 'text-loss'}>
+                      {holding.change >= 0 ? '+' : ''}
+                      {holding.change.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </DashboardShell>
+  );
+}

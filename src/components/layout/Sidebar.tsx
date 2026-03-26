@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   TrendingUp,
-  Wallet,
   Briefcase,
   Flame,
   PiggyBank,
@@ -14,6 +13,9 @@ import {
   Bot,
   FileText,
   Settings,
+  ChartNoAxesCombined,
+  Landmark,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -23,18 +25,38 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-const navItems = [
-  { href: '/', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
-  { href: '/income', label: { en: 'Income', ar: 'الدخل' }, icon: TrendingUp },
-  { href: '/expenses', label: { en: 'Expenses', ar: 'المصروفات' }, icon: Receipt },
-  { href: '/net-worth', label: { en: 'Net Worth', ar: 'صافي الثروة' }, icon: Wallet },
-  { href: '/portfolio', label: { en: 'Portfolio', ar: 'المحفظة' }, icon: Briefcase },
-  { href: '/fire', label: { en: 'FIRE Tracker', ar: 'متعقب FIRE' }, icon: Flame },
-  { href: '/retirement', label: { en: 'Retirement', ar: 'التقاعد' }, icon: PiggyBank },
-  { href: '/budget', label: { en: 'Budget', ar: 'الميزانية' }, icon: Wallet },
-  { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
-  { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
-  { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
+const navSections = [
+  {
+    title: { en: 'Overview', ar: 'نظرة عامة' },
+    items: [
+      { href: '/app', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
+      { href: '/net-worth', label: { en: 'Net Worth', ar: 'صافي الثروة' }, icon: ChartNoAxesCombined },
+      { href: '/budget', label: { en: 'Budget', ar: 'الميزانية' }, icon: Landmark },
+      { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
+    ],
+  },
+  {
+    title: { en: 'Cash Flow', ar: 'التدفقات النقدية' },
+    items: [
+      { href: '/income', label: { en: 'Income', ar: 'الدخل' }, icon: TrendingUp },
+      { href: '/expenses', label: { en: 'Expenses', ar: 'المصروفات' }, icon: Receipt },
+    ],
+  },
+  {
+    title: { en: 'Investing', ar: 'الاستثمار' },
+    items: [
+      { href: '/portfolio', label: { en: 'Portfolio', ar: 'المحفظة' }, icon: Briefcase },
+      { href: '/fire', label: { en: 'FIRE Tracker', ar: 'متعقب FIRE' }, icon: Flame },
+      { href: '/retirement', label: { en: 'Retirement', ar: 'التقاعد' }, icon: PiggyBank },
+    ],
+  },
+  {
+    title: { en: 'Tools', ar: 'الأدوات' },
+    items: [
+      { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
+      { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -46,98 +68,121 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <motion.aside
         initial={false}
-        animate={{ width: sidebarCollapsed ? 72 : 240 }}
+        animate={{ width: sidebarCollapsed ? 84 : 280 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'hidden md:flex flex-col h-screen bg-sidebar border-l border-sidebar-border',
+          'sidebar hidden md:flex flex-col h-screen border-r border-sidebar-border bg-sidebar/96 backdrop-blur-sm',
           'fixed bottom-0 top-0 z-40',
           isArabic ? 'right-0' : 'left-0'
         )}
       >
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-center border-b border-sidebar-border px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center">
-              <span className="text-navy-dark font-bold text-lg">W</span>
-            </div>
+        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+          <Link href="/app" className="flex items-center gap-0.5 overflow-hidden text-lg font-bold">
+            <span className="logo-weal">Weal</span>
             {!sidebarCollapsed && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="min-w-0"
+                className="flex min-w-0 items-center gap-2"
               >
-                <div className="font-bold text-lg text-sidebar-foreground">
-                  Wealix
-                </div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  Personal Wealth Operating System
-                </div>
+                <span className="logo-ix">ix</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  OS
+                </span>
               </motion.div>
             )}
           </Link>
+          {!sidebarCollapsed && (
+            <div className="rounded-full bg-accent/10 px-2 py-1 text-[11px] font-medium text-accent">
+              Pro
+            </div>
+          )}
         </div>
 
-        {/* Navigation */}
         <ScrollArea className="flex-1 py-4">
-          <nav className="space-y-1 px-3">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              const Icon = item.icon;
+          <nav className="space-y-5 px-3">
+            {navSections.map((section) => (
+              <div key={section.title.en} className="space-y-1">
+                {!sidebarCollapsed && (
+                  <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {isArabic ? section.title.ar : section.title.en}
+                  </div>
+                )}
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
 
-              const NavItem = (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                    isActive && 'bg-primary text-primary-foreground font-medium',
-                    sidebarCollapsed && 'justify-center'
-                  )}
-                >
-                  <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-primary-foreground')} />
-                  {!sidebarCollapsed && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="truncate"
+                  const navItem = (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        'sidebar-item',
+                        isActive && 'active',
+                        sidebarCollapsed && 'justify-center px-2'
+                      )}
                     >
-                      {isArabic ? item.label.ar : item.label.en}
-                      {item.pro && (
-                        <span className="ml-2 text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">
-                          PRO
+                      <Icon className="h-4.5 w-4.5 shrink-0" />
+                      {!sidebarCollapsed && (
+                        <motion.span
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="truncate"
+                        >
+                          {isArabic ? item.label.ar : item.label.en}
+                        </motion.span>
+                      )}
+                      {!sidebarCollapsed && item.pro && (
+                        <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-primary uppercase">
+                          Pro
                         </span>
                       )}
-                    </motion.span>
-                  )}
-                </Link>
-              );
+                    </Link>
+                  );
 
-              if (sidebarCollapsed) {
-                return (
-                  <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>{NavItem}</TooltipTrigger>
-                    <TooltipContent side={isArabic ? 'left' : 'right'}>
-                      {isArabic ? item.label.ar : item.label.en}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
+                  if (sidebarCollapsed) {
+                    return (
+                      <Tooltip key={item.href}>
+                        <TooltipTrigger asChild>{navItem}</TooltipTrigger>
+                        <TooltipContent side={isArabic ? 'left' : 'right'}>
+                          {isArabic ? item.label.ar : item.label.en}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
 
-              return NavItem;
-            })}
+                  return navItem;
+                })}
+              </div>
+            ))}
           </nav>
         </ScrollArea>
 
-        {/* Collapse Toggle */}
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="border-t border-sidebar-border p-3">
+          {!sidebarCollapsed && (
+            <div className="mb-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {isArabic ? 'Wealix Secure' : 'Wealix Secure'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isArabic ? 'مساحة مالية آمنة' : 'Protected personal workspace'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"
             onClick={toggleSidebar}
-            className="w-full justify-center"
+            className="w-full justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             {sidebarCollapsed ? (
               isArabic ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
