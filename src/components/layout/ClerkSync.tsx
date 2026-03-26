@@ -8,6 +8,7 @@ export function ClerkSync() {
   const { isLoaded, isSignedIn, user } = useUser();
   const syncClerkUser = useAppStore((state) => state.syncClerkUser);
   const clearClerkUser = useAppStore((state) => state.clearClerkUser);
+  const setAppMode = useAppStore((state) => state.setAppMode);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -21,11 +22,12 @@ export function ClerkSync() {
         name: user.fullName || user.firstName || null,
         avatarUrl: user.imageUrl || null,
       });
+      setAppMode('live');
       return;
     }
 
     clearClerkUser();
-  }, [clearClerkUser, isLoaded, isSignedIn, syncClerkUser, user]);
+  }, [clearClerkUser, isLoaded, isSignedIn, setAppMode, syncClerkUser, user]);
 
   return null;
 }

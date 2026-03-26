@@ -1,15 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { motion } from 'framer-motion';
 import {
   Receipt,
   Plus,
   TrendingUp,
   TrendingDown,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
   Home,
   Utensils,
   Car,
@@ -20,33 +18,6 @@ import {
   Trash2,
   PiggyBank,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DashboardShell } from '@/components/layout';
-import { StatCard, formatCurrency } from '@/components/shared';
-import { useAppStore } from '@/store/useAppStore';
 import {
   PieChart,
   Pie,
@@ -62,6 +33,46 @@ import {
   LineChart,
   Line,
 } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { DashboardShell } from '@/components/layout';
+import { StatCard } from '@/components/shared';
+import { useAppStore, formatCurrency, type ExpenseEntry } from '@/store/useAppStore';
+import { toast } from '@/hooks/use-toast';
+
+const budgetToExpenseCategory: Record<string, ExpenseEntry['category']> = {
+  housing: 'Housing',
+  food: 'Food',
+  transport: 'Transport',
+  entertainment: 'Entertainment',
+  investment: 'Other',
+  zakat: 'Other',
+  healthcare: 'Healthcare',
+  education: 'Education',
+  utilities: 'Utilities',
+  other: 'Other',
+};
 
 const categoryIcons: Record<string, React.ReactNode> = {
   housing: <Home className="w-4 h-4" />,
@@ -89,213 +100,203 @@ const categoryColors: Record<string, string> = {
   other: '#6B7280',
 };
 
-// Mock data
-const mockExpenses = [
-  { id: '1', category: 'housing', description: 'Rent Payment', amount: 4500, date: '2025-01-01' },
-  { id: '2', category: 'food', description: 'Grocery Shopping', amount: 850, date: '2025-01-05' },
-  { id: '3', category: 'transport', description: 'Uber Rides', amount: 320, date: '2025-01-08' },
-  { id: '4', category: 'investment', description: 'Stock Purchase', amount: 5000, date: '2025-01-10' },
-  { id: '5', category: 'food', description: 'Restaurant', amount: 250, date: '2025-01-12' },
-  { id: '6', category: 'zakat', description: 'Charity', amount: 1000, date: '2025-01-15' },
-  { id: '7', category: 'utilities', description: 'Electricity Bill', amount: 350, date: '2025-01-15' },
-  { id: '8', category: 'healthcare', description: 'Medicine', amount: 180, date: '2025-01-18' },
-];
+const categoryLabels: Record<string, { en: string; ar: string }> = {
+  housing: { en: 'Housing', ar: 'السكن' },
+  food: { en: 'Food', ar: 'الطعام' },
+  transport: { en: 'Transport', ar: 'المواصلات' },
+  entertainment: { en: 'Entertainment', ar: 'الترفيه' },
+  investment: { en: 'Investment', ar: 'الاستثمار' },
+  zakat: { en: 'Zakat & Charity', ar: 'الزكاة والصدقات' },
+  healthcare: { en: 'Healthcare', ar: 'الرعاية الصحية' },
+  education: { en: 'Education', ar: 'التعليم' },
+  utilities: { en: 'Utilities', ar: 'الفواتير' },
+  other: { en: 'Other', ar: 'أخرى' },
+};
 
-const mockBudget = [
-  { category: 'housing', limit: 5000, color: categoryColors.housing },
-  { category: 'food', limit: 2000, color: categoryColors.food },
-  { category: 'transport', limit: 800, color: categoryColors.transport },
-  { category: 'entertainment', limit: 500, color: categoryColors.entertainment },
-  { category: 'investment', limit: 5000, color: categoryColors.investment },
-  { category: 'zakat', limit: 1500, color: categoryColors.zakat },
-  { category: 'other', limit: 1000, color: categoryColors.other },
-];
-
-const mockIncome = [
-  { id: '1', source: 'salary', description: 'Monthly Salary', amount: 25000, date: '2025-01-01' },
-  { id: '2', source: 'rental', description: 'Property Income', amount: 3500, date: '2025-01-05' },
+const mockTrendData = [
+  { month: 'Aug', expenses: 12000, income: 25000 },
+  { month: 'Sep', expenses: 13500, income: 25000 },
+  { month: 'Oct', expenses: 11200, income: 28500 },
+  { month: 'Nov', expenses: 14800, income: 25000 },
+  { month: 'Dec', expenses: 16500, income: 30000 },
 ];
 
 export default function BudgetPage() {
-  const { locale, appMode } = useAppStore();
-  return <BudgetPageContent key={appMode} locale={locale} appMode={appMode} />;
-}
-
-function BudgetPageContent({
-  locale,
-  appMode,
-}: {
-  locale: 'ar' | 'en';
-  appMode: 'demo' | 'live';
-}) {
+  const locale = useAppStore((state) => state.locale);
+  const incomeEntries = useAppStore((state) => state.incomeEntries);
+  const expenseEntries = useAppStore((state) => state.expenseEntries);
+  const budgetLimits = useAppStore((state) => state.budgetLimits);
+  const addExpenseEntry = useAppStore((state) => state.addExpenseEntry);
+  const deleteExpenseEntry = useAppStore((state) => state.deleteExpenseEntry);
+  const setBudgetLimits = useAppStore((state) => state.setBudgetLimits);
   const isArabic = locale === 'ar';
-  
-  const [expenses, setExpenses] = useState(() => appMode === 'demo' ? mockExpenses : []);
-  const [budget, setBudget] = useState(() => appMode === 'demo' ? mockBudget : []);
+  const { isSignedIn } = useUser();
+
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: 'food', description: '', amount: '' });
 
-  // Calculate totals
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalIncome = appMode === 'demo' ? mockIncome.reduce((sum, i) => sum + i.amount, 0) : 0;
+  const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
-  // Calculate spending by category
-  const spendingByCategory = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
+  const spendingByCategory = expenseEntries.reduce((acc, entry) => {
+    const key = entry.category.toLowerCase();
+    acc[key] = (acc[key] || 0) + entry.amount;
     return acc;
   }, {} as Record<string, number>);
 
-  // Budget vs Actual
-  const budgetVsActual = budget.map(b => ({
-    category: b.category,
-    budget: b.limit,
-    actual: spendingByCategory[b.category] || 0,
-    color: b.color,
+  const chartBudget = budgetLimits.map((item) => ({
+    category: item.category,
+    limit: item.limit,
+    color: item.color || categoryColors[item.category] || '#6B7280',
   }));
 
-  // Category labels
-  const categoryLabels: Record<string, { en: string; ar: string }> = {
-    housing: { en: 'Housing', ar: 'السكن' },
-    food: { en: 'Food', ar: 'الطعام' },
-    transport: { en: 'Transport', ar: 'المواصلات' },
-    entertainment: { en: 'Entertainment', ar: 'الترفيه' },
-    investment: { en: 'Investment', ar: 'الاستثمار' },
-    zakat: { en: 'Zakat & Charity', ar: 'الزكاة والصدقات' },
-    healthcare: { en: 'Healthcare', ar: 'الرعاية الصحية' },
-    education: { en: 'Education', ar: 'التعليم' },
-    utilities: { en: 'Utilities', ar: 'الفواتير' },
-    other: { en: 'Other', ar: 'أخرى' },
+  const budgetVsActual = chartBudget.map((item) => ({
+    category: item.category,
+    budget: item.limit,
+    actual: spendingByCategory[item.category] || 0,
+  }));
+
+  const trendData = useMemo(() => {
+    if (!isSignedIn) {
+      return [...mockTrendData, { month: 'Jan', expenses: totalExpenses, income: totalIncome }];
+    }
+    return [{ month: isArabic ? 'الحالي' : 'Current', expenses: totalExpenses, income: totalIncome }];
+  }, [isSignedIn, totalExpenses, totalIncome, isArabic]);
+
+  const requireAccount = () => {
+    toast({
+      title: isArabic ? 'يتطلب حساباً' : 'Account required',
+      description: isArabic
+        ? 'يمكن للضيف استعراض الميزانية التجريبية فقط. أنشئ حساباً لإضافة المصروفات أو تعديل حدود الميزانية.'
+        : 'Guests can browse the demo budget only. Create an account to add expenses or edit budget limits.',
+    });
   };
 
   const handleAddExpense = () => {
-    if (newExpense.description && newExpense.amount) {
-      setExpenses([...expenses, {
-        id: Date.now().toString(),
-        ...newExpense,
-        amount: parseFloat(newExpense.amount),
-        date: new Date().toISOString().split('T')[0],
-      }]);
-      setNewExpense({ category: 'food', description: '', amount: '' });
-      setShowAddExpense(false);
+    if (!isSignedIn) {
+      requireAccount();
+      return;
     }
+
+    if (!newExpense.description || !newExpense.amount) {
+      return;
+    }
+
+    const entry: ExpenseEntry = {
+      id: `budget-expense-${Date.now()}`,
+      category: budgetToExpenseCategory[newExpense.category] || 'Other',
+      description: newExpense.description,
+      amount: Number(newExpense.amount),
+      currency: 'SAR',
+      merchantName: null,
+      date: new Date().toISOString().slice(0, 10),
+      paymentMethod: 'Card',
+      notes: null,
+      receiptId: null,
+    };
+
+    addExpenseEntry(entry);
+    setNewExpense({ category: 'food', description: '', amount: '' });
+    setShowAddExpense(false);
   };
 
-  const handleDeleteExpense = (id: string) => {
-    setExpenses(expenses.filter(e => e.id !== id));
+  const updateBudgetLimit = (category: string, value: number) => {
+    if (!isSignedIn) {
+      requireAccount();
+      return;
+    }
+
+    setBudgetLimits(
+      chartBudget.map((item) =>
+        item.category === category ? { ...item, limit: value } : item
+      )
+    );
   };
 
   return (
     <DashboardShell>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">{isArabic ? 'الميزانية' : 'Budget'}</h1>
             <p className="text-muted-foreground">
-              {isArabic ? 'تتبع دخلك ومصروفاتك' : 'Track your income and expenses'}
+              {isArabic ? 'تتبع الدخل والمصروفات وحدود الإنفاق' : 'Track income, expenses, and spending limits'}
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon">
-                <ChevronLeft className="w-4 h-4" />
+          <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
+            <DialogTrigger asChild>
+              <Button className="gap-2" disabled={!isSignedIn}>
+                <Plus className="w-4 h-4" />
+                {isArabic ? 'إضافة مصروف' : 'Add Expense'}
               </Button>
-              <span className="font-medium">{isArabic ? 'يناير 2025' : 'January 2025'}</span>
-              <Button variant="outline" size="icon">
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-            <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  {isArabic ? 'إضافة مصروف' : 'Add Expense'}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{isArabic ? 'إضافة مصروف جديد' : 'Add New Expense'}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>{isArabic ? 'الفئة' : 'Category'}</Label>
-                    <Select value={newExpense.category} onValueChange={(v) => setNewExpense({ ...newExpense, category: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(categoryLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            {isArabic ? label.ar : label.en}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{isArabic ? 'الوصف' : 'Description'}</Label>
-                    <Input
-                      value={newExpense.description}
-                      onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                      placeholder={isArabic ? 'مثال: بقالة' : 'e.g., Grocery store'}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{isArabic ? 'المبلغ (SAR)' : 'Amount (SAR)'}</Label>
-                    <Input
-                      type="number"
-                      value={newExpense.amount}
-                      onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isArabic ? 'إضافة مصروف جديد' : 'Add New Expense'}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>{isArabic ? 'الفئة' : 'Category'}</Label>
+                  <Select value={newExpense.category} onValueChange={(value) => setNewExpense((current) => ({ ...current, category: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categoryLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {isArabic ? label.ar : label.en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowAddExpense(false)}>
-                    {isArabic ? 'إلغاء' : 'Cancel'}
-                  </Button>
-                  <Button onClick={handleAddExpense}>
-                    {isArabic ? 'إضافة' : 'Add'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? 'الوصف' : 'Description'}</Label>
+                  <Input value={newExpense.description} onChange={(e) => setNewExpense((current) => ({ ...current, description: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? 'المبلغ (SAR)' : 'Amount (SAR)'}</Label>
+                  <Input type="number" value={newExpense.amount} onChange={(e) => setNewExpense((current) => ({ ...current, amount: e.target.value }))} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddExpense(false)}>
+                  {isArabic ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button onClick={handleAddExpense} disabled={!isSignedIn}>
+                  {isArabic ? 'إضافة' : 'Add'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title={isArabic ? 'إجمالي الدخل' : 'Total Income'}
-            value={formatCurrency(totalIncome, 'SAR', locale)}
-            icon={TrendingUp}
-            iconColor="text-emerald-500 bg-emerald-500/10"
-          />
-          <StatCard
-            title={isArabic ? 'إجمالي المصروفات' : 'Total Expenses'}
-            value={formatCurrency(totalExpenses, 'SAR', locale)}
-            icon={TrendingDown}
-            iconColor="text-rose-500 bg-rose-500/10"
-          />
-          <StatCard
-            title={isArabic ? 'صافي المدخرات' : 'Net Savings'}
-            value={formatCurrency(totalIncome - totalExpenses, 'SAR', locale)}
-            icon={PiggyBank}
-            iconColor="text-gold bg-gold/10"
-          />
+        {!isSignedIn && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              {isArabic
+                ? 'الضيف يشاهد البيانات التجريبية فقط. أنشئ حساباً لإضافة المصروفات أو تعديل إعدادات الميزانية.'
+                : 'Guests can browse demo data only. Create an account to add expenses or edit budget settings.'}
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <StatCard title={isArabic ? 'إجمالي الدخل' : 'Total Income'} value={formatCurrency(totalIncome, 'SAR', locale)} icon={TrendingUp} iconColor="text-emerald-500 bg-emerald-500/10" />
+          <StatCard title={isArabic ? 'إجمالي المصروفات' : 'Total Expenses'} value={formatCurrency(totalExpenses, 'SAR', locale)} icon={TrendingDown} iconColor="text-rose-500 bg-rose-500/10" />
+          <StatCard title={isArabic ? 'صافي المدخرات' : 'Net Savings'} value={formatCurrency(totalIncome - totalExpenses, 'SAR', locale)} icon={PiggyBank} iconColor="text-gold bg-gold/10" />
           <Card>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">{isArabic ? 'معدل الادخار' : 'Savings Rate'}</p>
-              <div className="flex items-center gap-3 mt-2">
+              <div className="mt-2 flex items-center gap-3">
                 <p className="text-2xl font-bold">{savingsRate.toFixed(1)}%</p>
-                <Progress value={savingsRate} className="flex-1" />
+                <Progress value={Math.max(0, Math.min(100, savingsRate))} className="flex-1" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">{isArabic ? 'نظرة عامة' : 'Overview'}</TabsTrigger>
@@ -304,224 +305,212 @@ function BudgetPageContent({
             <TabsTrigger value="trends">{isArabic ? 'الاتجاهات' : 'Trends'}</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Expense Breakdown */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>{isArabic ? 'توزيع المصروفات' : 'Expense Breakdown'}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={Object.entries(spendingByCategory).map(([category, value]) => ({
-                            name: isArabic ? categoryLabels[category]?.ar : categoryLabels[category]?.en,
-                            value,
-                            color: categoryColors[category] || '#6B7280',
-                          }))}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          dataKey="value"
-                        >
-                          {Object.entries(spendingByCategory).map(([category], index) => (
-                            <Cell key={`cell-${index}`} fill={categoryColors[category] || '#6B7280'} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => formatCurrency(value, 'SAR', locale)} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {Object.entries(spendingByCategory).slice(0, 6).map(([category, value]) => (
-                      <div key={category} className="flex items-center gap-2 text-sm">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: categoryColors[category] }} />
-                        <span>{isArabic ? categoryLabels[category]?.ar : categoryLabels[category]?.en}</span>
-                        <span className="ml-auto font-medium">{formatCurrency(value, 'SAR', locale)}</span>
+                  {Object.keys(spendingByCategory).length === 0 ? (
+                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      {isArabic ? 'لا توجد مصروفات مسجلة بعد.' : 'No expenses recorded yet.'}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={Object.entries(spendingByCategory).map(([category, value]) => ({
+                                name: isArabic ? categoryLabels[category]?.ar : categoryLabels[category]?.en,
+                                value,
+                                color: categoryColors[category] || '#6B7280',
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              dataKey="value"
+                            >
+                              {Object.entries(spendingByCategory).map(([category], index) => (
+                                <Cell key={`cell-${index}`} fill={categoryColors[category] || '#6B7280'} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => formatCurrency(value, 'SAR', locale)} />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
-                    ))}
-                  </div>
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        {Object.entries(spendingByCategory).slice(0, 6).map(([category, value]) => (
+                          <div key={category} className="flex items-center gap-2 text-sm">
+                            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: categoryColors[category] || '#6B7280' }} />
+                            <span>{isArabic ? categoryLabels[category]?.ar : categoryLabels[category]?.en}</span>
+                            <span className="ml-auto font-medium">{formatCurrency(value, 'SAR', locale)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Budget vs Actual */}
               <Card>
                 <CardHeader>
                   <CardTitle>{isArabic ? 'الميزانية مقابل الفعلي' : 'Budget vs Actual'}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={budgetVsActual} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                        <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} />
-                        <YAxis dataKey="category" type="category" stroke="var(--muted-foreground)" fontSize={10} width={70}
-                          tickFormatter={(value) => isArabic ? categoryLabels[value]?.ar : value}
-                        />
-                        <Tooltip formatter={(value: number) => formatCurrency(value, 'SAR', locale)} />
-                        <Legend />
-                        <Bar dataKey="budget" name={isArabic ? 'الميزانية' : 'Budget'} fill="var(--muted-foreground)" radius={[0, 4, 4, 0]} />
-                        <Bar dataKey="actual" name={isArabic ? 'الفعلي' : 'Actual'} fill="var(--gold)" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {chartBudget.length === 0 ? (
+                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      {isArabic ? 'لا توجد حدود ميزانية مضبوطة بعد.' : 'No budget limits have been configured yet.'}
+                    </div>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={budgetVsActual} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                          <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} />
+                          <YAxis
+                            dataKey="category"
+                            type="category"
+                            stroke="var(--muted-foreground)"
+                            fontSize={10}
+                            width={90}
+                            tickFormatter={(value) => (isArabic ? categoryLabels[value]?.ar : categoryLabels[value]?.en)}
+                          />
+                          <Tooltip formatter={(value: number) => formatCurrency(value, 'SAR', locale)} />
+                          <Legend />
+                          <Bar dataKey="budget" name={isArabic ? 'الميزانية' : 'Budget'} fill="var(--muted-foreground)" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="actual" name={isArabic ? 'الفعلي' : 'Actual'} fill="var(--gold)" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Budget Progress */}
             <Card>
               <CardHeader>
                 <CardTitle>{isArabic ? 'تقدم الميزانية' : 'Budget Progress'}</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {budget.map((b) => {
-                    const spent = spendingByCategory[b.category] || 0;
-                    const percentage = Math.min((spent / b.limit) * 100, 100);
-                    const isOver = spent > b.limit;
+              <CardContent className="space-y-4">
+                {chartBudget.length === 0 ? (
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'أضف حدود الميزانية من تبويب الإعداد.' : 'Add budget limits from the setup tab.'}
+                  </div>
+                ) : (
+                  chartBudget.map((item) => {
+                    const spent = spendingByCategory[item.category] || 0;
+                    const percentage = item.limit > 0 ? Math.min(100, (spent / item.limit) * 100) : 0;
+                    const isOver = spent > item.limit && item.limit > 0;
 
                     return (
-                      <div key={b.category} className="space-y-2">
+                      <div key={item.category} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: b.color + '20' }}>
-                              <span style={{ color: b.color }}>{categoryIcons[b.category]}</span>
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full" style={{ backgroundColor: `${item.color}20` }}>
+                              <span style={{ color: item.color }}>{categoryIcons[item.category]}</span>
                             </div>
-                            <span className="font-medium">
-                              {isArabic ? categoryLabels[b.category]?.ar : categoryLabels[b.category]?.en}
-                            </span>
+                            <span className="font-medium">{isArabic ? categoryLabels[item.category]?.ar : categoryLabels[item.category]?.en}</span>
                           </div>
                           <div className="text-right">
-                            <span className={isOver ? 'text-rose-500' : ''}>
-                              {formatCurrency(spent, 'SAR', locale)}
-                            </span>
-                            <span className="text-muted-foreground"> / {formatCurrency(b.limit, 'SAR', locale)}</span>
+                            <span className={isOver ? 'text-rose-500' : ''}>{formatCurrency(spent, 'SAR', locale)}</span>
+                            <span className="text-muted-foreground"> / {formatCurrency(item.limit, 'SAR', locale)}</span>
                           </div>
                         </div>
-                        <Progress
-                          value={percentage}
-                          className={isOver ? '[&>div]:bg-rose-500' : ''}
-                        />
-                        {isOver && (
-                          <p className="text-xs text-rose-500">
-                            {isArabic ? 'تجاوز الميزانية بـ' : 'Over budget by'} {formatCurrency(spent - b.limit, 'SAR', locale)}
-                          </p>
-                        )}
+                        <Progress value={percentage} className={isOver ? '[&>div]:bg-rose-500' : ''} />
                       </div>
                     );
-                  })}
-                </div>
+                  })
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Expenses Tab */}
           <TabsContent value="expenses">
             <Card>
               <CardHeader>
                 <CardTitle>{isArabic ? 'سجل المصروفات' : 'Expense Log'}</CardTitle>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-96">
-                  <div className="space-y-3">
-                    {expenses.map((expense, index) => (
-                      <motion.div
-                        key={expense.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.03 }}
-                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                      >
-                        <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: categoryColors[expense.category] + '20' }}
-                        >
-                          <span style={{ color: categoryColors[expense.category] }}>
-                            {categoryIcons[expense.category]}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <span className="font-medium">{expense.description}</span>
-                          <span className="text-xs text-muted-foreground block">
-                            {expense.date}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-medium text-rose-500">
-                            -{formatCurrency(expense.amount, 'SAR', locale)}
-                          </span>
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {isArabic ? categoryLabels[expense.category]?.ar : expense.category}
-                          </Badge>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-rose-500"
-                          onClick={() => handleDeleteExpense(expense.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </motion.div>
-                    ))}
+                {expenseEntries.length === 0 ? (
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'لا توجد مصروفات بعد.' : 'No expenses added yet.'}
                   </div>
-                </ScrollArea>
+                ) : (
+                  <ScrollArea className="h-96">
+                    <div className="space-y-3">
+                      {expenseEntries.map((expense, index) => (
+                        <motion.div
+                          key={expense.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="flex items-center gap-4 rounded-lg bg-muted/50 p-3"
+                        >
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: `${categoryColors[expense.category.toLowerCase()] || '#6B7280'}20` }}>
+                            <span style={{ color: categoryColors[expense.category.toLowerCase()] || '#6B7280' }}>
+                              {categoryIcons[expense.category.toLowerCase()]}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-medium">{expense.description}</span>
+                            <span className="block text-xs text-muted-foreground">{expense.date}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-medium text-rose-500">-{formatCurrency(expense.amount, expense.currency, locale)}</span>
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              {isArabic ? categoryLabels[expense.category.toLowerCase()]?.ar : categoryLabels[expense.category.toLowerCase()]?.en || expense.category}
+                            </Badge>
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-rose-500" onClick={() => isSignedIn ? deleteExpenseEntry(expense.id) : requireAccount()} disabled={!isSignedIn}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Budget Setup Tab */}
           <TabsContent value="budget">
             <Card>
               <CardHeader>
                 <CardTitle>{isArabic ? 'إعداد الميزانية الشهرية' : 'Monthly Budget Setup'}</CardTitle>
                 <CardDescription>
-                  {isArabic ? 'حدد حدود الإنفاق الشهرية لكل فئة' : 'Set monthly spending limits for each category'}
+                  {isArabic ? 'هذه القيم هي المصدر المباشر لتقرير الميزانية.' : 'These values are the direct source for the budget report.'}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {budget.map((b) => (
-                    <div key={b.category} className="flex items-center gap-4">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: b.color + '20' }}
-                      >
-                        <span style={{ color: b.color }}>{categoryIcons[b.category]}</span>
+              <CardContent className="space-y-4">
+                {chartBudget.length === 0 ? (
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {isArabic ? 'لا توجد حدود ميزانية حالياً.' : 'There are no budget limits yet.'}
+                  </div>
+                ) : (
+                  chartBudget.map((item) => (
+                    <div key={item.category} className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: `${item.color}20` }}>
+                        <span style={{ color: item.color }}>{categoryIcons[item.category]}</span>
                       </div>
-                      <span className="flex-1 font-medium">
-                        {isArabic ? categoryLabels[b.category]?.ar : categoryLabels[b.category]?.en}
-                      </span>
+                      <span className="flex-1 font-medium">{isArabic ? categoryLabels[item.category]?.ar : categoryLabels[item.category]?.en}</span>
                       <Input
                         type="number"
-                        value={b.limit}
+                        value={item.limit}
                         className="w-32 text-right"
-                        onChange={(e) => {
-                          const newBudget = budget.map(item =>
-                            item.category === b.category
-                              ? { ...item, limit: parseFloat(e.target.value) || 0 }
-                              : item
-                          );
-                          setBudget(newBudget);
-                        }}
+                        disabled={!isSignedIn}
+                        onChange={(e) => updateBudgetLimit(item.category, Number(e.target.value) || 0)}
                       />
                       <span className="text-muted-foreground">SAR</span>
                     </div>
-                  ))}
-                </div>
-                <Button className="mt-6 w-full">
-                  {isArabic ? 'حفظ التغييرات' : 'Save Changes'}
-                </Button>
+                  ))
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Trends Tab */}
           <TabsContent value="trends">
             <Card>
               <CardHeader>
@@ -530,14 +519,7 @@ function BudgetPageContent({
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={[
-                      { month: 'Aug', expenses: 12000, income: 25000 },
-                      { month: 'Sep', expenses: 13500, income: 25000 },
-                      { month: 'Oct', expenses: 11200, income: 28500 },
-                      { month: 'Nov', expenses: 14800, income: 25000 },
-                      { month: 'Dec', expenses: 16500, income: 30000 },
-                      { month: 'Jan', expenses: totalExpenses, income: totalIncome },
-                    ]}>
+                    <LineChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="month" stroke="var(--muted-foreground)" />
                       <YAxis stroke="var(--muted-foreground)" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />

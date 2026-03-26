@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { motion } from 'framer-motion';
 import {
   Calendar,
@@ -132,7 +133,19 @@ function downloadReportFile(report: GeneratedReport) {
 }
 
 export default function ReportsPage() {
-  const { locale, appMode, incomeEntries, expenseEntries, portfolioHoldings, receiptScans, user } = useAppStore();
+  const {
+    locale,
+    appMode,
+    incomeEntries,
+    expenseEntries,
+    portfolioHoldings,
+    receiptScans,
+    assets,
+    liabilities,
+    budgetLimits,
+    user,
+  } = useAppStore();
+  const { isSignedIn } = useUser();
   const isArabic = locale === 'ar';
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -142,11 +155,30 @@ export default function ReportsPage() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [generatedReports, setGeneratedReports] = useState<GeneratedReport[]>([]);
 
-  const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const matchesPeriod = (date: string) => {
+    if (!date) return false;
+    if (selectedPeriod === 'year') {
+      return date.startsWith(selectedYear);
+    }
+    if (selectedPeriod === 'month') {
+      return date.startsWith(`${selectedYear}-${selectedMonth}`);
+    }
+    const monthNumber = Number(date.slice(5, 7));
+    const quarter = Math.ceil(monthNumber / 3);
+    const selectedQuarter = Math.ceil(Number(selectedMonth) / 3);
+    return date.startsWith(selectedYear) && quarter === selectedQuarter;
+  };
+
+  const filteredIncomeEntries = incomeEntries.filter((entry) => matchesPeriod(entry.date));
+  const filteredExpenseEntries = expenseEntries.filter((entry) => matchesPeriod(entry.date));
+  const filteredReceiptScans = receiptScans.filter((entry) => matchesPeriod(entry.date));
+  const totalIncome = filteredIncomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const totalExpenses = filteredExpenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const portfolioValue = portfolioHoldings.reduce((sum, item) => sum + item.shares * item.currentPrice, 0);
   const investedCost = portfolioHoldings.reduce((sum, item) => sum + item.shares * item.avgCost, 0);
-  const netWorth = Math.max(totalIncome + portfolioValue - totalExpenses, 0);
+  const totalAssets = assets.reduce((sum, item) => sum + item.value, 0) + portfolioValue;
+  const totalLiabilities = liabilities.reduce((sum, item) => sum + item.balance, 0);
+  const netWorth = totalAssets - totalLiabilities;
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
   const periodLabel = useMemo(() => {
@@ -177,21 +209,36 @@ export default function ReportsPage() {
           totalExpenses,
           portfolioValue,
           investedCost,
+          totalAssets,
+          totalLiabilities,
           netWorth,
           savingsRate,
+          assets,
+          liabilities,
+          budgetLimits,
           holdings: portfolioHoldings,
-          incomeEntries,
-          expenseEntries,
-          receiptScans,
+          incomeEntries: filteredIncomeEntries,
+          expenseEntries: filteredExpenseEntries,
+          receiptScans: filteredReceiptScans,
         },
       }),
-    [expenseEntries, incomeEntries, investedCost, locale, netWorth, periodLabel, portfolioHoldings, portfolioValue, receiptScans, savingsRate, totalExpenses, totalIncome, user?.name]
+    [assets, liabilities, budgetLimits, filteredExpenseEntries, filteredIncomeEntries, filteredReceiptScans, investedCost, locale, netWorth, periodLabel, portfolioHoldings, portfolioValue, savingsRate, totalAssets, totalExpenses, totalIncome, totalLiabilities, user?.name]
   );
 
   const visibleReports = appMode === 'demo' && generatedReports.length === 0 ? [demoReport] : generatedReports;
   const selectedReport = visibleReports.find((report) => report.id === selectedReportId) ?? visibleReports[0] ?? null;
 
   const handleGenerateReport = async (reportTypeId: string) => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic
+          ? 'يمكن للضيف تصفح بيانات التقارير التجريبية فقط. أنشئ حساباً لتوليد تقاريرك.'
+          : 'Guests can browse the demo reports only. Create an account to generate your own reports.',
+      });
+      return;
+    }
+
     const reportType = reportTypes.find((report) => report.id === reportTypeId);
     if (!reportType) {
       return;
@@ -210,12 +257,17 @@ export default function ReportsPage() {
         totalExpenses,
         portfolioValue,
         investedCost,
+        totalAssets,
+        totalLiabilities,
         netWorth,
         savingsRate,
+        assets,
+        liabilities,
+        budgetLimits,
         holdings: portfolioHoldings,
-        incomeEntries,
-        expenseEntries,
-        receiptScans,
+        incomeEntries: filteredIncomeEntries,
+        expenseEntries: filteredExpenseEntries,
+        receiptScans: filteredReceiptScans,
       },
     });
 
@@ -226,6 +278,16 @@ export default function ReportsPage() {
   };
 
   const handleDownload = (report: GeneratedReport) => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic
+          ? 'تسجيل الدخول مطلوب لتنزيل التقارير.'
+          : 'Sign in is required to download reports.',
+      });
+      return;
+    }
+
     downloadReportFile(report);
     toast({
       title: isArabic ? 'تم تنزيل التقرير' : 'Report downloaded',
@@ -238,6 +300,15 @@ export default function ReportsPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        {!isSignedIn && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              {isArabic
+                ? 'يمكنك كضيف استعراض التقرير التجريبي فقط. إنشاء التقارير أو مراجعتها أو تنزيلها يتطلب حساباً.'
+                : 'As a guest you can browse the demo report only. Generating, reviewing, or downloading reports requires an account.'}
+            </CardContent>
+          </Card>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -333,7 +404,7 @@ export default function ReportsPage() {
                   </CardHeader>
                   <CardContent>
                     <FeatureGate feature={feature}>
-                      <Button className="w-full" variant={report.tier === 'pro' ? 'default' : 'outline'} onClick={() => handleGenerateReport(report.id)} disabled={isGenerating}>
+                      <Button className="w-full" variant={report.tier === 'pro' ? 'default' : 'outline'} onClick={() => handleGenerateReport(report.id)} disabled={isGenerating || !isSignedIn}>
                         {isGenerating ? (
                           <>
                             <FileDown className="mr-2 h-4 w-4 animate-pulse" />
@@ -393,14 +464,19 @@ export default function ReportsPage() {
                           size="sm"
                           className="gap-2"
                           onClick={() => {
+                            if (!isSignedIn) {
+                              handleGenerateReport(report.type);
+                              return;
+                            }
                             setSelectedReportId(report.id);
                             setPreviewOpen(true);
                           }}
+                          disabled={!isSignedIn}
                         >
                           <Eye className="h-4 w-4" />
                           {isArabic ? 'مراجعة' : 'Review'}
                         </Button>
-                        <Button size="sm" className="gap-2" onClick={() => handleDownload(report)}>
+                        <Button size="sm" className="gap-2" onClick={() => handleDownload(report)} disabled={!isSignedIn}>
                           <Download className="h-4 w-4" />
                           {isArabic ? 'تنزيل' : 'Download'}
                         </Button>
@@ -443,7 +519,7 @@ export default function ReportsPage() {
             )}
             <DialogFooter>
               {selectedReport && (
-                <Button className="gap-2" onClick={() => handleDownload(selectedReport)}>
+                <Button className="gap-2" onClick={() => handleDownload(selectedReport)} disabled={!isSignedIn}>
                   <Download className="h-4 w-4" />
                   {isArabic ? 'تنزيل هذا التقرير' : 'Download This Report'}
                 </Button>
@@ -534,8 +610,24 @@ type ReportContext = {
   totalExpenses: number;
   portfolioValue: number;
   investedCost: number;
+  totalAssets: number;
+  totalLiabilities: number;
   netWorth: number;
   savingsRate: number;
+  assets: Array<{
+    name: string;
+    category: string;
+    value: number;
+  }>;
+  liabilities: Array<{
+    name: string;
+    category: string;
+    balance: number;
+  }>;
+  budgetLimits: Array<{
+    category: string;
+    limit: number;
+  }>;
   holdings: Array<{
     ticker: string;
     name: string;
@@ -600,6 +692,11 @@ function buildReportContent(
   const avgReceiptConfidence = context.receiptScans.length > 0
     ? context.receiptScans.reduce((sum, item) => sum + item.confidence, 0) / context.receiptScans.length
     : 0;
+  const topAsset = [...context.assets].sort((a, b) => b.value - a.value)[0];
+  const topLiability = [...context.liabilities].sort((a, b) => b.balance - a.balance)[0];
+  const budgetCoverage = context.budgetLimits.length;
+  const budgetTotal = context.budgetLimits.reduce((sum, item) => sum + item.limit, 0);
+  const budgetVsSpendDelta = budgetTotal - context.totalExpenses;
 
   switch (reportTypeId) {
     case 'portfolio-report':
@@ -625,21 +722,21 @@ function buildReportContent(
     case 'net-worth-report':
       return {
         summary: isArabic
-          ? `هذا تقرير صافي الثروة لفترة ${periodLabel}. يعرض توازن الأصول الحالية مقابل الالتزامات التقديرية الناتجة من المصروفات والتدفق المالي المسجل.`
-          : `This is a net worth report for ${periodLabel}. It shows the current balance between assets and liabilities derived from recorded financial activity.`,
+          ? `هذا تقرير صافي الثروة لفترة ${periodLabel}. يعتمد مباشرة على الأصول والالتزامات الحالية المحفوظة في شاشة صافي الثروة بالإضافة إلى مكون المحفظة.`
+          : `This is a net worth report for ${periodLabel}. It is tied directly to the current assets and liabilities saved in the net worth screen, plus the portfolio component.`,
         metrics: [
           { label: isArabic ? 'صافي الثروة' : 'Net Worth', value: formatCurrency(context.netWorth, 'SAR', locale) },
-          { label: isArabic ? 'الأصول المتاحة' : 'Tracked Assets', value: formatCurrency(context.totalIncome + context.portfolioValue, 'SAR', locale) },
-          { label: isArabic ? 'الالتزامات/الاستنزاف' : 'Outflows', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
+          { label: isArabic ? 'إجمالي الأصول' : 'Total Assets', value: formatCurrency(context.totalAssets, 'SAR', locale) },
+          { label: isArabic ? 'إجمالي الالتزامات' : 'Total Liabilities', value: formatCurrency(context.totalLiabilities, 'SAR', locale) },
           { label: isArabic ? 'قيمة المحفظة' : 'Portfolio Component', value: formatCurrency(context.portfolioValue, 'SAR', locale) },
         ],
         sections: [
           isArabic
-            ? `قيمة صافي الثروة هنا مرتبطة مباشرة ببيانات الدخل والمصروفات والمحفظة، لذلك فهي تختلف عن تقرير الميزانية وتقرير المحفظة.`
-            : `Net worth here is tied directly to the income, expense, and portfolio datasets, so it differs from both the budget report and the portfolio report.`,
+            ? `أكبر أصل مسجل حالياً هو ${topAsset?.name || 'لا يوجد'} بقيمة ${formatCurrency(topAsset?.value || 0, 'SAR', locale)}، وأكبر التزام هو ${topLiability?.name || 'لا يوجد'} بقيمة ${formatCurrency(topLiability?.balance || 0, 'SAR', locale)}.`
+            : `The largest recorded asset is ${topAsset?.name || 'none'} at ${formatCurrency(topAsset?.value || 0, 'SAR', locale)}, while the largest liability is ${topLiability?.name || 'none'} at ${formatCurrency(topLiability?.balance || 0, 'SAR', locale)}.`,
           isArabic
-            ? `كلما زادت التدفقات الإيجابية والمحفظة مقارنة بالمصروفات، ارتفع صافي الثروة.`
-            : `As positive inflows and portfolio value outpace expenses, net worth improves.`,
+            ? `هذا التقرير يستخدم مصدر بيانات مختلفاً عن تقرير الميزانية، لأنه لا يعتمد على بنود الصرف فقط بل على قائمة الأصول والالتزامات الفعلية.`
+            : `This report uses a different source from the budget report because it is based on actual assets and liabilities, not only spending entries.`,
         ],
       };
     case 'income-report':
@@ -685,21 +782,25 @@ function buildReportContent(
     case 'budget-report':
       return {
         summary: isArabic
-          ? `هذا تقرير ميزانية لفترة ${periodLabel}. يربط بين الدخل والمصروفات لاستخراج معدل الادخار ونمط الإنفاق حسب الفئات.`
-          : `This is a budget report for ${periodLabel}. It connects income and expenses to calculate savings rate and spending behavior by category.`,
+          ? `هذا تقرير ميزانية لفترة ${periodLabel}. يعتمد على حدود الميزانية الحالية بالإضافة إلى الدخل والمصروفات خلال الفترة المحددة.`
+          : `This is a budget report for ${periodLabel}. It is built from the current budget limits plus income and expense entries during the selected period.`,
         metrics: [
           { label: isArabic ? 'الدخل' : 'Income', value: formatCurrency(context.totalIncome, 'SAR', locale) },
           { label: isArabic ? 'المصروفات' : 'Expenses', value: formatCurrency(context.totalExpenses, 'SAR', locale) },
           { label: isArabic ? 'معدل الادخار' : 'Savings Rate', value: `${context.savingsRate.toFixed(1)}%` },
-          { label: isArabic ? 'أعلى فئة صرف' : 'Top Spending Category', value: topExpenseCategory ? topExpenseCategory[0] : (isArabic ? 'لا يوجد' : 'None') },
+          { label: isArabic ? 'الفئات المفعلة' : 'Budget Categories', value: String(budgetCoverage) },
         ],
         sections: [
           isArabic
-            ? `يعتمد تقرير الميزانية على مقارنة الدخل بالمصروفات، لذلك يختلف عن تقرير المصروفات الذي يركز فقط على الصرف، وعن تقرير الدخل الذي يركز فقط على المصادر الداخلة.`
-            : `The budget report compares income against expenses, so it differs from the expenses report, which focuses only on spending, and the income report, which focuses only on inflows.`,
+            ? `إجمالي حدود الميزانية الحالية هو ${formatCurrency(budgetTotal, 'SAR', locale)} مقابل إنفاق فعلي قدره ${formatCurrency(context.totalExpenses, 'SAR', locale)}.`
+            : `Current configured budget capacity is ${formatCurrency(budgetTotal, 'SAR', locale)} against actual spending of ${formatCurrency(context.totalExpenses, 'SAR', locale)}.`,
           isArabic
-            ? `حالة الادخار الحالية تبلغ ${context.savingsRate.toFixed(1)}% للفترة المحددة.`
-            : `Current savings performance stands at ${context.savingsRate.toFixed(1)}% for the selected period.`,
+            ? budgetVsSpendDelta >= 0
+              ? `الفترة الحالية ضمن حدود الميزانية بفارق ${formatCurrency(budgetVsSpendDelta, 'SAR', locale)}.`
+              : `تم تجاوز حدود الميزانية الحالية بمقدار ${formatCurrency(Math.abs(budgetVsSpendDelta), 'SAR', locale)}.`
+            : budgetVsSpendDelta >= 0
+              ? `The current period is under the configured budget by ${formatCurrency(budgetVsSpendDelta, 'SAR', locale)}.`
+              : `The current period is over the configured budget by ${formatCurrency(Math.abs(budgetVsSpendDelta), 'SAR', locale)}.`,
         ],
       };
     case 'fire-report':

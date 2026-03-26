@@ -8,6 +8,8 @@ export type AppMode = 'demo' | 'live';
 export type IncomeSource = 'salary' | 'freelance' | 'business' | 'investment' | 'rental' | 'other';
 export type IncomeFrequency = 'one_time' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 export type PortfolioExchange = 'TASI' | 'EGX' | 'NASDAQ' | 'NYSE';
+export type AssetCategory = 'cash' | 'investment' | 'real_estate' | 'vehicle' | 'other';
+export type LiabilityCategory = 'loan' | 'mortgage' | 'credit_card' | 'other';
 export type ExpenseCategory =
   | 'Food'
   | 'Transport'
@@ -62,6 +64,9 @@ export interface LocalProfile {
   expenseEntries: ExpenseEntry[];
   receiptScans: ReceiptScanResult[];
   portfolioHoldings: PortfolioHolding[];
+  assets: AssetEntry[];
+  liabilities: LiabilityEntry[];
+  budgetLimits: BudgetLimit[];
 }
 
 interface AuthenticatedUserPayload {
@@ -120,12 +125,34 @@ export interface PortfolioHolding {
   isShariah: boolean;
 }
 
+export interface AssetEntry {
+  id: string;
+  name: string;
+  category: AssetCategory;
+  value: number;
+  currency: string;
+}
+
+export interface LiabilityEntry {
+  id: string;
+  name: string;
+  category: LiabilityCategory;
+  balance: number;
+  currency: string;
+}
+
+export interface BudgetLimit {
+  category: string;
+  limit: number;
+  color: string;
+}
+
 const defaultUser: User = {
   id: 'demo-user',
   email: 'demo@wealix.app',
   name: 'Demo User',
   avatarUrl: null,
-  locale: 'ar',
+  locale: 'en',
   currency: 'SAR',
   subscriptionTier: 'free',
   onboardingDone: true,
@@ -230,6 +257,30 @@ const defaultPortfolioHoldings: PortfolioHolding[] = [
   { id: '6', ticker: '1050.SR', name: 'SABIC', exchange: 'TASI', shares: 30, avgCost: 85, currentPrice: 92.4, sector: 'Materials', isShariah: true },
 ];
 
+const defaultAssets: AssetEntry[] = [
+  { id: 'asset-1', name: 'Al Rajhi Savings', category: 'cash', value: 150000, currency: 'SAR' },
+  { id: 'asset-2', name: 'SNB Current', category: 'cash', value: 45000, currency: 'SAR' },
+  { id: 'asset-3', name: 'Investment Portfolio', category: 'investment', value: 485000, currency: 'SAR' },
+  { id: 'asset-4', name: 'Apartment - Riyadh', category: 'real_estate', value: 850000, currency: 'SAR' },
+  { id: 'asset-5', name: 'Toyota Camry', category: 'vehicle', value: 75000, currency: 'SAR' },
+];
+
+const defaultLiabilities: LiabilityEntry[] = [
+  { id: 'liability-1', name: 'Mortgage - Riyadh', category: 'mortgage', balance: 520000, currency: 'SAR' },
+  { id: 'liability-2', name: 'Car Loan', category: 'loan', balance: 45000, currency: 'SAR' },
+  { id: 'liability-3', name: 'Credit Card', category: 'credit_card', balance: 8500, currency: 'SAR' },
+];
+
+const defaultBudgetLimits: BudgetLimit[] = [
+  { category: 'housing', limit: 5000, color: '#D4A843' },
+  { category: 'food', limit: 2000, color: '#10B981' },
+  { category: 'transport', limit: 800, color: '#3B82F6' },
+  { category: 'entertainment', limit: 500, color: '#8B5CF6' },
+  { category: 'investment', limit: 5000, color: '#06B6D4' },
+  { category: 'zakat', limit: 1500, color: '#EC4899' },
+  { category: 'other', limit: 1000, color: '#6B7280' },
+];
+
 const defaultReceiptScans: ReceiptScanResult[] = [
   {
     id: 'receipt-demo-1',
@@ -253,6 +304,9 @@ function buildDemoState() {
     expenseEntries: defaultExpenseEntries,
     receiptScans: defaultReceiptScans,
     portfolioHoldings: defaultPortfolioHoldings,
+    assets: defaultAssets,
+    liabilities: defaultLiabilities,
+    budgetLimits: defaultBudgetLimits,
   };
 }
 
@@ -265,6 +319,9 @@ function buildLiveState() {
     expenseEntries: [] as ExpenseEntry[],
     receiptScans: [] as ReceiptScanResult[],
     portfolioHoldings: [] as PortfolioHolding[],
+    assets: [] as AssetEntry[],
+    liabilities: [] as LiabilityEntry[],
+    budgetLimits: [] as BudgetLimit[],
   };
 }
 
@@ -291,6 +348,9 @@ function createProfileSnapshot(
     expenseEntries: state.expenseEntries,
     receiptScans: state.receiptScans,
     portfolioHoldings: state.portfolioHoldings,
+    assets: state.assets,
+    liabilities: state.liabilities,
+    budgetLimits: state.budgetLimits,
   };
 }
 
@@ -309,6 +369,9 @@ function snapshotActiveProfile(state: AppState): LocalProfile {
     expenseEntries: state.expenseEntries,
     receiptScans: state.receiptScans,
     portfolioHoldings: state.portfolioHoldings,
+    assets: state.assets,
+    liabilities: state.liabilities,
+    budgetLimits: state.budgetLimits,
   };
 }
 
@@ -340,10 +403,13 @@ function profileToState(profile: LocalProfile) {
     expenseEntries: profile.expenseEntries,
     receiptScans: profile.receiptScans,
     portfolioHoldings: profile.portfolioHoldings,
+    assets: profile.assets,
+    liabilities: profile.liabilities,
+    budgetLimits: profile.budgetLimits,
   };
 }
 
-const initialLiveProfile = createProfileSnapshot('guest', 'Guest', '', buildLiveState(), {
+const initialGuestProfile = createProfileSnapshot('guest', 'Guest', '', buildDemoState(), {
   user: null,
   notificationPreferences: defaultNotificationPreferences,
 });
@@ -382,6 +448,14 @@ interface AppState {
   addPortfolioHolding: (holding: PortfolioHolding) => void;
   deletePortfolioHolding: (id: string) => void;
   replacePortfolioHoldings: (holdings: PortfolioHolding[]) => void;
+  assets: AssetEntry[];
+  addAsset: (asset: AssetEntry) => void;
+  deleteAsset: (id: string) => void;
+  liabilities: LiabilityEntry[];
+  addLiability: (liability: LiabilityEntry) => void;
+  deleteLiability: (id: string) => void;
+  budgetLimits: BudgetLimit[];
+  setBudgetLimits: (limits: BudgetLimit[]) => void;
   clearAllData: () => void;
   setSubscriptionTier: (tier: SubscriptionTier) => void;
   
@@ -421,7 +495,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       // User
-      user: initialLiveProfile.user,
+      user: initialGuestProfile.user,
       setUser: (user) => set((state) => syncActiveProfileState(state, { user })),
       updateUser: (updates) => set((state) =>
         syncActiveProfileState(state, {
@@ -430,11 +504,11 @@ export const useAppStore = create<AppState>()(
       ),
       
       // Locale & Theme
-      locale: 'ar',
+      locale: 'en',
       setLocale: (locale) => set({ locale }),
-      theme: 'dark',
+      theme: 'light',
       setTheme: (theme) => set({ theme }),
-      appMode: initialLiveProfile.appMode,
+      appMode: initialGuestProfile.appMode,
       setAppMode: (mode) => set((state) => {
         const seeded = mode === 'demo' ? buildDemoState() : buildLiveState();
         const user =
@@ -468,7 +542,7 @@ export const useAppStore = create<AppState>()(
           isLoading: false,
         });
       }),
-      notificationPreferences: initialLiveProfile.notificationPreferences,
+      notificationPreferences: initialGuestProfile.notificationPreferences,
       updateNotificationPreferences: (updates) => set((state) =>
         syncActiveProfileState(state, {
           notificationPreferences: {
@@ -477,7 +551,7 @@ export const useAppStore = create<AppState>()(
           },
         })
       ),
-      notificationFeed: initialLiveProfile.notificationFeed,
+      notificationFeed: initialGuestProfile.notificationFeed,
       markNotificationAsRead: (id) => set((state) =>
         syncActiveProfileState(state, {
           notificationFeed: state.notificationFeed.map((item) =>
@@ -494,7 +568,7 @@ export const useAppStore = create<AppState>()(
         })
       ),
       profiles: [],
-      activeProfileId: initialLiveProfile.id,
+      activeProfileId: initialGuestProfile.id,
       syncClerkUser: (authUser) =>
         set((state) => {
           const profiles = state.user ? upsertProfile(state.profiles, snapshotActiveProfile(state)) : state.profiles;
@@ -548,11 +622,11 @@ export const useAppStore = create<AppState>()(
         }),
       clearClerkUser: () =>
         set((state) => ({
-          ...profileToState(initialLiveProfile),
+          ...profileToState(initialGuestProfile),
           profiles: state.user ? upsertProfile(state.profiles, snapshotActiveProfile(state)) : state.profiles,
-          activeProfileId: initialLiveProfile.id,
+          activeProfileId: initialGuestProfile.id,
         })),
-      incomeEntries: initialLiveProfile.incomeEntries,
+      incomeEntries: initialGuestProfile.incomeEntries,
       addIncomeEntry: (entry) => set((state) =>
         syncActiveProfileState(state, {
           incomeEntries: [entry, ...state.incomeEntries],
@@ -563,7 +637,7 @@ export const useAppStore = create<AppState>()(
           incomeEntries: state.incomeEntries.filter((entry) => entry.id !== id),
         })
       ),
-      expenseEntries: initialLiveProfile.expenseEntries,
+      expenseEntries: initialGuestProfile.expenseEntries,
       addExpenseEntry: (entry) => set((state) =>
         syncActiveProfileState(state, {
           expenseEntries: [entry, ...state.expenseEntries],
@@ -574,13 +648,13 @@ export const useAppStore = create<AppState>()(
           expenseEntries: state.expenseEntries.filter((entry) => entry.id !== id),
         })
       ),
-      receiptScans: initialLiveProfile.receiptScans,
+      receiptScans: initialGuestProfile.receiptScans,
       addReceiptScan: (receipt) => set((state) =>
         syncActiveProfileState(state, {
           receiptScans: [receipt, ...state.receiptScans].slice(0, 20),
         })
       ),
-      portfolioHoldings: initialLiveProfile.portfolioHoldings,
+      portfolioHoldings: initialGuestProfile.portfolioHoldings,
       addPortfolioHolding: (holding) => set((state) =>
         syncActiveProfileState(state, {
           portfolioHoldings: [holding, ...state.portfolioHoldings],
@@ -594,6 +668,34 @@ export const useAppStore = create<AppState>()(
       replacePortfolioHoldings: (holdings) => set((state) =>
         syncActiveProfileState(state, {
           portfolioHoldings: holdings,
+        })
+      ),
+      assets: initialGuestProfile.assets,
+      addAsset: (asset) => set((state) =>
+        syncActiveProfileState(state, {
+          assets: [asset, ...state.assets],
+        })
+      ),
+      deleteAsset: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          assets: state.assets.filter((asset) => asset.id !== id),
+        })
+      ),
+      liabilities: initialGuestProfile.liabilities,
+      addLiability: (liability) => set((state) =>
+        syncActiveProfileState(state, {
+          liabilities: [liability, ...state.liabilities],
+        })
+      ),
+      deleteLiability: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          liabilities: state.liabilities.filter((liability) => liability.id !== id),
+        })
+      ),
+      budgetLimits: initialGuestProfile.budgetLimits,
+      setBudgetLimits: (limits) => set((state) =>
+        syncActiveProfileState(state, {
+          budgetLimits: limits,
         })
       ),
       setSubscriptionTier: (tier) => set((state) =>
@@ -618,8 +720,8 @@ export const useAppStore = create<AppState>()(
                   subscriptionTier: state.user.subscriptionTier ?? 'free',
                 }
               : null,
-            locale: 'ar',
-            theme: 'dark',
+            locale: 'en',
+            theme: 'light',
             notificationPreferences: defaultNotificationPreferences,
             sidebarCollapsed: false,
             activeDashboardTab: 'overview',
@@ -694,6 +796,9 @@ export const useAppStore = create<AppState>()(
         expenseEntries: state.expenseEntries,
         receiptScans: state.receiptScans,
         portfolioHoldings: state.portfolioHoldings,
+        assets: state.assets,
+        liabilities: state.liabilities,
+        budgetLimits: state.budgetLimits,
         sidebarCollapsed: state.sidebarCollapsed,
         shariahFilterEnabled: state.shariahFilterEnabled,
       }),

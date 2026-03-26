@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Camera, Plus, Receipt, ScanSearch, Trash2 } from 'lucide-react';
 import { DashboardShell } from '@/components/layout';
 import { StatCard } from '@/components/shared';
@@ -46,6 +47,7 @@ export default function ExpensesPage() {
   const deleteExpenseEntry = useAppStore((state) => state.deleteExpenseEntry);
   const addReceiptScan = useAppStore((state) => state.addReceiptScan);
   const isArabic = locale === 'ar';
+  const { isSignedIn } = useUser();
   const [open, setOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [savingScan, setSavingScan] = useState(false);
@@ -93,6 +95,16 @@ export default function ExpensesPage() {
   }, [expenseEntries]);
 
   const handleAddExpense = () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic
+          ? 'يمكن للضيف تصفح البيانات التجريبية فقط. أنشئ حساباً لإضافة المصروفات.'
+          : 'Guests can browse demo data only. Create an account to add expenses.',
+      });
+      return;
+    }
+
     const amount = Number(form.amount);
     if (!amount || amount <= 0 || !form.description.trim()) {
       toast({
@@ -128,6 +140,16 @@ export default function ExpensesPage() {
   };
 
   const handleRunOcr = async () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic
+          ? 'امسح الإيصالات بعد إنشاء حساب.'
+          : 'Create an account to scan receipts.',
+      });
+      return;
+    }
+
     if (!selectedFile) {
       return;
     }
@@ -178,6 +200,10 @@ export default function ExpensesPage() {
   };
 
   const handleSaveScannedExpense = () => {
+    if (!isSignedIn) {
+      return;
+    }
+
     if (!ocrResult || !ocrDraft || !selectedFile) {
       return;
     }
@@ -235,6 +261,15 @@ export default function ExpensesPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        {!isSignedIn && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              {isArabic
+                ? 'أنت الآن في وضع الضيف. يمكنك رؤية بيانات الإيصالات والمصروفات التجريبية فقط، لكن الإضافة والمسح والحفظ تتطلب حساباً.'
+                : 'You are in guest mode. You can view demo expense and receipt data, but adding, scanning, and saving require an account.'}
+            </CardContent>
+          </Card>
+        )}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold">{isArabic ? 'المصروفات' : 'Expenses'}</h1>
@@ -247,7 +282,7 @@ export default function ExpensesPage() {
           <div className="flex gap-2">
             <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" disabled={!isSignedIn}>
                   <ScanSearch className="h-4 w-4" />
                   {isArabic ? 'مسح إيصال' : 'Scan Receipt'}
                 </Button>
@@ -267,6 +302,21 @@ export default function ExpensesPage() {
                     <Input
                       type="file"
                       accept="image/*"
+                      disabled={!isSignedIn}
+                      onChange={(e) => {
+                        setSelectedFile(e.target.files?.[0] ?? null);
+                        setOcrResult(null);
+                        setOcrDraft(null);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? 'يمكنك أيضاً فتح الكاميرا مباشرة من الجوال باستخدام الخيار التالي.' : 'You can also open the phone camera directly using the option below.'}
+                    </p>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={!isSignedIn}
                       onChange={(e) => {
                         setSelectedFile(e.target.files?.[0] ?? null);
                         setOcrResult(null);
@@ -376,7 +426,7 @@ export default function ExpensesPage() {
                             </div>
                           </div>
                         )}
-                        <Button className="w-full" onClick={handleSaveScannedExpense}>
+                        <Button className="w-full" onClick={handleSaveScannedExpense} disabled={!isSignedIn}>
                           {isArabic ? 'حفظ كمصروف' : 'Save as Expense'}
                         </Button>
                       </CardContent>
@@ -388,7 +438,7 @@ export default function ExpensesPage() {
 
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2" disabled={!isSignedIn}>
                   <Plus className="h-4 w-4" />
                   {isArabic ? 'إضافة مصروف' : 'Add Expense'}
                 </Button>
@@ -480,7 +530,7 @@ export default function ExpensesPage() {
                       onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
                     />
                   </div>
-                  <Button className="w-full" onClick={handleAddExpense}>
+                  <Button className="w-full" onClick={handleAddExpense} disabled={!isSignedIn}>
                     {isArabic ? 'حفظ المصروف' : 'Save Expense'}
                   </Button>
                 </div>
@@ -534,7 +584,7 @@ export default function ExpensesPage() {
                   <div className="text-right font-semibold">
                     {formatCurrency(entry.amount, entry.currency, locale)}
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => deleteExpenseEntry(entry.id)}>
+                  <Button variant="ghost" size="icon" onClick={() => isSignedIn && deleteExpenseEntry(entry.id)} disabled={!isSignedIn}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Plus, Trash2, TrendingUp, Wallet } from 'lucide-react';
 import { DashboardShell } from '@/components/layout';
 import { StatCard } from '@/components/shared';
@@ -48,6 +49,7 @@ export default function IncomePage() {
   const addIncomeEntry = useAppStore((state) => state.addIncomeEntry);
   const deleteIncomeEntry = useAppStore((state) => state.deleteIncomeEntry);
   const isArabic = locale === 'ar';
+  const { isSignedIn } = useUser();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
 
@@ -68,6 +70,16 @@ export default function IncomePage() {
   }, [incomeEntries]);
 
   const handleAddIncome = () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic
+          ? 'يمكن للضيف تصفح البيانات التجريبية فقط. أنشئ حساباً لإضافة الدخل.'
+          : 'Guests can browse demo data only. Create an account to add income.',
+      });
+      return;
+    }
+
     const amount = Number(form.amount);
     if (!amount || amount <= 0) {
       toast({
@@ -109,6 +121,15 @@ export default function IncomePage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        {!isSignedIn && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              {isArabic
+                ? 'الضيف يرى بيانات الدخل التجريبية فقط، ولا يمكنه إضافة أو حذف الإدخالات.'
+                : 'Guests can browse demo income data only and cannot add or delete entries.'}
+            </CardContent>
+          </Card>
+        )}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold">{isArabic ? 'الدخل' : 'Income'}</h1>
@@ -120,7 +141,7 @@ export default function IncomePage() {
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2" disabled={!isSignedIn}>
                 <Plus className="h-4 w-4" />
                 {isArabic ? 'إضافة دخل' : 'Add Income'}
               </Button>
@@ -220,7 +241,7 @@ export default function IncomePage() {
                     placeholder={isArabic ? 'ملاحظات اختيارية' : 'Optional notes'}
                   />
                 </div>
-                <Button className="w-full" onClick={handleAddIncome}>
+                <Button className="w-full" onClick={handleAddIncome} disabled={!isSignedIn}>
                   {isArabic ? 'حفظ الدخل' : 'Save Income'}
                 </Button>
               </div>
@@ -280,7 +301,7 @@ export default function IncomePage() {
                       {entry.isRecurring ? (isArabic ? 'متكرر' : 'Recurring') : (isArabic ? 'مرة واحدة' : 'One time')}
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => deleteIncomeEntry(entry.id)}>
+                  <Button variant="ghost" size="icon" onClick={() => isSignedIn && deleteIncomeEntry(entry.id)} disabled={!isSignedIn}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

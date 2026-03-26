@@ -11,7 +11,6 @@ import {
   Database,
   CreditCard,
   Download,
-  Trash2,
   Crown,
   Check,
   LogOut,
@@ -30,17 +29,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { DashboardShell } from '@/components/layout';
 import { useAppStore } from '@/store/useAppStore';
 import { useTheme } from 'next-themes';
@@ -103,6 +91,7 @@ export default function SettingsPage({
     setAppMode,
   } = useAppStore();
   const { user: clerkUser } = useUser();
+  const isSignedIn = Boolean(clerkUser);
   const { theme, setTheme } = useTheme();
   const isArabic = locale === 'ar';
   const currentPlan = user?.subscriptionTier ?? 'free';
@@ -122,13 +111,26 @@ export default function SettingsPage({
   };
 
   const handleExportData = () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب تسجيل الدخول' : 'Sign in required',
+        description: isArabic
+          ? 'يمكن للضيف تصفح البيانات التجريبية فقط. أنشئ حساباً لتصدير بياناتك.'
+          : 'Guests can browse the demo only. Create an account to export your data.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const data = {
       user,
-      assets: [],
-      liabilities: [],
-      portfolio: [],
-      budget: [],
-      expenses: [],
+      assets: useAppStore.getState().assets,
+      liabilities: useAppStore.getState().liabilities,
+      portfolio: useAppStore.getState().portfolioHoldings,
+      budget: useAppStore.getState().budgetLimits,
+      expenses: useAppStore.getState().expenseEntries,
+      income: useAppStore.getState().incomeEntries,
+      receipts: useAppStore.getState().receiptScans,
       notificationPreferences,
       exportedAt: new Date().toISOString(),
     };
@@ -156,8 +158,18 @@ export default function SettingsPage({
   };
 
   const handleModeChange = (mode: 'demo' | 'live') => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'الوضع المباشر يتطلب حساباً' : 'Live mode requires an account',
+        description: isArabic
+          ? 'الضيف يبقى في الوضع التجريبي للعرض فقط. سجّل الدخول لاستخدام بياناتك الحقيقية.'
+          : 'Guests stay in demo mode for browsing only. Sign in to use your real data.',
+      });
+      return;
+    }
+
     setAppMode(mode);
-    setTheme('dark');
+    setTheme('light');
 
     toast({
       title: mode === 'demo'
@@ -182,7 +194,7 @@ export default function SettingsPage({
 
   const handleDeleteAllData = () => {
     clearAllData();
-    setTheme('dark');
+    setTheme('light');
     router.replace('/settings?tab=profile');
 
     toast({
@@ -239,6 +251,13 @@ export default function SettingsPage({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {!isSignedIn && (
+                  <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                    {isArabic
+                      ? 'أنت تتصفح كضيف في وضع تجريبي للعرض فقط. يمكنك استكشاف الصفحات، لكن تغيير الإعدادات أو استخدام الميزات يتطلب إنشاء حساب Clerk.'
+                      : 'You are browsing as a guest in demo mode. You can explore the pages, but changing settings or using features requires a Clerk account.'}
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-muted">
                     <UserButton />
@@ -299,7 +318,7 @@ export default function SettingsPage({
                       {isArabic ? 'اختر لغة الواجهة' : 'Choose interface language'}
                     </p>
                   </div>
-                  <Select value={locale} onValueChange={(v) => setLocale(v as 'ar' | 'en')}>
+                  <Select value={locale} onValueChange={(v) => setLocale(v as 'ar' | 'en')} disabled={!isSignedIn}>
                     <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
@@ -319,7 +338,7 @@ export default function SettingsPage({
                       {isArabic ? 'اختر مظهر التطبيق' : 'Choose application theme'}
                     </p>
                   </div>
-                  <Select value={theme} onValueChange={setTheme}>
+                  <Select value={theme} onValueChange={setTheme} disabled={!isSignedIn}>
                     <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
@@ -349,6 +368,7 @@ export default function SettingsPage({
                     <button
                       type="button"
                       onClick={() => handleModeChange('demo')}
+                      disabled={!isSignedIn}
                       className={`rounded-xl border p-4 text-left transition-colors ${
                         appMode === 'demo' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
                       }`}
@@ -363,6 +383,7 @@ export default function SettingsPage({
                     <button
                       type="button"
                       onClick={() => handleModeChange('live')}
+                      disabled={!isSignedIn}
                       className={`rounded-xl border p-4 text-left transition-colors ${
                         appMode === 'live' ? 'border-emerald-500 bg-emerald-500/10' : 'border-border hover:bg-muted/50'
                       }`}
@@ -395,7 +416,7 @@ export default function SettingsPage({
                       {isArabic ? 'تلقي التحديثات عبر البريد' : 'Receive updates via email'}
                     </p>
                   </div>
-                  <Switch checked={notificationPreferences.email} onCheckedChange={(c) => handleNotificationChange('email', c)} />
+                  <Switch checked={notificationPreferences.email} onCheckedChange={(c) => handleNotificationChange('email', c)} disabled={!isSignedIn} />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -405,7 +426,7 @@ export default function SettingsPage({
                       {isArabic ? 'تنبيهات داخل التطبيق للأحداث المهمة' : 'In-app alerts for important events'}
                     </p>
                   </div>
-                  <Switch checked={notificationPreferences.push} onCheckedChange={(c) => handleNotificationChange('push', c)} />
+                  <Switch checked={notificationPreferences.push} onCheckedChange={(c) => handleNotificationChange('push', c)} disabled={!isSignedIn} />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -415,7 +436,7 @@ export default function SettingsPage({
                       {isArabic ? 'إشعارات عند وصول السعر للهدف' : 'Notifications when price targets are hit'}
                     </p>
                   </div>
-                  <Switch checked={notificationPreferences.priceAlerts} onCheckedChange={(c) => handleNotificationChange('priceAlerts', c)} />
+                  <Switch checked={notificationPreferences.priceAlerts} onCheckedChange={(c) => handleNotificationChange('priceAlerts', c)} disabled={!isSignedIn} />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -425,7 +446,7 @@ export default function SettingsPage({
                       {isArabic ? 'إشعارات عند اقتراب الميزانية من الحد' : 'Notifications when budget limits are approaching'}
                     </p>
                   </div>
-                  <Switch checked={notificationPreferences.budgetAlerts} onCheckedChange={(c) => handleNotificationChange('budgetAlerts', c)} />
+                  <Switch checked={notificationPreferences.budgetAlerts} onCheckedChange={(c) => handleNotificationChange('budgetAlerts', c)} disabled={!isSignedIn} />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -435,7 +456,7 @@ export default function SettingsPage({
                       {isArabic ? 'ملخص أسبوعي لأدائك المالي' : 'Weekly summary of your financial performance'}
                     </p>
                   </div>
-                  <Switch checked={notificationPreferences.weeklyDigest} onCheckedChange={(c) => handleNotificationChange('weeklyDigest', c)} />
+                  <Switch checked={notificationPreferences.weeklyDigest} onCheckedChange={(c) => handleNotificationChange('weeklyDigest', c)} disabled={!isSignedIn} />
                 </div>
               </CardContent>
             </Card>
@@ -463,6 +484,7 @@ export default function SettingsPage({
                         <Button
                           className="bg-gold hover:bg-gold-dark text-navy-dark"
                           onClick={() => handleSubscriptionChange('pro')}
+                          disabled={!isSignedIn}
                         >
                           {isArabic ? 'ترقية' : 'Upgrade'}
                         </Button>
@@ -511,6 +533,7 @@ export default function SettingsPage({
                           className="w-full mt-4"
                           variant={tier.id === 'pro' ? 'default' : 'outline'}
                           onClick={() => handleSubscriptionChange(tier.id as 'free' | 'core' | 'pro')}
+                          disabled={!isSignedIn}
                         >
                           {isArabic ? 'ابدأ التجربة' : 'Start Trial'}
                         </Button>
@@ -540,52 +563,17 @@ export default function SettingsPage({
               </CardContent>
             </Card>
 
-            {/* Danger Zone */}
             <Card className="border-rose-500/30">
               <CardHeader>
-                <CardTitle className="text-rose-500">{isArabic ? 'منطقة الخطر' : 'Danger Zone'}</CardTitle>
+                <CardTitle className="text-rose-500">{isArabic ? 'إعادة تعيين البيانات المحلية' : 'Reset Local Data'}</CardTitle>
                 <CardDescription>
-                  {isArabic ? 'إجراءات لا يمكن التراجع عنها' : 'Irreversible actions'}
+                  {isArabic ? 'يمسح بيانات Wealix المحلية لهذا المستخدم دون حذف حساب Clerk.' : 'Clears this user’s local Wealix data without deleting the Clerk account.'}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-rose-500/10">
-                  <div>
-                    <h4 className="font-medium">{isArabic ? 'حذف الحساب' : 'Delete Account'}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {isArabic ? 'حذف حسابك وجميع بياناتك نهائياً' : 'Permanently delete your account and all data'}
-                    </p>
-                  </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        {isArabic ? 'حذف الحساب' : 'Delete Account'}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {isArabic ? 'هل أنت متأكد؟' : 'Are you sure?'}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {isArabic
-                            ? 'سيتم حذف حسابك وجميع بياناتك نهائياً. هذا الإجراء لا يمكن التراجع عنه.'
-                            : 'This will permanently delete your account and all your data. This action cannot be undone.'}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-rose-500 hover:bg-rose-600"
-                          onClick={handleDeleteAllData}
-                        >
-                          {isArabic ? 'حذف' : 'Delete'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+              <CardContent>
+                <Button variant="destructive" onClick={handleDeleteAllData} disabled={!isSignedIn}>
+                  {isArabic ? 'مسح البيانات المحلية' : 'Clear Local Data'}
+                </Button>
               </CardContent>
             </Card>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -86,6 +87,7 @@ export default function PortfolioPage() {
     replacePortfolioHoldings,
   } = useAppStore();
   const isArabic = locale === 'ar';
+  const { isSignedIn } = useUser();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddHolding, setShowAddHolding] = useState(false);
@@ -145,6 +147,16 @@ export default function PortfolioPage() {
   }));
 
   const handleAddHolding = () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic
+          ? 'يمكن للضيف تصفح المحفظة التجريبية فقط.'
+          : 'Guests can browse the demo portfolio only.',
+      });
+      return;
+    }
+
     if (!newHolding.ticker || !newHolding.shares || !newHolding.avgCost) {
       return;
     }
@@ -166,6 +178,14 @@ export default function PortfolioPage() {
   };
 
   const handleImportPortfolio = async (file: File | null) => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic ? 'تسجيل الدخول مطلوب لاستيراد المحفظة.' : 'Sign in is required to import the portfolio.',
+      });
+      return;
+    }
+
     if (!file) {
       return;
     }
@@ -230,6 +250,14 @@ export default function PortfolioPage() {
   };
 
   const handleAnalyzePortfolio = async () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic ? 'تسجيل الدخول مطلوب لتحليل المحفظة.' : 'Sign in is required to analyze the portfolio.',
+      });
+      return;
+    }
+
     if (holdings.length === 0) {
       setAnalysis({
         summary: isArabic
@@ -277,6 +305,15 @@ export default function PortfolioPage() {
   return (
     <DashboardShell>
       <div className="space-y-6">
+        {!isSignedIn && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              {isArabic
+                ? 'الضيف يستطيع استعراض المحفظة التجريبية فقط. الإضافة والاستيراد والتحليل تتطلب حساباً.'
+                : 'Guests can browse the demo portfolio only. Adding, importing, and analysis require an account.'}
+            </CardContent>
+          </Card>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">{isArabic ? 'المحفظة الاستثمارية' : 'Investment Portfolio'}</h1>
@@ -290,7 +327,7 @@ export default function PortfolioPage() {
             <FeatureGate feature="portfolio.ai_analysis">
               <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" onClick={handleAnalyzePortfolio}>
+                  <Button variant="outline" className="gap-2" onClick={handleAnalyzePortfolio} disabled={!isSignedIn}>
                     <Sparkles className="w-4 h-4" />
                     {isArabic ? 'تحليل المحفظة' : 'Analyze Portfolio'}
                   </Button>
@@ -324,8 +361,8 @@ export default function PortfolioPage() {
               </a>
             </Button>
 
-            <Button asChild variant="outline" className="gap-2">
-              <label className="cursor-pointer">
+            <Button variant="outline" className="gap-2" disabled={!isSignedIn} asChild={false}>
+              <label className={`cursor-pointer ${!isSignedIn ? 'pointer-events-none opacity-70' : ''}`}>
                 <Upload className="w-4 h-4" />
                 {isImporting ? (isArabic ? 'جارٍ الاستيراد...' : 'Importing...') : (isArabic ? 'استيراد إكسل' : 'Import Excel')}
                 <input
@@ -339,7 +376,7 @@ export default function PortfolioPage() {
 
             <Dialog open={showAddHolding} onOpenChange={setShowAddHolding}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2" disabled={!isSignedIn}>
                   <Plus className="w-4 h-4" />
                   {isArabic ? 'إضافة سهم' : 'Add Holding'}
                 </Button>
@@ -415,7 +452,7 @@ export default function PortfolioPage() {
                   <Button variant="outline" onClick={() => setShowAddHolding(false)}>
                     {isArabic ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button onClick={handleAddHolding}>
+                  <Button onClick={handleAddHolding} disabled={!isSignedIn}>
                     {isArabic ? 'إضافة' : 'Add'}
                   </Button>
                 </DialogFooter>
@@ -571,7 +608,7 @@ export default function PortfolioPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-600" onClick={() => deletePortfolioHolding(holding.id)}>
+                              <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-600" onClick={() => isSignedIn && deletePortfolioHolding(holding.id)} disabled={!isSignedIn}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </TableCell>

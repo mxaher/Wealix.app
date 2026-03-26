@@ -51,7 +51,7 @@ export function CurrencyDisplay({
 export function formatCurrency(
   amount: number,
   currency: string = 'SAR',
-  locale: 'ar' | 'en' = 'ar'
+  locale: 'ar' | 'en' = 'en'
 ): string {
   return formatCurrencyUtil(amount, currency, locale);
 }
