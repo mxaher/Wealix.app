@@ -15,6 +15,21 @@ type DatalabOcrResult = {
   pages?: unknown[];
 };
 
+type DatalabMarkerResponse = {
+  success?: boolean;
+  request_id?: string;
+  request_check_url?: string;
+  error?: string | null;
+};
+
+type DatalabMarkerResult = {
+  status?: string;
+  success?: boolean | null;
+  error?: string | null;
+  markdown?: string | null;
+  html?: string | null;
+};
+
 function parseJsonObject(content: string): Record<string, unknown> | null {
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) {
@@ -274,6 +289,72 @@ async function runDatalabOcr(file: File) {
   throw new Error('Datalab OCR timed out while processing the receipt.');
 }
 
+async function runDatalabMarker(file: File) {
+  const apiKey = process.env.DATALAB_API_KEY || process.env.CHANDRA_API_KEY;
+  const apiBase = process.env.DATALAB_API_BASE || 'https://www.datalab.to';
+
+  if (!apiKey) {
+    throw new Error('Datalab Marker is not configured. Add DATALAB_API_KEY.');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('output_format', 'markdown');
+  formData.append('force_ocr', 'true');
+  formData.append('use_llm', 'true');
+  formData.append('langs', 'ar,en');
+
+  const submitResponse = await fetch(`${apiBase}/api/v1/marker`, {
+    method: 'POST',
+    headers: {
+      'X-API-Key': apiKey,
+    },
+    body: formData,
+  });
+
+  const submitData = (await submitResponse.json()) as DatalabMarkerResponse;
+  if (!submitResponse.ok || !submitData.request_check_url) {
+    throw new Error(submitData.error || 'Failed to submit receipt to Datalab Marker.');
+  }
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const pollResponse = await fetch(submitData.request_check_url, {
+      headers: {
+        'X-API-Key': apiKey,
+      },
+      cache: 'no-store',
+    });
+
+    const pollData = (await pollResponse.json()) as DatalabMarkerResult;
+    if (!pollResponse.ok) {
+      throw new Error(pollData.error || 'Failed to poll Datalab Marker.');
+    }
+
+    if (pollData.status === 'complete') {
+      if (pollData.success === false) {
+        throw new Error(pollData.error || 'Datalab Marker did not complete successfully.');
+      }
+
+      const rawText = [pollData.markdown, pollData.html]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join('\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\n{2,}/g, '\n')
+        .trim();
+
+      if (!rawText) {
+        throw new Error('Datalab Marker returned an empty result.');
+      }
+
+      return rawText;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
+
+  throw new Error('Datalab Marker timed out while processing the receipt.');
+}
+
 async function runVisionFallback(file: File) {
   const bytes = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString('base64');
@@ -336,12 +417,34 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const rawText = await runDatalabOcr(file);
+      const rawText = await runDatalabMarker(file);
       return Response.json(buildStructuredReceipt(rawText, file.name));
-    } catch (datalabError) {
-      console.error('Datalab OCR Error:', datalabError);
-      const fallbackResult = await runVisionFallback(file);
-      return Response.json(fallbackResult);
+    } catch (markerError) {
+      console.error('Datalab Marker Error:', markerError);
+
+      try {
+        const rawText = await runDatalabOcr(file);
+        return Response.json(buildStructuredReceipt(rawText, file.name));
+      } catch (ocrError) {
+        console.error('Datalab OCR Error:', ocrError);
+
+        try {
+          const fallbackResult = await runVisionFallback(file);
+          return Response.json(fallbackResult);
+        } catch (visionError) {
+          console.error('Vision OCR Error:', visionError);
+          const message = [
+            markerError instanceof Error ? markerError.message : 'Marker OCR failed.',
+            ocrError instanceof Error ? ocrError.message : 'OCR endpoint failed.',
+            visionError instanceof Error ? visionError.message : 'Vision fallback failed.',
+          ].join(' ');
+
+          return Response.json(
+            { error: message },
+            { status: 500 }
+          );
+        }
+      }
     }
   } catch (error) {
     console.error('Receipt OCR Error:', error);
