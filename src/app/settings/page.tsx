@@ -33,15 +33,14 @@ import { DashboardShell } from '@/components/layout';
 import { useAppStore } from '@/store/useAppStore';
 import { useTheme } from 'next-themes';
 import { toast } from '@/hooks/use-toast';
-import { setPreferredTrialPlan } from '@/lib/trial-selection';
 
 // Subscription tiers
 const subscriptionTiers = [
   {
     id: 'core',
     name: { en: 'Core', ar: 'الأساسية' },
-    monthlyPrice: 25,
-    annualPrice: 250,
+    monthlyPrice: 281,
+    annualPrice: 3375,
     features: [
       { en: 'Unlimited portfolio holdings', ar: 'ممتلكات غير محدودة' },
       { en: 'Full net worth history', ar: 'تاريخ كامل لصافي الثروة' },
@@ -53,8 +52,8 @@ const subscriptionTiers = [
   {
     id: 'pro',
     name: { en: 'Pro', ar: 'المحترفة' },
-    monthlyPrice: 49,
-    annualPrice: 490,
+    monthlyPrice: 371,
+    annualPrice: 4455,
     features: [
       { en: 'Everything in Core', ar: 'كل ميزات الأساسية' },
       { en: 'AI Financial Advisor', ar: 'مستشار مالي بالذكاء الاصطناعي' },
@@ -84,7 +83,18 @@ function SettingsPageContent() {
   const isSignedIn = Boolean(clerkUser);
   const { theme, setTheme } = useTheme();
   const isArabic = locale === 'ar';
-  const currentPlan = user?.subscriptionTier ?? 'free';
+  const metadata = clerkUser?.publicMetadata as Record<string, unknown> | undefined;
+  const actualPlan =
+    metadata?.subscriptionTier === 'core' || metadata?.subscriptionTier === 'pro'
+      ? metadata.subscriptionTier
+      : 'free';
+  const activeTrial =
+    metadata?.trialStatus === 'active' &&
+    (metadata?.trialPlan === 'core' || metadata?.trialPlan === 'pro') &&
+    typeof metadata?.trialEndsAt === 'string' &&
+    Number.isFinite(new Date(metadata.trialEndsAt).getTime()) &&
+    new Date(metadata.trialEndsAt).getTime() > Date.now();
+  const currentPlan = actualPlan;
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const validTabs = useMemo(() => ['profile', 'preferences', 'subscription', 'data'] as const, []);
   const activeTabParam = searchParams.get('tab');
@@ -96,14 +106,12 @@ function SettingsPageContent() {
       return;
     }
 
-    setPreferredTrialPlan(tier);
-
     if (!isSignedIn) {
       toast({
-        title: isArabic ? 'التجربة محفوظة للتسجيل' : 'Trial saved for signup',
+        title: isArabic ? 'أنشئ حساباً لبدء التجربة' : 'Create an account to start the trial',
         description: isArabic
-          ? `أنشئ حساباً وسنفعّل تجربة ${tier === 'core' ? 'Core' : 'Pro'} لمدة 14 يوماً تلقائياً.`
-          : `Create an account and we’ll activate a 14-day ${tier === 'core' ? 'Core' : 'Pro'} trial automatically.`,
+          ? 'كل مستخدم جديد يحصل على تجربة مجانية لمدة 14 يوماً تلقائياً عند التسجيل لأول مرة.'
+          : 'Every new user gets a 14-day free trial automatically on first signup.',
       });
       return;
     }
@@ -112,7 +120,6 @@ function SettingsPageContent() {
       const response = await fetch('/api/billing/trial/ensure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestedTier: tier }),
       });
       const data = await response.json();
 
@@ -124,8 +131,8 @@ function SettingsPageContent() {
       toast({
         title: isArabic ? 'تم تفعيل التجربة' : 'Trial activated',
         description: isArabic
-          ? `تم تفعيل تجربة ${tier === 'core' ? 'Core' : 'Pro'} لمدة 14 يوماً دون بطاقة ائتمان.`
-          : `Your 14-day ${tier === 'core' ? 'Core' : 'Pro'} trial is now active with no credit card required.`,
+          ? 'تم تفعيل التجربة المجانية لمدة 14 يوماً دون بطاقة ائتمان. بعد انتهائها ستختار Core أو Pro.'
+          : 'Your 14-day free trial is now active with no credit card required. After it ends, you can choose Core or Pro.',
       });
     } catch (error) {
       toast({
@@ -502,13 +509,20 @@ function SettingsPageContent() {
                       <div>
                         <p className="text-sm text-muted-foreground">{isArabic ? 'خطتك الحالية' : 'Current Plan'}</p>
                         <p className="text-2xl font-bold">
-                          {currentPlan === 'free'
+                          {activeTrial
+                            ? (isArabic ? 'تجربة مجانية' : 'Free Trial')
+                            : currentPlan === 'free'
                             ? (isArabic ? 'مجاني' : 'Free')
                             : subscriptionTiers.find(t => t.id === currentPlan)?.name[isArabic ? 'ar' : 'en']}
                         </p>
+                        {activeTrial && (
+                          <p className="text-sm text-muted-foreground">
+                            {isArabic ? '14 يوماً ثم تختار Core أو Pro' : '14 days, then choose Core or Pro'}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    {currentPlan !== 'pro' && (
+                    {!activeTrial && currentPlan !== 'pro' && (
                         <Button
                           className="bg-gold hover:bg-gold-dark text-navy-dark"
                           onClick={() => handleSubscriptionChange('pro')}
@@ -553,14 +567,14 @@ function SettingsPageContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {subscriptionTiers.map((tier) => (
-                  <Card
-                    key={tier.id}
-                    className={currentPlan === tier.id ? 'border-gold' : ''}
-                  >
+                    <Card
+                      key={tier.id}
+                      className={!activeTrial && currentPlan === tier.id ? 'border-gold' : ''}
+                    >
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle>{tier.name[isArabic ? 'ar' : 'en']}</CardTitle>
-                        {currentPlan === tier.id && (
+                        {!activeTrial && currentPlan === tier.id && (
                           <Badge className="bg-gold text-navy-dark">
                             <Check className="w-3 h-3 mr-1" />
                             {isArabic ? 'الحالية' : 'Current'}

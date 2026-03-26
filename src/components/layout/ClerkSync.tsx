@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useAppStore } from '@/store/useAppStore';
 import type { SubscriptionTier } from '@/store/useAppStore';
-import { clearPreferredTrialPlan, getPreferredTrialPlan } from '@/lib/trial-selection';
 
 function normalizeTier(value: unknown): SubscriptionTier {
   return value === 'core' || value === 'pro' ? value : 'free';
@@ -75,9 +74,6 @@ export function ClerkSync() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            requestedTier: getPreferredTrialPlan(),
-          }),
         })
           .then(async (response) => {
             const data = await response.json().catch(() => null);
@@ -93,7 +89,6 @@ export function ClerkSync() {
               avatarUrl: user.imageUrl || null,
               subscriptionTier: data.effectiveTier,
             });
-            clearPreferredTrialPlan();
           })
           .catch(() => {
             // Ignore bootstrap failures and let the user continue in free mode.

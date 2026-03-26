@@ -14,7 +14,6 @@ import {
 import { useState } from 'react';
 import { Crown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { setPreferredTrialPlan } from '@/lib/trial-selection';
 
 interface FeatureGateProps {
   feature: string;
@@ -30,20 +29,15 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
   const isArabic = locale === 'ar';
   const { isSignedIn } = useUser();
 
-  const handleStartTrial = async (tier: SubscriptionTier) => {
+  const handleStartTrial = async (_tier: SubscriptionTier) => {
     setShowUpgrade(false);
-    if (tier !== 'core' && tier !== 'pro') {
-      return;
-    }
-
-    setPreferredTrialPlan(tier);
 
     if (!isSignedIn) {
       toast({
-        title: isArabic ? 'التجربة محفوظة للتسجيل' : 'Trial saved for signup',
+        title: isArabic ? 'أنشئ حساباً لبدء التجربة' : 'Create an account to start the trial',
         description: isArabic
-          ? `أكمل إنشاء الحساب وسنفعّل تجربة ${tier === 'core' ? 'Core' : 'Pro'} لمدة 14 يوماً تلقائياً.`
-          : `Finish signing up and we’ll activate a 14-day ${tier === 'core' ? 'Core' : 'Pro'} trial automatically.`,
+          ? 'كل مستخدم جديد يحصل على تجربة مجانية لمدة 14 يوماً تلقائياً عند التسجيل لأول مرة.'
+          : 'Every new user gets a 14-day free trial automatically on first signup.',
       });
       return;
     }
@@ -52,7 +46,6 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
       const response = await fetch('/api/billing/trial/ensure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestedTier: tier }),
       });
       const data = await response.json();
 
@@ -64,8 +57,8 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
       toast({
         title: isArabic ? 'تم تفعيل التجربة' : 'Trial activated',
         description: isArabic
-          ? `تم تفعيل تجربة ${tier === 'core' ? 'Core' : 'Pro'} لمدة 14 يوماً دون بطاقة ائتمان.`
-          : `Your 14-day ${tier === 'core' ? 'Core' : 'Pro'} trial is now active with no credit card required.`,
+          ? 'تم تفعيل التجربة المجانية لمدة 14 يوماً دون بطاقة ائتمان. بعد انتهائها ستختار Core أو Pro.'
+          : 'Your 14-day free trial is now active with no credit card required. After it ends, you can choose Core or Pro.',
       });
     } catch (error) {
       toast({
@@ -115,7 +108,7 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
               <div className="p-4 border rounded-lg">
                 <h4 className="font-semibold">Core</h4>
                 <p className="text-2xl font-bold mt-2">
-                  25 SAR<span className="text-sm font-normal">/mo</span>
+                  281 SAR<span className="text-sm font-normal">/mo</span>
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">14-day free trial, no card required</p>
                 <Button className="w-full mt-4" variant="outline" onClick={() => handleStartTrial('core')}>
@@ -130,7 +123,7 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
                   </span>
                 </div>
                 <p className="text-2xl font-bold mt-2">
-                  49 SAR<span className="text-sm font-normal">/mo</span>
+                  371 SAR<span className="text-sm font-normal">/mo</span>
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">14-day free trial, no card required</p>
                 <Button className="w-full mt-4" onClick={() => handleStartTrial('pro')}>Start Trial</Button>

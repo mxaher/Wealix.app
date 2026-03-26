@@ -4,12 +4,6 @@ import { getEffectiveTierFromMetadata, requireAuthenticatedUser } from '@/lib/se
 
 const TRIAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
 
-type TrialPlan = 'core' | 'pro';
-
-function normalizeRequestedTier(value: unknown): TrialPlan {
-  return value === 'core' ? 'core' : 'pro';
-}
-
 export async function POST(request: NextRequest) {
   const authResult = await requireAuthenticatedUser();
   if (!authResult.userId) {
@@ -18,8 +12,6 @@ export async function POST(request: NextRequest) {
 
   const client = await clerkClient();
   const user = await client.users.getUser(authResult.userId);
-  const body = await request.json().catch(() => ({}));
-  const requestedTier = normalizeRequestedTier(body?.requestedTier);
 
   const metadata = {
     subscriptionTier: user.publicMetadata?.subscriptionTier ?? user.privateMetadata?.subscriptionTier,
@@ -59,15 +51,15 @@ export async function POST(request: NextRequest) {
       ...user.publicMetadata,
       subscriptionTier: isPaidTier ? metadata.subscriptionTier : 'free',
       trialStatus: 'active',
-      trialPlan: requestedTier,
+      trialPlan: 'pro',
       trialEndsAt,
     },
   });
 
   return NextResponse.json({
-    effectiveTier: requestedTier,
+    effectiveTier: 'pro',
     trialStatus: 'active',
-    trialPlan: requestedTier,
+    trialPlan: 'pro',
     trialEndsAt,
     initialized: true,
   });
