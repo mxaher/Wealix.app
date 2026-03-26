@@ -305,6 +305,61 @@ Reference:
 
 - [SAHMK tutorial: Build a Saudi Stock Tracker in Python](https://www.sahmk.sa/developers/tutorials/build-saudi-stock-tracker-python)
 
+## EGX Data Source Evaluation
+
+I also evaluated the `egxpy` project as a possible Egyptian Exchange data source:
+
+- repo: [egxlytics/egxpy](https://github.com/egxlytics/egxpy)
+
+What it currently is:
+
+- a Python package
+- focused on EGX historical data download
+- includes portfolio optimization tooling
+- includes a Streamlit web app
+
+Important limitation:
+
+- the repo README says `Provide an API for programmatic access` under future plans
+- so it is not currently documented as a stable hosted HTTP API like SAHMK
+
+Why that matters for Wealix:
+
+- Wealix is a Next.js runtime, so SAHMK fits directly through server routes
+- `egxpy` would be better used as:
+  - a separate Python microservice
+  - a preprocessing/sync job
+  - or an offline importer for EGX pricing/history
+
+Technical notes from the repo:
+
+- package install:
+
+```bash
+pip install --no-cache-dir git+https://github.com/egxlytics/egxpy.git
+```
+
+- key dependency chain from the repo metadata:
+  - `pandas`
+  - `numpy`
+  - `holidays`
+  - `retry`
+  - `tvDatafeed`
+
+Current Wealix status:
+
+- SAHMK is integrated directly for Saudi `TASI` live quotes
+- `egxpy` is evaluated and documented, but not directly wired into the current Next.js runtime yet
+
+Recommended EGX integration path:
+
+1. Run `egxpy` in a small Python service or scheduled worker
+2. Normalize the output to a simple JSON quote/history format
+3. Expose a thin internal API that Wealix can call from Next.js
+4. Update `EGX` holdings in the same way `TASI` holdings are refreshed today
+
+If you want true EGX live refresh inside Wealix next, the cleanest path is for me to add a small Python adapter service around `egxpy`, then connect the Next.js app to that service.
+
 ## Reports
 
 Reports are generated from source-specific data, not a single shared mock summary.
@@ -436,6 +491,19 @@ Check:
 - your deployment can reach `https://app.sahmk.sa`
 - your holdings are on `TASI`
 
+### EGX live prices are not connected yet
+
+Current status:
+
+- the repo evaluation points to `egxpy` as a Python-based EGX data tool
+- it is not yet wired into this Next.js runtime directly
+
+If you want to enable EGX live refresh later, the recommended setup is:
+
+- Python worker/service using `egxpy`
+- internal JSON endpoint for quotes/history
+- Next.js route that consumes that service for `EGX` holdings
+
 ### Guests can edit data
 
 Guest restrictions are enforced in the feature pages and settings. If behavior regresses, review:
@@ -474,6 +542,7 @@ These are present in the repo, but the current app flow you are using is still c
 - OCR quality depends on the external Datalab/Chandra service and receipt image quality
 - reports download as printable HTML, not true PDF
 - Supabase MCP is configured for development tooling, not app runtime persistence
+- EGX market data via `egxpy` is evaluated but not yet connected as a production runtime source
 
 ## Recommended Next Steps
 
