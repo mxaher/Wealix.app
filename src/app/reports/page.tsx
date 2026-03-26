@@ -184,7 +184,7 @@ export default function ReportsPage() {
   const periodLabel = useMemo(() => {
     if (selectedPeriod === 'month') {
       return new Date(Number(selectedYear), Number(selectedMonth) - 1, 1).toLocaleDateString(
-        isArabic ? 'ar-SA' : 'en-US',
+        isArabic ? 'ar-SA-u-nu-latn' : 'en-US',
         { month: 'long', year: 'numeric' }
       );
     }
@@ -352,7 +352,7 @@ export default function ReportsPage() {
                       const month = String(index + 1).padStart(2, '0');
                       return (
                         <SelectItem key={month} value={month}>
-                          {new Date(2024, index, 1).toLocaleDateString(isArabic ? 'ar-SA' : 'en-US', { month: 'long' })}
+                          {new Date(2024, index, 1).toLocaleDateString(isArabic ? 'ar-SA-u-nu-latn' : 'en-US', { month: 'long' })}
                         </SelectItem>
                       );
                     })}

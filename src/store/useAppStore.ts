@@ -855,7 +855,7 @@ export const formatCurrency = (
   currency: string = 'SAR',
   locale: Locale = 'ar'
 ): string => {
-  const formatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-US', {
+  const formatter = new Intl.NumberFormat(locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
@@ -872,7 +872,7 @@ export const formatNumber = (
   options?: Intl.NumberFormatOptions
 ): string => {
   return new Intl.NumberFormat(
-    locale === 'ar' ? 'ar-SA' : 'en-US',
+    locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US',
     options
   ).format(number);
 };
@@ -885,7 +885,7 @@ export const formatDate = (
 ): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return new Intl.DateTimeFormat(
-    locale === 'ar' ? 'ar-SA' : 'en-US',
+    locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US',
     {
       year: 'numeric',
       month: 'long',

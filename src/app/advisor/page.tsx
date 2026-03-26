@@ -364,7 +364,7 @@ export default function AdvisorPage() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {message.timestamp.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                            {message.timestamp.toLocaleTimeString(locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                       </motion.div>

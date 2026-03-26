@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { Camera, Plus, Receipt, ScanSearch, Trash2 } from 'lucide-react';
 import { DashboardShell } from '@/components/layout';
@@ -48,6 +48,8 @@ export default function ExpensesPage() {
   const addReceiptScan = useAppStore((state) => state.addReceiptScan);
   const isArabic = locale === 'ar';
   const { isSignedIn } = useUser();
+  const uploadInputId = useId();
+  const cameraInputId = useId();
   const [open, setOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [savingScan, setSavingScan] = useState(false);
@@ -298,31 +300,54 @@ export default function ExpensesPage() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{isArabic ? 'صورة الإيصال' : 'Receipt image'}</Label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      disabled={!isSignedIn}
-                      onChange={(e) => {
-                        setSelectedFile(e.target.files?.[0] ?? null);
-                        setOcrResult(null);
-                        setOcrDraft(null);
-                      }}
-                    />
+                    <Label>{isArabic ? 'مصدر الإيصال' : 'Receipt source'}</Label>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label
+                        htmlFor={uploadInputId}
+                        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-secondary"
+                      >
+                        <Receipt className="h-4 w-4" />
+                        {isArabic ? 'تصفح ملف الإيصال' : 'Browse receipt file'}
+                      </label>
+                      <input
+                        id={uploadInputId}
+                        type="file"
+                        accept="image/*"
+                        disabled={!isSignedIn}
+                        className="sr-only"
+                        onChange={(e) => {
+                          setSelectedFile(e.target.files?.[0] ?? null);
+                          setOcrResult(null);
+                          setOcrDraft(null);
+                        }}
+                      />
+
+                      <label
+                        htmlFor={cameraInputId}
+                        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-secondary"
+                      >
+                        <Camera className="h-4 w-4" />
+                        {isArabic ? 'التقاط صورة بالكاميرا' : 'Scan photo using camera'}
+                      </label>
+                      <input
+                        id={cameraInputId}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        disabled={!isSignedIn}
+                        className="sr-only"
+                        onChange={(e) => {
+                          setSelectedFile(e.target.files?.[0] ?? null);
+                          setOcrResult(null);
+                          setOcrDraft(null);
+                        }}
+                      />
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {isArabic ? 'يمكنك أيضاً فتح الكاميرا مباشرة من الجوال باستخدام الخيار التالي.' : 'You can also open the phone camera directly using the option below.'}
+                      {selectedFile
+                        ? (isArabic ? `الملف المحدد: ${selectedFile.name}` : `Selected file: ${selectedFile.name}`)
+                        : (isArabic ? 'اختر صورة من الجهاز أو افتح الكاميرا مباشرة من الهاتف.' : 'Choose a receipt image from your device or launch the phone camera directly.')}
                     </p>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      disabled={!isSignedIn}
-                      onChange={(e) => {
-                        setSelectedFile(e.target.files?.[0] ?? null);
-                        setOcrResult(null);
-                        setOcrDraft(null);
-                      }}
-                    />
                   </div>
                   <Button className="w-full" onClick={handleRunOcr} disabled={!selectedFile || savingScan}>
                     <Camera className="mr-2 h-4 w-4" />

@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Filter,
   Plus,
+  RefreshCw,
   Search,
   Sparkles,
   Trash2,
@@ -57,6 +58,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import {
   useAppStore,
+  formatNumber,
   type PortfolioExchange,
   type PortfolioHolding,
 } from '@/store/useAppStore';
@@ -94,6 +96,7 @@ export default function PortfolioPage() {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
   const [analysis, setAnalysis] = useState<{ summary: string; actions: AnalysisAction[] }>({
     summary: isArabic
       ? 'شغّل التحليل لمراجعة المحفظة الحالية.'
@@ -110,6 +113,8 @@ export default function PortfolioPage() {
   });
 
   const holdings = portfolioHoldings;
+
+  const normalizeSaudiTicker = (ticker: string) => ticker.trim().toUpperCase().replace(/\.SR$/i, '');
 
   const filteredHoldings = holdings.filter((holding) => {
     const matchesSearch =
@@ -302,6 +307,78 @@ export default function PortfolioPage() {
     }
   };
 
+  const handleRefreshSaudiPrices = async () => {
+    if (!isSignedIn) {
+      toast({
+        title: isArabic ? 'يتطلب حساباً' : 'Account required',
+        description: isArabic ? 'تسجيل الدخول مطلوب لتحديث الأسعار الحية.' : 'Sign in is required to refresh live prices.',
+      });
+      return;
+    }
+
+    const saudiHoldings = holdings.filter((holding) => holding.exchange === 'TASI');
+    if (saudiHoldings.length === 0) {
+      toast({
+        title: isArabic ? 'لا توجد أسهم سعودية' : 'No Saudi holdings',
+        description: isArabic
+          ? 'أضف مراكز من السوق السعودي أولاً لاستخدام تحديث الأسعار.'
+          : 'Add Saudi market holdings first to use live price refresh.',
+      });
+      return;
+    }
+
+    setIsRefreshingPrices(true);
+    try {
+      const response = await fetch('/api/market/saudi/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbols: saudiHoldings.map((holding) => normalizeSaudiTicker(holding.ticker)),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to refresh Saudi prices.');
+      }
+
+      const quotes = data.quotes ?? {};
+      const nextHoldings = holdings.map((holding) => {
+        if (holding.exchange !== 'TASI') {
+          return holding;
+        }
+
+        const match = quotes[normalizeSaudiTicker(holding.ticker)];
+        if (!match || !match.price) {
+          return holding;
+        }
+
+        return {
+          ...holding,
+          ticker: holding.ticker.toUpperCase(),
+          name: isArabic ? (match.nameAr || holding.name) : (match.nameEn || holding.name),
+          currentPrice: Number(match.price),
+        };
+      });
+
+      replacePortfolioHoldings(nextHoldings);
+      toast({
+        title: isArabic ? 'تم تحديث الأسعار' : 'Prices refreshed',
+        description: isArabic
+          ? `تم تحديث ${formatNumber(saudiHoldings.length, locale)} مركزاً من سوق تداول عبر Sahm.`
+          : `Updated ${formatNumber(saudiHoldings.length, locale)} Saudi holdings from Sahm.`,
+      });
+    } catch (error) {
+      toast({
+        title: isArabic ? 'فشل تحديث الأسعار' : 'Price refresh failed',
+        description: error instanceof Error ? error.message : 'Could not refresh Saudi prices.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshingPrices(false);
+    }
+  };
+
   return (
     <DashboardShell>
       <div className="space-y-6">
@@ -359,6 +436,18 @@ export default function PortfolioPage() {
                 <FileSpreadsheet className="w-4 h-4" />
                 {isArabic ? 'ملف نموذجي' : 'Sample File'}
               </a>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={!isSignedIn || isRefreshingPrices}
+              onClick={handleRefreshSaudiPrices}
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshingPrices ? 'animate-spin' : ''}`} />
+              {isRefreshingPrices
+                ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
+                : (isArabic ? 'تحديث أسعار السوق السعودي' : 'Refresh Saudi Prices')}
             </Button>
 
             <Button variant="outline" className="gap-2" disabled={!isSignedIn} asChild={false}>
@@ -592,7 +681,7 @@ export default function PortfolioPage() {
                                 {holding.exchange}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">{holding.shares.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{formatNumber(holding.shares, locale)}</TableCell>
                             <TableCell className="text-right">{holding.avgCost.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{holding.currentPrice.toFixed(2)}</TableCell>
                             <TableCell className="text-right font-medium">{formatCurrency(marketValue, 'SAR', locale)}</TableCell>

@@ -104,6 +104,7 @@ These are required if you deploy the current app with full auth and OCR support:
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 DATALAB_API_KEY=
+SAHMK_API_KEY=
 ```
 
 ### Optional
@@ -111,6 +112,7 @@ DATALAB_API_KEY=
 ```env
 DATALAB_API_BASE=https://www.datalab.to
 CHANDRA_API_KEY=
+SAHMK_API_BASE=https://app.sahmk.sa/api/v1
 ```
 
 Notes:
@@ -118,6 +120,8 @@ Notes:
 - `DATALAB_API_KEY` is the primary key used for Chandra/Datalab hosted OCR.
 - `CHANDRA_API_KEY` is supported as an alternate name, but `DATALAB_API_KEY` is preferred.
 - `DATALAB_API_BASE` is optional unless you are pointing to a non-default Datalab base URL.
+- `SAHMK_API_KEY` is used to fetch Saudi market quotes for TASI holdings.
+- `SAHMK_API_BASE` is optional unless you are pointing to a custom SAHMK API base.
 
 ### Clerk
 
@@ -262,6 +266,45 @@ Portfolio screen:
 
 - [src/app/portfolio/page.tsx](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/portfolio/page.tsx)
 
+## Saudi Market Live Prices
+
+Wealix can refresh live Saudi market prices for `TASI` holdings through the SAHMK API.
+
+Used endpoints:
+
+- `GET /quote/{symbol}/`
+- `GET /quote/batch/?symbols=2222,1180,7010`
+- `GET /market/summary/`
+
+Current integration in this repo:
+
+- Portfolio screen includes a `Refresh Saudi Prices` action for Saudi holdings
+- server route:
+  - [src/app/api/market/saudi/quotes/route.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/src/app/api/market/saudi/quotes/route.ts)
+
+Required env var:
+
+```env
+SAHMK_API_KEY=
+```
+
+Optional:
+
+```env
+SAHMK_API_BASE=https://app.sahmk.sa/api/v1
+```
+
+Notes:
+
+- SAHMK auth uses the `X-API-Key` header
+- Wealix normalizes Saudi tickers like `2222.SR` to `2222` before calling the API
+- the current refresh action updates `currentPrice` for `TASI` holdings in the local portfolio state
+- non-Saudi exchanges are left unchanged
+
+Reference:
+
+- [SAHMK tutorial: Build a Saudi Stock Tracker in Python](https://www.sahmk.sa/developers/tutorials/build-saudi-stock-tracker-python)
+
 ## Reports
 
 Reports are generated from source-specific data, not a single shared mock summary.
@@ -309,6 +352,7 @@ Required:
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 DATALAB_API_KEY=
+SAHMK_API_KEY=
 ```
 
 Optional:
@@ -316,6 +360,7 @@ Optional:
 ```env
 DATALAB_API_BASE=https://www.datalab.to
 CHANDRA_API_KEY=
+SAHMK_API_BASE=https://app.sahmk.sa/api/v1
 ```
 
 Recommended scope:
@@ -360,6 +405,7 @@ bun run build
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 DATALAB_API_KEY=
+SAHMK_API_KEY=
 ```
 
 ## Deployment Troubleshooting
@@ -380,6 +426,15 @@ Check:
 - `DATALAB_API_KEY` is set
 - the key is valid
 - your deployment can reach `https://www.datalab.to`
+
+### Saudi live prices do not refresh
+
+Check:
+
+- `SAHMK_API_KEY` is set
+- the key is valid for SAHMK
+- your deployment can reach `https://app.sahmk.sa`
+- your holdings are on `TASI`
 
 ### Guests can edit data
 

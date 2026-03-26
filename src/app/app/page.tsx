@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   TrendingUp,
   Wallet,
@@ -152,12 +153,16 @@ export default function AppDashboardPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button className="btn-primary gap-2 rounded-xl">
-                <Sparkles className="h-4 w-4" />
-                {isArabic ? 'تحليل ذكي' : 'Run AI Insight'}
+              <Button asChild className="btn-primary gap-2 rounded-xl">
+                <Link href="/advisor">
+                  <Sparkles className="h-4 w-4" />
+                  {isArabic ? 'تحليل ذكي' : 'Run AI Insight'}
+                </Link>
               </Button>
-              <Button variant="outline" className="rounded-xl border-border bg-background/80">
-                {isArabic ? 'فتح التقارير' : 'Open Reports'}
+              <Button asChild variant="outline" className="rounded-xl border-border bg-background/80">
+                <Link href="/reports">
+                  {isArabic ? 'فتح التقارير' : 'Open Reports'}
+                </Link>
               </Button>
             </div>
           </div>
