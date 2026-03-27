@@ -41,6 +41,61 @@ function formatProfilePercent(value: unknown): string | null {
     : null;
 }
 
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+type NvidiaChatResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+async function createAdvisorCompletion(messages: ChatMessage[]) {
+  const nvidiaApiKey = process.env.NVIDIA_API_KEY;
+  const nvidiaModel = process.env.NVIDIA_ADVISOR_MODEL || process.env.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct';
+  const nvidiaBase = (process.env.NVIDIA_API_BASE || 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '');
+
+  if (nvidiaApiKey) {
+    const response = await fetch(`${nvidiaBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${nvidiaApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: nvidiaModel,
+        messages,
+        temperature: 0.25,
+        top_p: 0.9,
+        max_tokens: 1600,
+      }),
+      cache: 'no-store',
+    });
+
+    const json = await response.json().catch(() => null) as NvidiaChatResponse | null;
+    if (!response.ok) {
+      throw new Error(json?.error?.message || `NVIDIA API request failed with status ${response.status}`);
+    }
+
+    return json?.choices?.[0]?.message?.content || '';
+  }
+
+  const zai = await ZAI.create();
+  const completion = await zai.chat.completions.create({
+    messages,
+    thinking: { type: 'disabled' },
+  });
+
+  return completion.choices[0]?.message?.content || '';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireTier('pro');
@@ -110,7 +165,7 @@ export async function POST(request: NextRequest) {
     const zai = await ZAI.create();
 
     // Prepare messages for the API
-    const apiMessages = [
+    const apiMessages: ChatMessage[] = [
       { role: 'system' as const, content: systemPrompt },
       ...messages.map((m: { role: string; content: string }) => {
         const original = String(m.content || '');
@@ -131,13 +186,7 @@ export async function POST(request: NextRequest) {
       }),
     ];
 
-    // Create completion
-    const completion = await zai.chat.completions.create({
-      messages: apiMessages,
-      thinking: { type: 'disabled' },
-    });
-
-    const response = completion.choices[0]?.message?.content || '';
+    const response = await createAdvisorCompletion(apiMessages);
 
     // Return as a stream-like response
     const encoder = new TextEncoder();

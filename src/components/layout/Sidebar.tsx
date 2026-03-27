@@ -77,7 +77,7 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link href="/app" className="flex items-center gap-0.5 overflow-hidden text-lg font-bold">
+          <Link href="/app" dir="ltr" className="brand-wordmark flex items-center gap-0.5 overflow-hidden text-lg font-bold">
             <span className="logo-weal">Weal</span>
             {!sidebarCollapsed && (
               <motion.div
