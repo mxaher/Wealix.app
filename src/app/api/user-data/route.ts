@@ -32,8 +32,8 @@ export async function GET() {
   }
 
   try {
-    const workspace = await loadRemoteWorkspace(authResult.userId);
-    return NextResponse.json({ workspace });
+    const { workspace, updatedAt } = await loadRemoteWorkspace(authResult.userId);
+    return NextResponse.json({ workspace, updatedAt });
   } catch (error) {
     console.error('[user-data] load failed', error);
     return NextResponse.json(
@@ -63,6 +63,10 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const workspace = body?.workspace as RemoteUserWorkspace | undefined;
+    const knownUpdatedAt =
+      typeof body?.knownUpdatedAt === 'string' || body?.knownUpdatedAt === null
+        ? (body.knownUpdatedAt as string | null)
+        : undefined;
 
     if (!workspace) {
       return NextResponse.json(
@@ -74,8 +78,21 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const savedWorkspace = await saveRemoteWorkspace(authResult.userId, workspace);
-    return NextResponse.json({ workspace: savedWorkspace, saved: true });
+    const result = await saveRemoteWorkspace(authResult.userId, workspace, knownUpdatedAt);
+
+    if (knownUpdatedAt && result.updatedAt && knownUpdatedAt !== result.updatedAt) {
+      return NextResponse.json(
+        {
+          error: 'Remote workspace has changed in another session.',
+          code: 'WORKSPACE_CONFLICT',
+          workspace: result.workspace,
+          updatedAt: result.updatedAt,
+        },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json({ workspace: result.workspace, updatedAt: result.updatedAt, saved: true });
   } catch (error) {
     console.error('[user-data] save failed', error);
     return NextResponse.json(
