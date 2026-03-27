@@ -253,6 +253,12 @@
 }
 
 @layer components {
+  .brand-wordmark {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-family: var(--font-sans);
+  }
+
   .logo-weal {
     color: var(--color-weal);
   }

@@ -62,7 +62,16 @@ const suggestedPrompts = [
 ];
 
 export default function AdvisorPage() {
-  const { locale, attachPortfolioContext, setAttachPortfolioContext } = useAppStore();
+  const {
+    locale,
+    portfolioHoldings,
+    assets,
+    liabilities,
+    incomeEntries,
+    expenseEntries,
+    budgetLimits,
+    receiptScans,
+  } = useAppStore();
   const isArabic = locale === 'ar';
 
   const [sessions, setSessions] = useState<ChatSession[]>([
@@ -82,6 +91,94 @@ export default function AdvisorPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
+
+  const portfolioValue = portfolioHoldings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
+  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0) + portfolioValue;
+  const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
+  const netWorth = totalAssets - totalLiabilities;
+  const monthlyIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const monthlyExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+  const spendingByCategory = expenseEntries.reduce<Record<string, number>>((acc, entry) => {
+    acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
+    return acc;
+  }, {});
+
+  const budgetByCategory = budgetLimits.reduce<Record<string, number>>((acc, limit) => {
+    acc[limit.category.toLowerCase()] = limit.limit;
+    return acc;
+  }, {});
+
+  const userContext = {
+    snapshotDate: new Date().toISOString(),
+    currency: 'SAR',
+    portfolioValue,
+    totalAssets,
+    totalLiabilities,
+    netWorth,
+    monthlyIncome,
+    monthlyExpenses,
+    monthlySavings: monthlyIncome - monthlyExpenses,
+    savingsRate: monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0,
+    holdings: portfolioHoldings.map((holding) => ({
+      ticker: holding.ticker,
+      name: holding.name,
+      exchange: holding.exchange,
+      sector: holding.sector,
+      shares: holding.shares,
+      averageBuyPrice: holding.avgCost,
+      currentPrice: holding.currentPrice,
+      totalValue: holding.shares * holding.currentPrice,
+      profitLossPercent: holding.avgCost > 0
+        ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100
+        : 0,
+      isShariah: holding.isShariah,
+    })),
+    assets: assets.map((asset) => ({
+      name: asset.name,
+      category: asset.category,
+      value: asset.value,
+      currency: asset.currency,
+    })),
+    liabilities: liabilities.map((liability) => ({
+      name: liability.name,
+      category: liability.category,
+      balance: liability.balance,
+      currency: liability.currency,
+    })),
+    incomeEntries: incomeEntries.slice(0, 20).map((entry) => ({
+      source: entry.source,
+      sourceName: entry.sourceName,
+      amount: entry.amount,
+      frequency: entry.frequency,
+      isRecurring: entry.isRecurring,
+      date: entry.date,
+    })),
+    expenseEntries: expenseEntries.slice(0, 30).map((entry) => ({
+      category: entry.category,
+      description: entry.description,
+      merchantName: entry.merchantName,
+      amount: entry.amount,
+      paymentMethod: entry.paymentMethod,
+      date: entry.date,
+    })),
+    budgetLimits: budgetLimits.map((limit) => ({
+      category: limit.category,
+      limit: limit.limit,
+      spent: spendingByCategory[limit.category] || spendingByCategory[limit.category.charAt(0).toUpperCase() + limit.category.slice(1)] || 0,
+      variance: limit.limit - ((spendingByCategory[limit.category] || spendingByCategory[limit.category.charAt(0).toUpperCase() + limit.category.slice(1)] || 0)),
+    })),
+    receiptScans: receiptScans.slice(0, 10).map((receipt) => ({
+      merchantName: receipt.merchantName,
+      amount: receipt.amount,
+      date: receipt.date,
+      confidence: receipt.confidence,
+      suggestedCategory: receipt.suggestedCategory,
+    })),
+    uncategorizedBudgetSpending: Object.entries(spendingByCategory)
+      .filter(([category]) => !budgetByCategory[category.toLowerCase()])
+      .map(([category, amount]) => ({ category, amount })),
+  };
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -115,16 +212,6 @@ export default function AdvisorPage() {
         role: m.role,
         content: m.content,
       }));
-
-      // User context (mock data - in production, fetch from DB)
-      const userContext = attachPortfolioContext ? {
-        netWorth: 612450,
-        portfolioValue: 485000,
-        monthlyIncome: 28500,
-        monthlyExpenses: 12450,
-        fireGoal: 1500000,
-        fireProgress: 40.8,
-      } : undefined;
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -223,7 +310,7 @@ export default function AdvisorPage() {
   return (
     <DashboardShell>
       <FeatureGate feature="ai.advisor">
-        <div className="flex h-[calc(100vh-8rem)] gap-4">
+        <div className="flex h-[calc(100vh-8rem)] min-w-0 gap-4 overflow-hidden">
           {/* Sidebar - Session List */}
           <Card className="hidden md:flex w-64 flex-col">
             <CardHeader className="border-b p-4">
@@ -266,7 +353,7 @@ export default function AdvisorPage() {
           </Card>
 
           {/* Main Chat Area */}
-          <Card className="flex-1 flex flex-col">
+          <Card className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* Header */}
             <CardHeader className="border-b p-4">
               <div className="flex items-center justify-between">
@@ -284,15 +371,6 @@ export default function AdvisorPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={attachPortfolioContext}
-                      onCheckedChange={setAttachPortfolioContext}
-                    />
-                    <Label className="text-xs">
-                      {isArabic ? 'إرفاق السياق' : 'Attach Context'}
-                    </Label>
-                  </div>
                   <Button variant="outline" size="sm" onClick={() => inputRef.current?.focus()}>
                     <RefreshCw className="w-4 h-4" />
                   </Button>
@@ -301,7 +379,7 @@ export default function AdvisorPage() {
             </CardHeader>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea className="min-w-0 flex-1 p-4">
               {activeSession?.messages.length === 0 && !isLoading ? (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center mb-4">
@@ -338,7 +416,7 @@ export default function AdvisorPage() {
                         key={message.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`flex gap-3 ${
+                        className={`flex min-w-0 gap-3 ${
                           message.role === 'user' ? 'flex-row-reverse' : ''
                         }`}
                       >
@@ -347,20 +425,20 @@ export default function AdvisorPage() {
                             {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                           </AvatarFallback>
                         </Avatar>
-                        <div className={`flex-1 ${message.role === 'user' ? 'text-right' : ''}`}>
+                        <div className={`min-w-0 flex-1 ${message.role === 'user' ? 'text-right' : ''}`}>
                           <div
-                            className={`inline-block p-3 rounded-lg max-w-[85%] ${
+                            className={`inline-block max-w-[85%] min-w-0 overflow-hidden rounded-lg p-3 align-top ${
                               message.role === 'user'
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted'
                             }`}
                           >
                             {message.role === 'assistant' ? (
-                              <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_*]:break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:whitespace-pre-wrap [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
                                 <ReactMarkdown>{message.content}</ReactMarkdown>
                               </div>
                             ) : (
-                              <p className="text-sm">{message.content}</p>
+                              <p className="break-words text-sm whitespace-pre-wrap">{message.content}</p>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -376,16 +454,16 @@ export default function AdvisorPage() {
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-3"
+                      className="flex min-w-0 gap-3"
                     >
                       <Avatar className="w-8 h-8">
                         <AvatarFallback className="bg-gold text-navy-dark">
                           <Bot className="w-4 h-4" />
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1">
-                        <div className="inline-block p-3 rounded-lg max-w-[85%] bg-muted">
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <div className="min-w-0 flex-1">
+                        <div className="inline-block max-w-[85%] min-w-0 overflow-hidden rounded-lg bg-muted p-3 align-top">
+                          <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_*]:break-words [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:whitespace-pre-wrap [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
                             <ReactMarkdown>{streamingContent}</ReactMarkdown>
                           </div>
                         </div>
@@ -445,12 +523,10 @@ export default function AdvisorPage() {
                 </Button>
               </form>
               <div className="flex items-center gap-4 mt-2">
-                {attachPortfolioContext && (
-                  <Badge variant="outline" className="text-xs">
-                    <Paperclip className="w-3 h-3 mr-1" />
-                    {isArabic ? 'السياق مرفق' : 'Context attached'}
-                  </Badge>
-                )}
+                <Badge variant="outline" className="text-xs">
+                  <Paperclip className="w-3 h-3 mr-1" />
+                  {isArabic ? 'بيانات Wealix مرفقة تلقائياً' : 'Wealix data attached automatically'}
+                </Badge>
                 <span className="text-xs text-muted-foreground">
                   {isArabic ? 'اضغط Enter للإرسال' : 'Press Enter to send'}
                 </span>

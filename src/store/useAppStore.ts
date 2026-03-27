@@ -33,7 +33,7 @@ interface User {
   onboardingDone: boolean;
 }
 
-interface NotificationPreferences {
+export interface NotificationPreferences {
   email: boolean;
   push: boolean;
   priceAlerts: boolean;
@@ -41,7 +41,7 @@ interface NotificationPreferences {
   weeklyDigest: boolean;
 }
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string;
   title: string;
   titleAr: string;
@@ -160,6 +160,20 @@ export interface BudgetLimit {
   category: string;
   limit: number;
   color: string;
+}
+
+export interface RemoteWorkspaceSnapshot {
+  appMode: AppMode;
+  notificationPreferences: NotificationPreferences;
+  notificationFeed: NotificationItem[];
+  incomeEntries: IncomeEntry[];
+  expenseEntries: ExpenseEntry[];
+  receiptScans: ReceiptScanResult[];
+  portfolioHoldings: PortfolioHolding[];
+  portfolioAnalysisHistory: PortfolioAnalysisRecord[];
+  assets: AssetEntry[];
+  liabilities: LiabilityEntry[];
+  budgetLimits: BudgetLimit[];
 }
 
 function normalizeHoldingKey(holding: Pick<PortfolioHolding, 'ticker' | 'exchange'>) {
@@ -419,6 +433,27 @@ function buildLiveState() {
   };
 }
 
+function sanitizeRemoteWorkspace(workspace: Partial<RemoteWorkspaceSnapshot> | undefined): RemoteWorkspaceSnapshot {
+  const live = buildLiveState();
+
+  return {
+    appMode: workspace?.appMode === 'demo' ? 'demo' : 'live',
+    notificationPreferences: {
+      ...defaultNotificationPreferences,
+      ...(workspace?.notificationPreferences ?? {}),
+    },
+    notificationFeed: Array.isArray(workspace?.notificationFeed) ? workspace.notificationFeed : live.notificationFeed,
+    incomeEntries: Array.isArray(workspace?.incomeEntries) ? workspace.incomeEntries : live.incomeEntries,
+    expenseEntries: Array.isArray(workspace?.expenseEntries) ? workspace.expenseEntries : live.expenseEntries,
+    receiptScans: Array.isArray(workspace?.receiptScans) ? workspace.receiptScans : live.receiptScans,
+    portfolioHoldings: Array.isArray(workspace?.portfolioHoldings) ? workspace.portfolioHoldings : live.portfolioHoldings,
+    portfolioAnalysisHistory: Array.isArray(workspace?.portfolioAnalysisHistory) ? workspace.portfolioAnalysisHistory : live.portfolioAnalysisHistory,
+    assets: Array.isArray(workspace?.assets) ? workspace.assets : live.assets,
+    liabilities: Array.isArray(workspace?.liabilities) ? workspace.liabilities : live.liabilities,
+    budgetLimits: Array.isArray(workspace?.budgetLimits) ? workspace.budgetLimits : live.budgetLimits,
+  };
+}
+
 function createProfileSnapshot(
   id: string,
   label: string,
@@ -556,6 +591,7 @@ interface AppState {
   deleteLiability: (id: string) => void;
   budgetLimits: BudgetLimit[];
   setBudgetLimits: (limits: BudgetLimit[]) => void;
+  hydrateRemoteWorkspace: (workspace: RemoteWorkspaceSnapshot) => void;
   clearAllData: () => void;
   setSubscriptionTier: (tier: SubscriptionTier) => void;
   
@@ -809,6 +845,21 @@ export const useAppStore = create<AppState>()(
           budgetLimits: limits,
         })
       ),
+      hydrateRemoteWorkspace: (workspace) => set((state) =>
+        syncActiveProfileState(state, {
+          appMode: workspace.appMode,
+          notificationPreferences: workspace.notificationPreferences,
+          notificationFeed: workspace.notificationFeed,
+          incomeEntries: workspace.incomeEntries,
+          expenseEntries: workspace.expenseEntries,
+          receiptScans: workspace.receiptScans,
+          portfolioHoldings: mergePortfolioHoldingEntries(workspace.portfolioHoldings),
+          portfolioAnalysisHistory: workspace.portfolioAnalysisHistory,
+          assets: workspace.assets,
+          liabilities: workspace.liabilities,
+          budgetLimits: workspace.budgetLimits,
+        })
+      ),
       setSubscriptionTier: (tier) => set((state) =>
         syncActiveProfileState(state, {
           user: {
@@ -894,6 +945,28 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'wealthos-storage',
+      version: 3,
+      migrate: (persistedState, _version) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState as AppState;
+        }
+
+        const nextState = persistedState as AppState & Partial<RemoteWorkspaceSnapshot>;
+        const locale: Locale = nextState.locale === 'ar' ? 'ar' : 'en';
+        const theme: Theme =
+          nextState.theme === 'dark' || nextState.theme === 'system' ? nextState.theme : 'light';
+
+        return {
+          ...nextState,
+          ...sanitizeRemoteWorkspace(nextState),
+          profiles: Array.isArray(nextState.profiles) ? nextState.profiles : [],
+          activeProfileId: typeof nextState.activeProfileId === 'string' ? nextState.activeProfileId : initialGuestProfile.id,
+          locale,
+          theme,
+          sidebarCollapsed: Boolean(nextState.sidebarCollapsed),
+          shariahFilterEnabled: Boolean(nextState.shariahFilterEnabled),
+        };
+      },
       partialize: (state) => ({
         user: state.user,
         locale: state.locale,
@@ -907,6 +980,7 @@ export const useAppStore = create<AppState>()(
         expenseEntries: state.expenseEntries,
         receiptScans: state.receiptScans,
         portfolioHoldings: state.portfolioHoldings,
+        portfolioAnalysisHistory: state.portfolioAnalysisHistory,
         assets: state.assets,
         liabilities: state.liabilities,
         budgetLimits: state.budgetLimits,

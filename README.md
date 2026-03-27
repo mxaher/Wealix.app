@@ -175,16 +175,44 @@ Current behavior:
 - first tries Datalab/Chandra OCR
 - falls back to the older vision-based OCR path if Datalab is unavailable
 
-### Supabase
+### Cloudflare D1
 
-Supabase MCP was configured for Codex tooling, but it is not currently required by the deployed app runtime.
+Signed-in user financial data is now designed to persist inside Cloudflare D1, not an external database.
 
-That means:
+Binding name required:
 
-- no Supabase app env vars are required for the current frontend deployment
-- Supabase MCP setup is local tooling for development, not a production app dependency
+- `WEALIX_DB`
 
-If you later move user data from local storage to Supabase, then new Supabase runtime env vars will be needed.
+One-time database setup:
+
+1. In Cloudflare, create a D1 database named `wealix-db`
+2. Open the D1 console or run a Wrangler SQL command
+3. Execute [cloudflare/d1-user-app-profiles.sql](/Users/mohammedzaher/projects/Wealixapp%20v2/cloudflare/d1-user-app-profiles.sql)
+4. Bind that D1 database to your Worker as `WEALIX_DB`
+
+SQL to paste into the D1 SQL editor:
+
+```sql
+CREATE TABLE IF NOT EXISTS user_app_profiles (
+  clerk_user_id TEXT PRIMARY KEY,
+  workspace_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+If you prefer Wrangler CLI, use:
+
+```bash
+wrangler d1 execute wealix-db --remote --file ./cloudflare/d1-user-app-profiles.sql
+```
+
+Runtime behavior:
+
+- guests still use demo data locally
+- signed-in users load their workspace from D1 on sign-in
+- changes to income, expenses, holdings, assets, liabilities, budgets, and saved portfolio analysis are synced back automatically
+- redeploying the app no longer wipes signed-in user financial data
 
 ## Authentication Model
 
@@ -248,9 +276,9 @@ Signed-in users get:
 
 ## Data Model
 
-The app currently stores user-facing financial data in local persisted app state through Zustand.
+The app uses Zustand locally for responsive UI state and Cloudflare D1-backed persistence for signed-in users.
 
-Main persisted data includes:
+Persisted financial data includes:
 
 - income entries
 - expense entries
@@ -258,6 +286,13 @@ Main persisted data includes:
 - portfolio holdings
 - assets
 - liabilities
+- budget limits
+- saved portfolio analysis history
+
+Important distinction:
+
+- guest/demo browsing is still local-only
+- signed-in users sync their financial workspace to Cloudflare D1 by Clerk user ID
 - budget limits
 - notification preferences
 - app mode
@@ -846,19 +881,18 @@ bun run db:migrate
 bun run db:reset
 ```
 
-These are present in the repo, but the current app flow you are using is still centered around local persisted app state rather than a fully wired production database backend.
+These are present in the repo, but the production user-data path is now designed around Cloudflare D1 workspace persistence for signed-in users.
 
 ## Current Limits
 
-- user financial data is not yet synced to a remote database
+- guest/demo data is still local-only by design
 - OCR quality depends on the external Datalab/Chandra service and receipt image quality
 - reports download as printable HTML, not true PDF
-- Supabase MCP is configured for development tooling, not app runtime persistence
 - EGX market data via `egxpy` is evaluated but not yet connected as a production runtime source
 
 ## Recommended Next Steps
 
-- move persisted user data to Supabase for true cloud sync
+- extend D1 persistence to advisor chat history and generated reports
 - add server-side storage for receipts and reports
 - add real subscription billing instead of local plan state
 - add PDF generation for reports

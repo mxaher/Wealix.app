@@ -102,6 +102,7 @@ export default function NetWorthPage() {
   const appMode = useAppStore((state) => state.appMode);
   const assets = useAppStore((state) => state.assets);
   const liabilities = useAppStore((state) => state.liabilities);
+  const portfolioHoldings = useAppStore((state) => state.portfolioHoldings);
   const addAsset = useAppStore((state) => state.addAsset);
   const deleteAsset = useAppStore((state) => state.deleteAsset);
   const addLiability = useAppStore((state) => state.addLiability);
@@ -114,16 +115,36 @@ export default function NetWorthPage() {
   const [newAsset, setNewAsset] = useState({ name: '', category: 'cash', value: '' });
   const [newLiability, setNewLiability] = useState({ name: '', category: 'loan', balance: '' });
 
-  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0);
+  const portfolioInvestmentsValue = appMode === 'demo'
+    ? 0
+    : portfolioHoldings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
+  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0) + portfolioInvestmentsValue;
   const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
+
+  const displayAssets = useMemo(() => {
+    if (portfolioInvestmentsValue <= 0) {
+      return assets;
+    }
+
+    return [
+      {
+        id: 'portfolio-investments',
+        name: isArabic ? 'المحفظة الاستثمارية الحالية' : 'Current Portfolio Holdings',
+        category: 'investment' as const,
+        value: portfolioInvestmentsValue,
+        currency: 'SAR',
+      },
+      ...assets,
+    ];
+  }, [assets, isArabic, portfolioInvestmentsValue]);
 
   const historyData = useMemo(() => {
     if (appMode === 'demo') {
       return mockHistory;
     }
 
-    if (assets.length === 0 && liabilities.length === 0) {
+    if (assets.length === 0 && liabilities.length === 0 && portfolioInvestmentsValue === 0) {
       return [];
     }
 
@@ -135,7 +156,7 @@ export default function NetWorthPage() {
         netWorth,
       },
     ];
-  }, [appMode, assets.length, liabilities.length, isArabic, totalAssets, totalLiabilities, netWorth]);
+  }, [appMode, assets.length, liabilities.length, isArabic, portfolioInvestmentsValue, totalAssets, totalLiabilities, netWorth]);
 
   const ratio = totalLiabilities > 0 ? totalAssets / totalLiabilities : totalAssets > 0 ? totalAssets : 0;
   const ratioProgress = totalAssets > 0 ? Math.min(100, (totalLiabilities / totalAssets) * 100) : 0;
@@ -502,17 +523,17 @@ export default function NetWorthPage() {
             <Card>
               <CardHeader>
                 <CardTitle>{isArabic ? 'قائمة الأصول' : 'Assets List'}</CardTitle>
-                <CardDescription>{isArabic ? `${assets.length} أصل` : `${assets.length} assets`}</CardDescription>
+                <CardDescription>{isArabic ? `${displayAssets.length} أصل` : `${displayAssets.length} assets`}</CardDescription>
               </CardHeader>
               <CardContent>
-                {assets.length === 0 ? (
+                {displayAssets.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
                     {isArabic ? 'لا توجد أصول بعد.' : 'No assets added yet.'}
                   </div>
                 ) : (
                   <ScrollArea className="h-96">
                     <div className="space-y-3">
-                      {assets.map((asset, index) => (
+                      {displayAssets.map((asset, index) => (
                         <motion.div
                           key={asset.id}
                           initial={{ opacity: 0, x: -20 }}
@@ -537,27 +558,33 @@ export default function NetWorthPage() {
                               {totalAssets > 0 ? `${((asset.value / totalAssets) * 100).toFixed(1)}%` : '--'}
                             </p>
                           </div>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" disabled={!isSignedIn}>
-                                <Trash2 className="w-4 h-4 text-rose-500" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{isArabic ? 'حذف الأصل؟' : 'Delete Asset?'}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {isArabic ? 'هل أنت متأكد من حذف هذا الأصل؟' : 'Are you sure you want to delete this asset?'}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteAsset(asset.id)} className="bg-rose-500 hover:bg-rose-600">
-                                  {isArabic ? 'حذف' : 'Delete'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          {asset.id === 'portfolio-investments' ? (
+                            <Badge variant="secondary" className="text-xs">
+                              {isArabic ? 'من المحفظة' : 'From portfolio'}
+                            </Badge>
+                          ) : (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" disabled={!isSignedIn}>
+                                  <Trash2 className="w-4 h-4 text-rose-500" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{isArabic ? 'حذف الأصل؟' : 'Delete Asset?'}</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {isArabic ? 'هل أنت متأكد من حذف هذا الأصل؟' : 'Are you sure you want to delete this asset?'}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteAsset(asset.id)} className="bg-rose-500 hover:bg-rose-600">
+                                    {isArabic ? 'حذف' : 'Delete'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </motion.div>
                       ))}
                     </div>

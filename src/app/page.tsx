@@ -169,7 +169,7 @@ export default function LandingPage() {
     <div className={`min-h-screen bg-background text-foreground ${isArabic ? 'font-[family-name:var(--font-arabic)]' : ''}`} dir={isArabic ? 'rtl' : 'ltr'}>
       <nav className="glass fixed inset-x-0 top-0 z-50 border-b border-border/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" dir="ltr" className="flex flex-row items-center gap-0.5 text-xl font-bold">
+          <Link href="/" dir="ltr" className="brand-wordmark flex flex-row items-center gap-0.5 text-xl font-bold">
             <span className="logo-weal">Weal</span>
             <span className="logo-ix">ix</span>
           </Link>
@@ -494,6 +494,15 @@ export default function LandingPage() {
                   </Button>
                 </Show>
               </div>
+            </div>
+            <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border/70 pt-6 text-sm text-muted-foreground">
+              <Link href="/terms" className="transition-colors hover:text-foreground">
+                {isArabic ? 'شروط الخدمة' : 'Terms of Service'}
+              </Link>
+              <span className="text-border">•</span>
+              <Link href="/privacy" className="transition-colors hover:text-foreground">
+                {isArabic ? 'سياسة الخصوصية' : 'Privacy Policy'}
+              </Link>
             </div>
           </div>
         </section>

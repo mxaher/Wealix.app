@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 import { LocaleSync } from "@/components/layout/LocaleSync";
 import { ClerkSync } from "@/components/layout/ClerkSync";
+import { RemoteProfileSync } from "@/components/layout/RemoteProfileSync";
 
 export const metadata: Metadata = {
   title: "Wealix App",
@@ -16,11 +17,11 @@ export const metadata: Metadata = {
   authors: [{ name: "Wealix Team" }],
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icon.svg?v=20260327b", type: "image/svg+xml" },
+      { url: "/favicon.svg?v=20260327b", type: "image/svg+xml" },
     ],
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
+    shortcut: "/icon.svg?v=20260327b",
+    apple: "/apple-icon.svg?v=20260327b",
   },
   openGraph: {
     title: "Wealix App",
@@ -48,6 +49,7 @@ export default function RootLayout({
           >
             <LocaleSync />
             <ClerkSync />
+            <RemoteProfileSync />
             {children}
             <Toaster />
           </ThemeProvider>

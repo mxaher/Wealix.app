@@ -10,9 +10,13 @@ import {
   CalendarDays,
   FileSpreadsheet,
   Filter,
+  Lightbulb,
+  PauseCircle,
   Plus,
   RefreshCw,
+  Scissors,
   Sparkles,
+  ShieldAlert,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -94,6 +98,42 @@ const ACCEPTED_SPREADSHEET_TYPES = new Set([
 ]);
 const REQUIRED_IMPORT_COLUMNS = ['ticker', 'shares', 'avgcost'];
 
+function getAnalysisActionMeta(actionType: string, isArabic: boolean) {
+  switch (actionType) {
+    case 'buy_more':
+      return {
+        label: isArabic ? 'زيادة' : 'Buy More',
+        icon: TrendingUp,
+        wrapperClass: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+      };
+    case 'trim':
+      return {
+        label: isArabic ? 'تخفيف' : 'Trim',
+        icon: Scissors,
+        wrapperClass: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+      };
+    case 'reduce':
+      return {
+        label: isArabic ? 'تقليص' : 'Reduce',
+        icon: TrendingDown,
+        wrapperClass: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+      };
+    case 'new_idea':
+      return {
+        label: isArabic ? 'فكرة جديدة' : 'New Idea',
+        icon: Lightbulb,
+        wrapperClass: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+      };
+    case 'hold':
+    default:
+      return {
+        label: isArabic ? 'احتفاظ' : 'Hold',
+        icon: PauseCircle,
+        wrapperClass: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
+      };
+  }
+}
+
 function assertSpreadsheetFile(file: File, bytes: Uint8Array) {
   if (file.size > MAX_IMPORT_FILE_SIZE) {
     throw new Error('Portfolio import files must be 2MB or smaller.');
@@ -135,6 +175,7 @@ export default function PortfolioPage() {
   const { isSignedIn } = useUser();
 
   const [showAddHolding, setShowAddHolding] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
@@ -567,22 +608,6 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <FeatureGate feature="portfolio.ai_analysis">
-              <Button variant="outline" className="gap-2" onClick={handleAnalyzePortfolio} disabled={!isSignedIn || isAnalyzing}>
-                <Sparkles className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
-                {isAnalyzing
-                  ? (isArabic ? 'جاري التحليل...' : 'Analyzing...')
-                  : (isArabic ? 'تحليل المحفظة' : 'Analyze Portfolio')}
-              </Button>
-            </FeatureGate>
-
-            <Button asChild variant="outline" className="gap-2">
-              <a href="/samples/wealix-portfolio-import-sample.xlsx" download>
-                <FileSpreadsheet className="w-4 h-4" />
-                {isArabic ? 'ملف نموذجي' : 'Sample File'}
-              </a>
-            </Button>
-
             <Button
               variant="outline"
               className="gap-2"
@@ -592,27 +617,14 @@ export default function PortfolioPage() {
               <RefreshCw className={`w-4 h-4 ${isRefreshingPrices ? 'animate-spin' : ''}`} />
               {isRefreshingPrices
                 ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
-                : (isArabic ? 'تحديث الأسعار السعودية' : 'Refresh Saudi Prices')}
-            </Button>
-
-            <Button variant="outline" className="gap-2" disabled={!isSignedIn} asChild={false}>
-              <label className={`cursor-pointer ${!isSignedIn ? 'pointer-events-none opacity-70' : ''}`}>
-                <Upload className="w-4 h-4" />
-                {isImporting ? (isArabic ? 'جارٍ الاستيراد...' : 'Importing...') : (isArabic ? 'استيراد إكسل' : 'Import Excel')}
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={(e) => handleImportPortfolio(e.target.files?.[0] ?? null)}
-                />
-              </label>
+                : (isArabic ? 'تحديث أسعار السوق' : 'Refresh Market Prices')}
             </Button>
 
             <Dialog open={showAddHolding} onOpenChange={setShowAddHolding}>
               <DialogTrigger asChild>
-                <Button className="gap-2" disabled={!isSignedIn}>
+                <Button variant="outline" className="gap-2" disabled={!isSignedIn}>
                   <Plus className="w-4 h-4" />
-                  {isArabic ? 'إضافة سهم' : 'Add Holding'}
+                  {isArabic ? 'إضافة مركز' : 'Add Holding'}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -692,6 +704,53 @@ export default function PortfolioPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2" disabled={!isSignedIn || isImporting}>
+                  <Upload className="w-4 h-4" />
+                  {isImporting ? (isArabic ? 'جارٍ الاستيراد...' : 'Importing...') : (isArabic ? 'استيراد المراكز' : 'Import Holdings')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{isArabic ? 'استيراد المراكز' : 'Import Holdings'}</DialogTitle>
+                  <DialogDescription>
+                    {isArabic
+                      ? 'ارفع ملف XLSX أو CSV لاستبدال المراكز الحالية، ويمكنك تنزيل الملف النموذجي أولاً.'
+                      : 'Upload an XLSX or CSV file to replace the current holdings. You can download the sample file first.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <Button asChild variant="secondary" className="w-full gap-2">
+                    <a href="/samples/wealix-portfolio-import-sample.xlsx" download>
+                      <FileSpreadsheet className="w-4 h-4" />
+                      {isArabic ? 'تنزيل الملف النموذجي' : 'Download Sample File'}
+                    </a>
+                  </Button>
+
+                  <label className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/40 px-4 py-8 text-center ${!isSignedIn ? 'pointer-events-none opacity-70' : ''}`}>
+                    <Upload className="mb-3 h-6 w-6 text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      {isArabic ? 'اختر ملف المراكز من جهازك' : 'Choose a holdings file from your device'}
+                    </span>
+                    <span className="mt-1 text-xs text-muted-foreground">
+                      {isArabic ? 'يدعم XLSX و XLS و CSV' : 'Supports XLSX, XLS, and CSV'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={async (e) => {
+                        await handleImportPortfolio(e.target.files?.[0] ?? null);
+                        e.currentTarget.value = '';
+                        setShowImportDialog(false);
+                      }}
+                    />
+                  </label>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -747,7 +806,8 @@ export default function PortfolioPage() {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row">
           <Select value={selectedExchange} onValueChange={setSelectedExchange}>
             <SelectTrigger className="w-40">
               <Filter className="mr-2 w-4 h-4" />
@@ -765,6 +825,20 @@ export default function PortfolioPage() {
             <Switch checked={shariahFilterEnabled} onCheckedChange={toggleShariahFilter} />
             <span className="text-sm">{isArabic ? 'الشريعة فقط' : 'Shariah Only'}</span>
           </div>
+          </div>
+
+          <FeatureGate feature="portfolio.ai_analysis">
+            <Button
+              className="gap-2 bg-primary hover:bg-primary/90 lg:self-end"
+              onClick={handleAnalyzePortfolio}
+              disabled={!isSignedIn || isAnalyzing}
+            >
+              <Sparkles className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+              {isAnalyzing
+                ? (isArabic ? 'جاري التحليل...' : 'Analyzing...')
+                : (isArabic ? 'تحليل المحفظة' : 'Analyze Portfolio')}
+            </Button>
+          </FeatureGate>
         </div>
 
         <Tabs defaultValue="holdings" className="space-y-6">
@@ -873,9 +947,9 @@ export default function PortfolioPage() {
 
               <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
                 <CardHeader className="border-b border-border/70 bg-secondary/30">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="flex items-center gap-2">
+                  <div dir={isArabic ? 'rtl' : 'ltr'} className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className={`space-y-1 ${isArabic ? 'text-right' : ''}`}>
+                      <CardTitle className={`flex items-center gap-2 ${isArabic ? 'justify-start' : ''}`}>
                         <Bot className="h-5 w-5 text-primary" />
                         {isArabic ? 'مساعد تحليل المحفظة' : 'Portfolio AI Desk'}
                       </CardTitle>
@@ -895,7 +969,7 @@ export default function PortfolioPage() {
                     </FeatureGate>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-5 p-5">
+                <CardContent dir={isArabic ? 'rtl' : 'ltr'} className="space-y-5 p-5">
                   <AnimatePresence initial={false}>
                     {isAnalyzing && (
                       <motion.div
@@ -910,7 +984,7 @@ export default function PortfolioPage() {
                           transition={{ repeat: Infinity, duration: 2.2, ease: 'linear' }}
                         />
                         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                          <div className="space-y-2">
+                          <div className={`space-y-2 ${isArabic ? 'text-right' : ''}`}>
                             <p className="text-sm font-semibold text-foreground">
                               {isArabic ? 'الذكاء الاصطناعي يراجع مكونات المحفظة الآن' : 'AI is reviewing your portfolio composition now'}
                             </p>
@@ -954,8 +1028,8 @@ export default function PortfolioPage() {
                         className="rounded-2xl border border-border bg-background/80 p-5 shadow-sm"
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <div className={`space-y-2 ${isArabic ? 'text-right' : ''}`}>
+                            <div className={`flex flex-wrap items-center gap-2 text-xs text-muted-foreground ${isArabic ? 'justify-end' : ''}`}>
                               <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1">
                                 <CalendarDays className="h-3.5 w-3.5" />
                                 {new Date(record.createdAt).toLocaleString(isArabic ? 'ar-SA-u-nu-latn' : 'en-US')}
@@ -971,24 +1045,35 @@ export default function PortfolioPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-rose-500 hover:text-rose-600"
+                            className={`text-rose-500 hover:text-rose-600 ${isArabic ? 'self-start md:self-auto' : ''}`}
                             onClick={() => deletePortfolioAnalysisRecord(record.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                          {record.actions.map((action, actionIndex) => (
+                          {record.actions.map((action, actionIndex) => {
+                            const actionMeta = getAnalysisActionMeta(action.type, isArabic);
+                            const ActionIcon = actionMeta.icon;
+
+                            return (
                             <div key={`${record.id}-${action.title}-${actionIndex}`} className="rounded-xl border border-border/80 bg-card p-4">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="capitalize">
-                                  {action.type.replace('_', ' ')}
-                                </Badge>
-                                <div className="font-medium">{action.title}</div>
+                              <div className={`flex items-start gap-3 ${isArabic ? 'flex-row-reverse text-right' : ''}`}>
+                                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${actionMeta.wrapperClass}`}>
+                                  <ActionIcon className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className={`flex flex-wrap items-center gap-2 ${isArabic ? 'justify-end' : ''}`}>
+                                    <Badge variant="outline" className={actionMeta.wrapperClass}>
+                                      {actionMeta.label}
+                                    </Badge>
+                                    <div className="font-medium">{action.title}</div>
+                                  </div>
+                                  <div className="mt-2 text-sm leading-6 text-muted-foreground">{action.description}</div>
+                                </div>
                               </div>
-                              <div className="mt-2 text-sm leading-6 text-muted-foreground">{action.description}</div>
                             </div>
-                          ))}
+                          )})}
                         </div>
                       </motion.div>
                     ))}
