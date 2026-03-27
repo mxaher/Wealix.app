@@ -945,7 +945,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'wealthos-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState, _version) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as AppState;
