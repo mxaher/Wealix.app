@@ -133,23 +133,28 @@ Style requirements:
 Portfolio:
 ${JSON.stringify(holdingsPayload, null, 2)}`;
 
-    const zai = await ZAI.create();
-    const completion = await zai.chat.completions.create({
-      messages: [{ role: 'system', content: prompt }],
-      thinking: { type: 'enabled' },
-    });
+    try {
+      const zai = await ZAI.create();
+      const completion = await zai.chat.completions.create({
+        messages: [{ role: 'system', content: prompt }],
+        thinking: { type: 'enabled' },
+      });
 
-    const content = completion.choices[0]?.message?.content || '';
-    const parsed = parseJsonObject(content);
+      const content = completion.choices[0]?.message?.content || '';
+      const parsed = parseJsonObject(content);
 
-    if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.actions)) {
+      if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.actions)) {
+        return Response.json(fallbackAnalysis(holdings, locale), { headers: buildRateLimitHeaders(rateLimit) });
+      }
+
+      return Response.json({
+        summary: parsed.summary,
+        actions: parsed.actions.slice(0, 6),
+      }, { headers: buildRateLimitHeaders(rateLimit) });
+    } catch (error) {
+      console.error('Portfolio AI provider failed, returning fallback analysis:', error);
       return Response.json(fallbackAnalysis(holdings, locale), { headers: buildRateLimitHeaders(rateLimit) });
     }
-
-    return Response.json({
-      summary: parsed.summary,
-      actions: parsed.actions.slice(0, 6),
-    }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('Portfolio analysis error:', error);
     return Response.json({ error: 'Failed to analyze portfolio.' }, { status: 500 });

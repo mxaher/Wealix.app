@@ -777,13 +777,19 @@ export default function PortfolioPage() {
         </div>
 
         <Tabs defaultValue="holdings" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="holdings">{isArabic ? 'الممتلكات' : 'Holdings'}</TabsTrigger>
-            <TabsTrigger value="allocation">{isArabic ? 'التوزيع' : 'Allocation'}</TabsTrigger>
-            <TabsTrigger value="analysis">{isArabic ? 'التحليل' : 'Analysis'}</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl bg-muted/70 p-2 sm:grid-cols-3">
+            <TabsTrigger value="holdings" className="rounded-xl px-4 py-2.5 text-sm font-medium">
+              {isArabic ? 'الممتلكات' : 'Holdings'}
+            </TabsTrigger>
+            <TabsTrigger value="allocation" className="rounded-xl px-4 py-2.5 text-sm font-medium">
+              {isArabic ? 'التوزيع' : 'Allocation'}
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="rounded-xl px-4 py-2.5 text-sm font-medium">
+              {isArabic ? 'التحليل' : 'Analysis'}
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="holdings">
+          <TabsContent value="holdings" className="mt-0">
             <Card>
               <CardContent className="p-0">
                 <ScrollArea className="h-[520px]">
@@ -869,7 +875,7 @@ export default function PortfolioPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="allocation" className="space-y-6">
+          <TabsContent value="allocation" className="mt-0 space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 auto-rows-fr">
               <Card className="h-full">
                 <CardHeader>
@@ -912,7 +918,7 @@ export default function PortfolioPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="analysis">
+          <TabsContent value="analysis" className="mt-0">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 auto-rows-fr">
               <Card className="h-full lg:col-span-2">
                 <CardHeader>
@@ -928,6 +934,15 @@ export default function PortfolioPage() {
                   </CardContent>
                 </Card>
               ))}
+              {analysis.actions.length === 0 && (
+                <Card className="h-full lg:col-span-2 border-dashed">
+                  <CardContent className="p-6 text-sm text-muted-foreground">
+                    {isArabic
+                      ? 'شغّل التحليل لعرض توصيات المحفظة هنا.'
+                      : 'Run the analysis to show portfolio recommendations here.'}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -935,9 +950,7 @@ export default function PortfolioPage() {
         <Card className="border-dashed">
           <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">
             <p>
-              {appMode === 'demo'
-                ? (isArabic ? 'الأسعار الحالية تجريبية وليست بيانات سوق مباشرة.' : 'Current prices are demo values and not live market data.')
-                : (isArabic ? 'المصدر الحالي لأسعار السوق هو SAHMK للأسهم السعودية فقط.' : 'The current live market data source is SAHMK for Saudi holdings only.')}
+              {isArabic ? 'المصدر الحالي لأسعار السوق هو SAHMK للأسهم السعودية فقط.' : 'The current live market data source is SAHMK for Saudi holdings only.'}
             </p>
             {marketRefreshMeta.updatedAt && (
               <p>
