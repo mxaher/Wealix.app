@@ -600,17 +600,129 @@ TWELVEDATA_API_KEY=
 
 This repo uses OpenNext for Cloudflare Workers deployments, not the deprecated `next-on-pages` adapter.
 
+Current config files:
+
+- [wrangler.jsonc](/Users/mohammedzaher/projects/Wealixapp%20v2/wrangler.jsonc)
+- [open-next.config.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/open-next.config.ts)
+- [next.config.ts](/Users/mohammedzaher/projects/Wealixapp%20v2/next.config.ts)
+- [public/_headers](/Users/mohammedzaher/projects/Wealixapp%20v2/public/_headers)
+
+Current Cloudflare scripts:
+
+```bash
+npm run preview
+npm run deploy
+npm run cf:build
+npm run cf-typegen
+```
+
+### Step-by-step: Cloudflare Workers deploy
+
+Use Cloudflare Workers or Workers Builds, not Cloudflare Pages with `next-on-pages`.
+
+### 1. Create the Worker project in Cloudflare
+
+In Cloudflare dashboard:
+
+1. Open `Workers & Pages`
+2. Choose `Create`
+3. Choose `Import a repository` if you want Git-based deploys, or use Wrangler CLI deploy if you want manual deploys
+4. If Cloudflare asks whether this is a Pages project or Worker project, choose `Workers`
+
+### 2. Connect the GitHub repository
+
+If using repository deploys:
+
+1. Connect GitHub
+2. Select the `mxaher/wealix2` repository
+3. Production branch: `master`
+
+### 3. Set the build and deploy commands
+
+If Cloudflare asks for commands, use:
+
 Build command:
 
 ```bash
 npm run cf:build
 ```
 
-GitHub Actions workflow:
+Deploy command:
+
+```bash
+npm run deploy
+```
+
+If Cloudflare only asks for one build command in a Workers Build flow, use:
+
+```bash
+npm run deploy
+```
+
+Do not use:
+
+```bash
+npx @cloudflare/next-on-pages@1
+```
+
+Do not set a Pages-style static output directory like `.vercel/output/static`.
+
+### 4. Add environment variables and secrets
+
+In Cloudflare Workers / Workers Builds, add these under build variables and runtime secrets.
+
+Required:
+
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+DATALAB_API_KEY=
+SAHMK_API_KEY=
+TWELVEDATA_API_KEY=
+```
+
+Optional:
+
+```env
+DATALAB_API_BASE=https://www.datalab.to
+CHANDRA_API_KEY=
+SAHMK_API_BASE=https://app.sahmk.sa/api/v1
+TWELVEDATA_API_BASE=https://api.twelvedata.com
+NEXT_PUBLIC_APP_URL=https://your-domain.example
+```
+
+Important:
+
+- `NEXT_PUBLIC_...` variables must be available during build
+- non-public secrets must also be available during build because Next.js may need them for server rendering and route setup
+
+### 5. If deploying with Wrangler locally
+
+Login:
+
+```bash
+npx wrangler login
+```
+
+Preview locally in the Workers runtime:
+
+```bash
+npm run preview
+```
+
+Deploy:
+
+```bash
+npm run deploy
+```
+
+### 6. If deploying with GitHub Actions
+
+This repo already includes:
 
 - [.github/workflows/cloudflare-workers-deploy.yml](/Users/mohammedzaher/projects/Wealixapp%20v2/.github/workflows/cloudflare-workers-deploy.yml)
 
-Required GitHub secrets for the workflow:
+Add these GitHub repository secrets:
 
 ```env
 CLOUDFLARE_API_TOKEN=
@@ -622,7 +734,7 @@ SAHMK_API_KEY=
 TWELVEDATA_API_KEY=
 ```
 
-Optional workflow secrets:
+Optional GitHub secrets:
 
 ```env
 DATALAB_API_BASE=
@@ -631,7 +743,28 @@ TWELVEDATA_API_BASE=
 NEXT_PUBLIC_APP_URL=
 ```
 
-The workflow now passes Saudi and Twelve Data keys alongside Clerk and OCR secrets.
+Then push to `master` and GitHub Actions will build and deploy to Cloudflare Workers.
+
+### 7. Verify after deploy
+
+Check:
+
+1. `/` loads
+2. `/app` loads
+3. Clerk sign up and sign in work
+4. Settings open
+5. Portfolio loads
+6. `Refresh All Prices` works for TASI via Sahmk and EGX/US via Twelve Data
+7. Receipt OCR works with a valid Datalab key
+8. Protected API routes return `401` when unauthenticated
+
+### Notes from the current Cloudflare/OpenNext docs
+
+- Cloudflare’s Next.js docs point existing apps to OpenNext on Workers, not `next-on-pages`
+- OpenNext Cloudflare currently targets the Next.js Node runtime on Workers
+- `export const runtime = "edge"` should be removed from app routes when using OpenNext Cloudflare
+- adding `public/_headers` for immutable static caching is recommended
+- `.open-next` should be ignored in git
 
 ## Deployment Troubleshooting
 

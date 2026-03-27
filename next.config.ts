@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const contentSecurityPolicy = `
   default-src 'self';
@@ -19,7 +20,7 @@ const contentSecurityPolicy = `
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {
-    root: path.resolve(__dirname),
+    root: path.resolve(process.cwd()),
   },
   reactStrictMode: true,
   async headers() {
@@ -46,3 +47,7 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
