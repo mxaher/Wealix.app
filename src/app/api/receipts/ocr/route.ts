@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
 import sharp from 'sharp';
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
@@ -423,41 +422,82 @@ async function runDatalabMarker(file: File) {
   throw new Error('Datalab Marker timed out while processing the receipt.');
 }
 
-async function runVisionFallback(file: File) {
+type NvidiaVisionResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+async function runNvidiaReceiptOcr(file: File) {
+  const nvidiaApiKey = process.env.NVIDIA_API_KEY;
+  const nvidiaBase = (process.env.NVIDIA_API_BASE || 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '');
+  const nvidiaModel = process.env.NVIDIA_OCR_MODEL || 'meta/llama-3.2-90b-vision-instruct';
+
+  if (!nvidiaApiKey) {
+    throw new Error('NVIDIA OCR is not configured. Add NVIDIA_API_KEY.');
+  }
+
   const bytes = await file.arrayBuffer();
-  const binary = Array.from(new Uint8Array(bytes), (byte) => String.fromCharCode(byte)).join('');
-  const base64 = btoa(binary);
+  const base64 = Buffer.from(bytes).toString('base64');
   const imageUrl = `data:${file.type};base64,${base64}`;
 
-  const zai = await ZAI.create();
-  const prompt = `You are an expert receipt OCR extraction engine for retail, restaurant, grocery, pharmacy, transport, fuel, and Arabic VAT receipts.
+  const prompt = `You are a receipt OCR and expense extraction engine for bilingual Arabic and English receipts.
 
-Look at this receipt image carefully and return JSON only with:
+Read the entire receipt image carefully, including merchant name, grand total, VAT lines, currency markers, and visible date fields.
+
+Return JSON only in this exact shape:
 {
   "merchantName": "string",
   "amount": number,
   "date": "YYYY-MM-DD",
-  "currency": "SAR",
+  "currency": "SAR|USD|EUR|EGP",
   "confidence": number,
   "suggestedCategory": "Food|Transport|Utilities|Entertainment|Healthcare|Education|Shopping|Housing|Other",
-  "rawText": "important visible text from the receipt"
-}`;
+  "rawText": "full important text visible on the receipt"
+}
 
-  const completion = await zai.chat.completions.createVision({
-    model: 'glm-4.5v',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          { type: 'image_url', image_url: { url: imageUrl } },
-        ],
-      },
-    ],
-    thinking: { type: 'enabled' },
+Rules:
+- prefer the grand total or total due, not line item subtotals
+- preserve Arabic text inside rawText when visible
+- if the exact date is unclear, infer the most likely receipt date from the image
+- confidence must be an integer from 0 to 100
+- return valid JSON only, with no markdown`;
+
+  const response = await fetch(`${nvidiaBase}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${nvidiaApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: nvidiaModel,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+      temperature: 0.1,
+      top_p: 0.9,
+      max_tokens: 1400,
+    }),
+    cache: 'no-store',
   });
 
-  const content = completion.choices[0]?.message?.content || '';
+  const json = await response.json().catch(() => null) as NvidiaVisionResponse | null;
+  if (!response.ok) {
+    throw new Error(json?.error?.message || `NVIDIA OCR request failed with status ${response.status}`);
+  }
+
+  const content = json?.choices?.[0]?.message?.content || '';
   const parsed = parseJsonObject(content);
   const fallback = fallbackFromFilename(file.name);
 
@@ -500,26 +540,26 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      const rawText = await runDatalabOcr(normalizedFile);
-      return Response.json(buildStructuredReceipt(rawText, file.name), { headers: buildRateLimitHeaders(rateLimit) });
-    } catch (primaryError) {
-      console.error('Datalab OCR Error:', primaryError);
+      const nvidiaResult = await runNvidiaReceiptOcr(normalizedFile);
+      return Response.json(nvidiaResult, { headers: buildRateLimitHeaders(rateLimit) });
+    } catch (nvidiaError) {
+      console.error('NVIDIA OCR Error:', nvidiaError);
 
       try {
-        const rawText = await runDatalabMarker(normalizedFile);
+        const rawText = await runDatalabOcr(normalizedFile);
         return Response.json(buildStructuredReceipt(rawText, file.name), { headers: buildRateLimitHeaders(rateLimit) });
-      } catch (secondaryError) {
-        console.error('Datalab Marker Error:', secondaryError);
+      } catch (primaryError) {
+        console.error('Datalab OCR Error:', primaryError);
 
         try {
-          const fallbackResult = await runVisionFallback(normalizedFile);
-          return Response.json(fallbackResult, { headers: buildRateLimitHeaders(rateLimit) });
-        } catch (visionError) {
-          console.error('Vision OCR Error:', visionError);
+          const rawText = await runDatalabMarker(normalizedFile);
+          return Response.json(buildStructuredReceipt(rawText, file.name), { headers: buildRateLimitHeaders(rateLimit) });
+        } catch (secondaryError) {
+          console.error('Datalab Marker Error:', secondaryError);
           const message = [
+            nvidiaError instanceof Error ? nvidiaError.message : 'NVIDIA OCR failed.',
             primaryError instanceof Error ? primaryError.message : 'Primary OCR failed.',
             secondaryError instanceof Error ? secondaryError.message : 'Secondary OCR failed.',
-            visionError instanceof Error ? visionError.message : 'Vision fallback failed.',
           ].join(' ');
 
           return Response.json(
