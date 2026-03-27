@@ -106,6 +106,8 @@ CLERK_SECRET_KEY=
 DATALAB_API_KEY=
 SAHMK_API_KEY=
 TWELVEDATA_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 ### Optional
@@ -126,6 +128,8 @@ Notes:
 - `SAHMK_API_BASE` is optional unless you are pointing to a custom SAHMK API base.
 - `TWELVEDATA_API_KEY` is used to fetch EGX, NASDAQ, NYSE, and FX data.
 - `TWELVEDATA_API_BASE` is optional unless you are pointing to a custom Twelve Data base.
+- `NEXT_PUBLIC_SUPABASE_URL` is used for durable signed-in user data persistence.
+- `SUPABASE_SERVICE_ROLE_KEY` is used server-side only to load and save each Clerk user's app workspace.
 - `NEXT_PUBLIC_APP_URL` is helpful if you want the sitemap and production URLs to point somewhere other than `https://wealix.app`.
 
 ### Clerk
@@ -177,14 +181,27 @@ Current behavior:
 
 ### Supabase
 
-Supabase MCP was configured for Codex tooling, but it is not currently required by the deployed app runtime.
+Supabase is now used by the deployed app runtime to persist signed-in user financial data across deploys and devices.
 
-That means:
+Required vars:
 
-- no Supabase app env vars are required for the current frontend deployment
-- Supabase MCP setup is local tooling for development, not a production app dependency
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+```
 
-If you later move user data from local storage to Supabase, then new Supabase runtime env vars will be needed.
+One-time database setup:
+
+1. Open Supabase SQL Editor
+2. Run [supabase/user_app_profiles.sql](/Users/mohammedzaher/projects/Wealixapp%20v2/supabase/user_app_profiles.sql)
+3. Add the two Supabase env vars to your deployment platform
+
+Runtime behavior:
+
+- guests still use demo data locally
+- signed-in users load their workspace from Supabase on sign-in
+- changes to income, expenses, holdings, assets, liabilities, budgets, and saved portfolio analysis are synced back automatically
+- redeploying the app no longer wipes signed-in user financial data
 
 ## Authentication Model
 
@@ -248,9 +265,9 @@ Signed-in users get:
 
 ## Data Model
 
-The app currently stores user-facing financial data in local persisted app state through Zustand.
+The app uses Zustand locally for responsive UI state and Supabase-backed persistence for signed-in users.
 
-Main persisted data includes:
+Persisted financial data includes:
 
 - income entries
 - expense entries
@@ -258,6 +275,13 @@ Main persisted data includes:
 - portfolio holdings
 - assets
 - liabilities
+- budget limits
+- saved portfolio analysis history
+
+Important distinction:
+
+- guest/demo browsing is still local-only
+- signed-in users sync their financial workspace to Supabase by Clerk user ID
 - budget limits
 - notification preferences
 - app mode

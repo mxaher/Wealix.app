@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 import { LocaleSync } from "@/components/layout/LocaleSync";
 import { ClerkSync } from "@/components/layout/ClerkSync";
+import { RemoteProfileSync } from "@/components/layout/RemoteProfileSync";
 
 export const metadata: Metadata = {
   title: "Wealix App",
@@ -48,6 +49,7 @@ export default function RootLayout({
           >
             <LocaleSync />
             <ClerkSync />
+            <RemoteProfileSync />
             {children}
             <Toaster />
           </ThemeProvider>

@@ -33,7 +33,7 @@ interface User {
   onboardingDone: boolean;
 }
 
-interface NotificationPreferences {
+export interface NotificationPreferences {
   email: boolean;
   push: boolean;
   priceAlerts: boolean;
@@ -41,7 +41,7 @@ interface NotificationPreferences {
   weeklyDigest: boolean;
 }
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string;
   title: string;
   titleAr: string;
@@ -160,6 +160,20 @@ export interface BudgetLimit {
   category: string;
   limit: number;
   color: string;
+}
+
+export interface RemoteWorkspaceSnapshot {
+  appMode: AppMode;
+  notificationPreferences: NotificationPreferences;
+  notificationFeed: NotificationItem[];
+  incomeEntries: IncomeEntry[];
+  expenseEntries: ExpenseEntry[];
+  receiptScans: ReceiptScanResult[];
+  portfolioHoldings: PortfolioHolding[];
+  portfolioAnalysisHistory: PortfolioAnalysisRecord[];
+  assets: AssetEntry[];
+  liabilities: LiabilityEntry[];
+  budgetLimits: BudgetLimit[];
 }
 
 function normalizeHoldingKey(holding: Pick<PortfolioHolding, 'ticker' | 'exchange'>) {
@@ -556,6 +570,7 @@ interface AppState {
   deleteLiability: (id: string) => void;
   budgetLimits: BudgetLimit[];
   setBudgetLimits: (limits: BudgetLimit[]) => void;
+  hydrateRemoteWorkspace: (workspace: RemoteWorkspaceSnapshot) => void;
   clearAllData: () => void;
   setSubscriptionTier: (tier: SubscriptionTier) => void;
   
@@ -809,6 +824,21 @@ export const useAppStore = create<AppState>()(
           budgetLimits: limits,
         })
       ),
+      hydrateRemoteWorkspace: (workspace) => set((state) =>
+        syncActiveProfileState(state, {
+          appMode: workspace.appMode,
+          notificationPreferences: workspace.notificationPreferences,
+          notificationFeed: workspace.notificationFeed,
+          incomeEntries: workspace.incomeEntries,
+          expenseEntries: workspace.expenseEntries,
+          receiptScans: workspace.receiptScans,
+          portfolioHoldings: mergePortfolioHoldingEntries(workspace.portfolioHoldings),
+          portfolioAnalysisHistory: workspace.portfolioAnalysisHistory,
+          assets: workspace.assets,
+          liabilities: workspace.liabilities,
+          budgetLimits: workspace.budgetLimits,
+        })
+      ),
       setSubscriptionTier: (tier) => set((state) =>
         syncActiveProfileState(state, {
           user: {
@@ -907,6 +937,7 @@ export const useAppStore = create<AppState>()(
         expenseEntries: state.expenseEntries,
         receiptScans: state.receiptScans,
         portfolioHoldings: state.portfolioHoldings,
+        portfolioAnalysisHistory: state.portfolioAnalysisHistory,
         assets: state.assets,
         liabilities: state.liabilities,
         budgetLimits: state.budgetLimits,
