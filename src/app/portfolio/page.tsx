@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import {
   ArrowDownRight,
   ArrowUpRight,
   Briefcase,
+  Bot,
+  CalendarDays,
   FileSpreadsheet,
   Filter,
   Plus,
@@ -16,6 +18,7 @@ import {
   TrendingUp,
   Upload,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Bar,
   BarChart,
@@ -60,13 +63,8 @@ import {
   formatNumber,
   type PortfolioExchange,
   type PortfolioHolding,
+  type PortfolioAnalysisAction,
 } from '@/store/useAppStore';
-
-type AnalysisAction = {
-  type: string;
-  title: string;
-  description: string;
-};
 
 type FxRateMap = Partial<Record<'USD_SAR' | 'EGP_SAR', {
   symbol: string;
@@ -126,6 +124,9 @@ export default function PortfolioPage() {
     selectedExchange,
     setSelectedExchange,
     portfolioHoldings,
+    portfolioAnalysisHistory,
+    addPortfolioAnalysisRecord,
+    deletePortfolioAnalysisRecord,
     addPortfolioHolding,
     deletePortfolioHolding,
     replacePortfolioHoldings,
@@ -134,20 +135,14 @@ export default function PortfolioPage() {
   const { isSignedIn } = useUser();
 
   const [showAddHolding, setShowAddHolding] = useState(false);
-  const [showAnalysis, setShowAnalysis] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+  const [analysisPulse, setAnalysisPulse] = useState(0);
   const [marketRefreshMeta, setMarketRefreshMeta] = useState<MarketRefreshMeta>({
     updatedAt: null,
     sources: [],
     fxRates: {},
-  });
-  const [analysis, setAnalysis] = useState<{ summary: string; actions: AnalysisAction[] }>({
-    summary: isArabic
-      ? 'شغّل التحليل لمراجعة المحفظة الحالية.'
-      : 'Run the analysis to review the current portfolio.',
-    actions: [],
   });
   const [newHolding, setNewHolding] = useState({
     ticker: '',
@@ -159,6 +154,23 @@ export default function PortfolioPage() {
   });
 
   const holdings = portfolioHoldings;
+  const latestAnalysis = portfolioAnalysisHistory[0] ?? null;
+  const analysisStages = isArabic
+    ? ['جمع بيانات المحفظة', 'قراءة التركز والمخاطر', 'بناء التوصيات']
+    : ['Collecting portfolio context', 'Reading concentration and risk', 'Building recommendations'];
+
+  useEffect(() => {
+    if (!isAnalyzing) {
+      setAnalysisPulse(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setAnalysisPulse((current) => (current + 1) % analysisStages.length);
+    }, 1400);
+
+    return () => window.clearInterval(interval);
+  }, [analysisStages.length, isAnalyzing]);
 
   const normalizeSaudiTicker = (ticker: string) => ticker.trim().toUpperCase().replace(/\.SR$/i, '');
   const getHoldingCurrency = (exchange: PortfolioExchange) => {
@@ -411,18 +423,16 @@ export default function PortfolioPage() {
     }
 
     if (holdings.length === 0) {
-      setAnalysis({
-        summary: isArabic
-          ? 'المحفظة فارغة حالياً. أضف أو استورد مراكز أولاً.'
-          : 'The portfolio is currently empty. Add or import holdings first.',
-        actions: [],
+      toast({
+        title: isArabic ? 'المحفظة فارغة' : 'Portfolio is empty',
+        description: isArabic
+          ? 'أضف أو استورد مراكز أولاً قبل تشغيل التحليل.'
+          : 'Add or import holdings first before running analysis.',
       });
-      setShowAnalysis(true);
       return;
     }
 
     setIsAnalyzing(true);
-    setShowAnalysis(true);
     try {
       const response = await fetch('/api/portfolio/analyze', {
         method: 'POST',
@@ -433,17 +443,19 @@ export default function PortfolioPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to analyze portfolio.');
       }
-      setAnalysis({
+      addPortfolioAnalysisRecord({
+        id: `analysis-${Date.now()}`,
+        createdAt: new Date().toISOString(),
         summary: data.summary || '',
-        actions: Array.isArray(data.actions) ? data.actions : [],
+        actions: Array.isArray(data.actions) ? data.actions as PortfolioAnalysisAction[] : [],
+      });
+      toast({
+        title: isArabic ? 'اكتمل تحليل المحفظة' : 'Portfolio analysis ready',
+        description: isArabic
+          ? 'تم حفظ التحليل الجديد أسفل جدول المراكز.'
+          : 'The new analysis was saved under your holdings table.',
       });
     } catch (error) {
-      setAnalysis({
-        summary: isArabic
-          ? 'تعذر إكمال التحليل حالياً.'
-          : 'The portfolio analysis could not be completed right now.',
-        actions: [],
-      });
       toast({
         title: isArabic ? 'فشل التحليل' : 'Analysis failed',
         description: error instanceof Error ? error.message : 'Could not analyze the portfolio.',
@@ -464,127 +476,63 @@ export default function PortfolioPage() {
     }
 
     const saudiHoldings = holdings.filter((holding) => holding.exchange === 'TASI');
-    const globalHoldings = holdings.filter((holding) => ['EGX', 'NASDAQ', 'NYSE'].includes(holding.exchange));
+    const nonSaudiHoldings = holdings.filter((holding) => ['EGX', 'NASDAQ', 'NYSE'].includes(holding.exchange));
 
-    if (saudiHoldings.length === 0 && globalHoldings.length === 0) {
+    if (saudiHoldings.length === 0) {
       toast({
-        title: isArabic ? 'لا توجد مراكز لتحديثها' : 'No holdings to refresh',
+        title: isArabic ? 'لا توجد أسهم سعودية لتحديثها' : 'No Saudi holdings to refresh',
         description: isArabic
-          ? 'أضف مراكز استثمارية أولاً ثم حدّث الأسعار.'
-          : 'Add some holdings first, then refresh prices.',
+          ? 'حالياً يتم تحديث السوق السعودي فقط عبر SAHMK. أضف مركزاً من تداول أولاً.'
+          : 'Only Saudi holdings are refreshed right now through SAHMK. Add a TASI holding first.',
       });
       return;
     }
 
     setIsRefreshingPrices(true);
     try {
-      let nextHoldings = [...holdings];
-      let nextFxRates = { ...marketRefreshMeta.fxRates };
-      const nextSources = new Set(marketRefreshMeta.sources);
-      const successLabels: string[] = [];
-      const errorLabels: string[] = [];
+      const response = await fetch('/api/market/saudi/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbols: saudiHoldings.map((holding) => normalizeSaudiTicker(holding.ticker)),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Failed to refresh Saudi prices.');
+      }
 
-      if (saudiHoldings.length > 0) {
-        try {
-          const response = await fetch('/api/market/saudi/quotes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              symbols: saudiHoldings.map((holding) => normalizeSaudiTicker(holding.ticker)),
-            }),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.details || data.error || 'Failed to refresh Saudi prices.');
-          }
-
-          const quotes = data.quotes ?? {};
-          nextHoldings = nextHoldings.map((holding) => {
-            if (holding.exchange !== 'TASI') {
-              return holding;
-            }
-
-            const match = quotes[normalizeSaudiTicker(holding.ticker)];
-            if (!match || !match.price) {
-              return holding;
-            }
-
-            return {
-              ...holding,
-              ticker: holding.ticker.toUpperCase(),
-              name: isArabic ? (match.nameAr || holding.name) : (match.nameEn || holding.name),
-              currentPrice: Number(match.price),
-            };
-          });
-          nextSources.add('SAHMK');
-          successLabels.push(isArabic ? 'السوق السعودي' : 'Saudi market');
-        } catch (error) {
-          errorLabels.push(
-            error instanceof Error && error.message
-              ? `${isArabic ? 'السوق السعودي' : 'Saudi market'}: ${error.message}`
-              : (isArabic ? 'تعذّر تحديث السوق السعودي' : 'Saudi market refresh failed')
-          );
+      const quotes = data.quotes ?? {};
+      const nextHoldings = holdings.map((holding) => {
+        if (holding.exchange !== 'TASI') {
+          return holding;
         }
-      }
 
-      if (globalHoldings.length > 0) {
-        try {
-          const response = await fetch('/api/market/global/quotes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              holdings: globalHoldings.map((holding) => ({
-                ticker: holding.ticker,
-                exchange: holding.exchange,
-              })),
-            }),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.details || data.error || 'Failed to refresh global prices.');
-          }
-
-          const quotes = data.quotes ?? {};
-          nextFxRates = data.fxRates ?? nextFxRates;
-          nextHoldings = nextHoldings.map((holding) => {
-            const quote = quotes[holding.ticker.toUpperCase()];
-            if (!quote || !quote.price) {
-              return holding;
-            }
-
-            return {
-              ...holding,
-              name: quote.name || holding.name,
-              currentPrice: Number(quote.price),
-            };
-          });
-          nextSources.add('Twelve Data');
-          successLabels.push(isArabic ? 'EGX وUS' : 'EGX & US');
-        } catch (error) {
-          errorLabels.push(
-            error instanceof Error && error.message
-              ? `${isArabic ? 'EGX وUS' : 'EGX & US'}: ${error.message}`
-              : (isArabic ? 'تعذّر تحديث EGX وUS' : 'EGX & US refresh failed')
-          );
+        const match = quotes[normalizeSaudiTicker(holding.ticker)];
+        if (!match || !match.price) {
+          return holding;
         }
-      }
 
-      if (successLabels.length === 0) {
-        throw new Error(errorLabels.join(' | ') || 'Could not refresh prices.');
-      }
+        return {
+          ...holding,
+          ticker: holding.ticker.toUpperCase(),
+          name: isArabic ? (match.nameAr || holding.name) : (match.nameEn || holding.name),
+          currentPrice: Number(match.price),
+        };
+      });
 
       replacePortfolioHoldings(nextHoldings);
       setMarketRefreshMeta({
         updatedAt: new Date().toISOString(),
-        sources: [...nextSources],
-        fxRates: nextFxRates,
+        sources: ['SAHMK'],
+        fxRates: {},
       });
 
       toast({
         title: isArabic ? 'تم تحديث الأسعار' : 'Prices refreshed',
         description: isArabic
-          ? `تم تحديث أسعار ${successLabels.join(' + ')}.${errorLabels.length ? ` مع ملاحظة: ${errorLabels.join(' | ')}` : ''}`
-          : `Updated ${successLabels.join(' + ')}.${errorLabels.length ? ` Note: ${errorLabels.join(' | ')}` : ''}`,
+          ? `تم تحديث ${formatNumber(saudiHoldings.length, locale)} سهم سعودي عبر SAHMK.${nonSaudiHoldings.length > 0 ? ` وتم ترك ${formatNumber(nonSaudiHoldings.length, locale)} مركز غير سعودي بدون تحديث حالياً.` : ''}`
+          : `Updated ${formatNumber(saudiHoldings.length, locale)} Saudi holdings via SAHMK.${nonSaudiHoldings.length > 0 ? ` Left ${formatNumber(nonSaudiHoldings.length, locale)} non-Saudi holdings unchanged for now.` : ''}`,
       });
     } catch (error) {
       toast({
@@ -620,33 +568,12 @@ export default function PortfolioPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <FeatureGate feature="portfolio.ai_analysis">
-              <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" onClick={handleAnalyzePortfolio} disabled={!isSignedIn}>
-                    <Sparkles className="w-4 h-4" />
-                    {isArabic ? 'تحليل المحفظة' : 'Analyze Portfolio'}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>{isArabic ? 'تحليل المحفظة' : 'Portfolio Analysis'}</DialogTitle>
-                    <DialogDescription>{analysis.summary}</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-3">
-                    {isAnalyzing && (
-                      <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                        {isArabic ? 'جارٍ تحليل المحفظة...' : 'Analyzing the portfolio...'}
-                      </div>
-                    )}
-                    {analysis.actions.map((action, index) => (
-                      <div key={`${action.title}-${index}`} className="rounded-xl border p-4">
-                        <div className="font-medium">{action.title}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{action.description}</div>
-                      </div>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button variant="outline" className="gap-2" onClick={handleAnalyzePortfolio} disabled={!isSignedIn || isAnalyzing}>
+                <Sparkles className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+                {isAnalyzing
+                  ? (isArabic ? 'جاري التحليل...' : 'Analyzing...')
+                  : (isArabic ? 'تحليل المحفظة' : 'Analyze Portfolio')}
+              </Button>
             </FeatureGate>
 
             <Button asChild variant="outline" className="gap-2">
@@ -665,7 +592,7 @@ export default function PortfolioPage() {
               <RefreshCw className={`w-4 h-4 ${isRefreshingPrices ? 'animate-spin' : ''}`} />
               {isRefreshingPrices
                 ? (isArabic ? 'جارٍ التحديث...' : 'Refreshing...')
-                : (isArabic ? 'تحديث كل الأسعار' : 'Refresh All Prices')}
+                : (isArabic ? 'تحديث الأسعار السعودية' : 'Refresh Saudi Prices')}
             </Button>
 
             <Button variant="outline" className="gap-2" disabled={!isSignedIn} asChild={false}>
@@ -841,15 +768,27 @@ export default function PortfolioPage() {
         </div>
 
         <Tabs defaultValue="holdings" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="holdings">{isArabic ? 'الممتلكات' : 'Holdings'}</TabsTrigger>
-            <TabsTrigger value="allocation">{isArabic ? 'التوزيع' : 'Allocation'}</TabsTrigger>
-            <TabsTrigger value="analysis">{isArabic ? 'التحليل' : 'Analysis'}</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className="inline-flex h-auto min-w-full flex-nowrap items-stretch gap-2 rounded-2xl border border-border/70 bg-card p-2 shadow-sm sm:grid sm:w-full sm:grid-cols-2">
+              <TabsTrigger
+                value="holdings"
+                className="min-w-[150px] flex-none rounded-xl border border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground"
+              >
+              {isArabic ? 'الممتلكات' : 'Holdings'}
+              </TabsTrigger>
+              <TabsTrigger
+                value="allocation"
+                className="min-w-[150px] flex-none rounded-xl border border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground"
+              >
+              {isArabic ? 'التوزيع' : 'Allocation'}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="holdings">
-            <Card>
-              <CardContent className="p-0">
+          <TabsContent value="holdings" className="mt-0">
+            <div className="space-y-6">
+              <Card>
+                <CardContent className="p-0">
                 <ScrollArea className="h-[520px]">
                   <Table>
                     <TableHeader>
@@ -929,11 +868,137 @@ export default function PortfolioPage() {
                     </TableBody>
                   </Table>
                 </ScrollArea>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+                <CardHeader className="border-b border-border/70 bg-secondary/30">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <Bot className="h-5 w-5 text-primary" />
+                        {isArabic ? 'مساعد تحليل المحفظة' : 'Portfolio AI Desk'}
+                      </CardTitle>
+                      <CardDescription>
+                        {isArabic
+                          ? 'تحليل محفوظ يمكن الرجوع إليه لاحقاً مع توصيات قابلة للمراجعة والحذف.'
+                          : 'Saved analysis snapshots you can revisit, keep as reference, or remove later.'}
+                      </CardDescription>
+                    </div>
+                    <FeatureGate feature="portfolio.ai_analysis">
+                      <Button className="gap-2" onClick={handleAnalyzePortfolio} disabled={!isSignedIn || isAnalyzing}>
+                        <Sparkles className={`h-4 w-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+                        {isAnalyzing
+                          ? (isArabic ? 'جاري بناء التحليل...' : 'Building analysis...')
+                          : (isArabic ? 'إنشاء تحليل جديد' : 'Generate New Analysis')}
+                      </Button>
+                    </FeatureGate>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5 p-5">
+                  <AnimatePresence initial={false}>
+                    {isAnalyzing && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/8 via-background to-accent/10 p-5"
+                      >
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent"
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{ repeat: Infinity, duration: 2.2, ease: 'linear' }}
+                        />
+                        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                          <div className="space-y-2">
+                            <p className="text-sm font-semibold text-foreground">
+                              {isArabic ? 'الذكاء الاصطناعي يراجع مكونات المحفظة الآن' : 'AI is reviewing your portfolio composition now'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {analysisStages[analysisPulse]}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {analysisStages.map((stage, index) => (
+                              <motion.span
+                                key={stage}
+                                className="h-2.5 w-14 rounded-full bg-border"
+                                animate={{
+                                  opacity: index === analysisPulse ? 1 : 0.35,
+                                  scaleX: index === analysisPulse ? 1 : 0.9,
+                                  backgroundColor: index === analysisPulse ? 'var(--color-primary)' : 'var(--color-border)',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {portfolioAnalysisHistory.length === 0 && !isAnalyzing ? (
+                    <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+                      {isArabic
+                        ? 'لا يوجد تحليل محفوظ بعد. شغّل التحليل لإنشاء أول مذكرة توصيات لمحفظتك.'
+                        : 'No saved analysis yet. Run the analysis to create your first portfolio recommendation memo.'}
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-4">
+                    {portfolioAnalysisHistory.map((record, index) => (
+                      <motion.div
+                        key={record.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.04 }}
+                        className="rounded-2xl border border-border bg-background/80 p-5 shadow-sm"
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1">
+                                <CalendarDays className="h-3.5 w-3.5" />
+                                {new Date(record.createdAt).toLocaleString(isArabic ? 'ar-SA-u-nu-latn' : 'en-US')}
+                              </span>
+                              {index === 0 ? (
+                                <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                                  {isArabic ? 'الأحدث' : 'Latest'}
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <p className="text-sm leading-7 text-foreground">{record.summary}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-rose-500 hover:text-rose-600"
+                            onClick={() => deletePortfolioAnalysisRecord(record.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                          {record.actions.map((action, actionIndex) => (
+                            <div key={`${record.id}-${action.title}-${actionIndex}`} className="rounded-xl border border-border/80 bg-card p-4">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="capitalize">
+                                  {action.type.replace('_', ' ')}
+                                </Badge>
+                                <div className="font-medium">{action.title}</div>
+                              </div>
+                              <div className="mt-2 text-sm leading-6 text-muted-foreground">{action.description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
-          <TabsContent value="allocation" className="space-y-6">
+          <TabsContent value="allocation" className="mt-0 space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 auto-rows-fr">
               <Card className="h-full">
                 <CardHeader>
@@ -976,53 +1041,17 @@ export default function PortfolioPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="analysis">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 auto-rows-fr">
-              <Card className="h-full lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>{isArabic ? 'ملخص التحليل' : 'Analysis Summary'}</CardTitle>
-                  <CardDescription>{analysis.summary}</CardDescription>
-                </CardHeader>
-              </Card>
-              {analysis.actions.map((action, index) => (
-                <Card key={`${action.title}-${index}`} className="h-full">
-                  <CardContent className="p-4">
-                    <div className="font-medium">{action.title}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{action.description}</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
         </Tabs>
 
         <Card className="border-dashed">
           <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">
             <p>
-              {appMode === 'demo'
-                ? (isArabic ? 'الأسعار الحالية تجريبية وليست بيانات سوق مباشرة.' : 'Current prices are demo values and not live market data.')
-                : (isArabic ? 'المصدر: سوق تداول عبر SAHMK للأسهم السعودية وTwelve Data لأسهم EGX وNASDAQ وNYSE.' : 'Source: SAHMK for Saudi market holdings and Twelve Data for EGX, NASDAQ, and NYSE holdings.')}
+              {isArabic ? 'المصدر الحالي لأسعار السوق هو SAHMK للأسهم السعودية فقط.' : 'The current live market data source is SAHMK for Saudi holdings only.'}
             </p>
             {marketRefreshMeta.updatedAt && (
               <p>
                 {isArabic ? 'آخر تحديث:' : 'Last refresh:'} {new Date(marketRefreshMeta.updatedAt).toLocaleString(isArabic ? 'ar-SA-u-nu-latn' : 'en-US')}
               </p>
-            )}
-            {Object.values(marketRefreshMeta.fxRates).some((rate) => Boolean(rate?.rate)) && (
-              <div className="space-y-1">
-                {marketRefreshMeta.fxRates.USD_SAR?.rate ? (
-                  <p>
-                    USD/SAR: {marketRefreshMeta.fxRates.USD_SAR.rate.toFixed(4)}
-                    {marketRefreshMeta.fxRates.USD_SAR.datetime ? ` · ${marketRefreshMeta.fxRates.USD_SAR.datetime}` : ''}
-                  </p>
-                ) : null}
-                {marketRefreshMeta.fxRates.EGP_SAR?.rate ? (
-                  <p>
-                    EGP/SAR: {marketRefreshMeta.fxRates.EGP_SAR.rate.toFixed(4)}
-                    {marketRefreshMeta.fxRates.EGP_SAR.datetime ? ` · ${marketRefreshMeta.fxRates.EGP_SAR.datetime}` : ''}
-                  </p>
-                ) : null}
-              </div>
             )}
           </CardContent>
         </Card>
