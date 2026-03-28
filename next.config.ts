@@ -19,6 +19,9 @@ const contentSecurityPolicy = `
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: {
+    unoptimized: true,
+  },
   turbopack: {
     root: path.resolve(process.cwd()),
   },
