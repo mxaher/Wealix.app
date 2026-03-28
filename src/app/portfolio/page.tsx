@@ -343,52 +343,95 @@ export default function PortfolioPage() {
 
     setIsImporting(true);
     try {
-      const XLSX = await import('xlsx');
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       assertSpreadsheetFile(file, bytes);
 
-      const workbook = XLSX.read(buffer, {
-        type: 'array',
-        bookVBA: true,
-        cellFormula: true,
-        bookFiles: true,
-      });
+      const isCsvFile = /\.csv$/i.test(file.name) || file.type === 'text/csv' || file.type === 'application/csv';
 
-      const workbookWithFiles = workbook as typeof workbook & {
-        vbaraw?: unknown;
-        files?: Record<string, unknown>;
-      };
-      const workbookFiles = Object.keys(workbookWithFiles.files ?? {});
-      const hasExternalLinks = workbookFiles.some((entry) => entry.startsWith('xl/externalLinks/'));
-      const hasMacros = Boolean(workbookWithFiles.vbaraw) || workbookFiles.includes('xl/vbaProject.bin');
+      let rows: Record<string, unknown>[];
 
-      if (hasMacros || hasExternalLinks) {
-        throw new Error(
-          isArabic
-            ? 'الملف يحتوي على ماكرو أو روابط خارجية غير مدعومة.'
-            : 'This spreadsheet contains macros or external links and cannot be imported.'
-        );
-      }
+      if (isCsvFile) {
+        // Plain-text CSV: parse manually — no binary parsing, no CVE surface
+        const text = new TextDecoder().decode(bytes);
+        const csvLines = text.split(/\r?\n/).filter(l => l.trim());
+        const parseCsvRow = (line: string): string[] => {
+          const cells: string[] = [];
+          let cell = '';
+          let inQuotes = false;
+          for (const ch of line) {
+            if (ch === '"') { inQuotes = !inQuotes; }
+            else if (ch === ',' && !inQuotes) { cells.push(cell); cell = ''; }
+            else { cell += ch; }
+          }
+          cells.push(cell);
+          return cells;
+        };
+        const [headerLine, ...dataLines] = csvLines;
+        const csvHeaders = parseCsvRow(headerLine).map(h => h.trim());
+        rows = dataLines.filter(l => l.trim()).map(line => {
+          const vals = parseCsvRow(line);
+          const obj: Record<string, unknown> = {};
+          csvHeaders.forEach((h, i) => { obj[h] = vals[i]?.trim() ?? ''; });
+          return obj;
+        });
+      } else {
+        // Binary Excel: use exceljs (no prototype-pollution CVE unlike xlsx@0.18.5)
+        const { Workbook } = await import('exceljs');
+        const workbook = new Workbook();
+        await workbook.xlsx.load(buffer);
 
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const sheetHasFormulas = Object.entries(sheet).some(([key, cell]) => {
-        if (key.startsWith('!') || typeof cell !== 'object' || !cell) {
-          return false;
+        // Reject macro-enabled workbooks (.xlsm)
+        if (/\.xlsm$/i.test(file.name)) {
+          throw new Error(
+            isArabic
+              ? 'الملف يحتوي على ماكرو أو روابط خارجية غير مدعومة.'
+              : 'This spreadsheet contains macros or external links and cannot be imported.'
+          );
         }
 
-        return 'f' in cell;
-      });
+        const sheet = workbook.worksheets[0];
+        if (!sheet) {
+          throw new Error(isArabic ? 'الملف لا يحتوي على بيانات.' : 'The spreadsheet file contains no data.');
+        }
 
-      if (sheetHasFormulas) {
-        throw new Error(
-          isArabic
-            ? 'أزل الصيغ الحسابية من الملف قبل الاستيراد.'
-            : 'Remove spreadsheet formulas before importing this file.'
-        );
+        // Reject formula cells
+        let sheetHasFormulas = false;
+        sheet.eachRow(row => {
+          row.eachCell(cell => {
+            if (typeof cell.value === 'object' && cell.value !== null && 'formula' in cell.value) {
+              sheetHasFormulas = true;
+            }
+          });
+        });
+        if (sheetHasFormulas) {
+          throw new Error(
+            isArabic
+              ? 'أزل الصيغ الحسابية من الملف قبل الاستيراد.'
+              : 'Remove spreadsheet formulas before importing this file.'
+          );
+        }
+
+        // Convert to JSON rows, preserving original header names
+        const headerRow = sheet.getRow(1);
+        const headerValues = (headerRow.values as (string | undefined | null)[]).slice(1);
+        rows = [];
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const obj: Record<string, unknown> = {};
+          headerValues.forEach((header, i) => {
+            if (header != null) {
+              const cellVal = row.getCell(i + 1).value;
+              // Use formula result when present, otherwise raw value
+              obj[String(header)] =
+                typeof cellVal === 'object' && cellVal !== null && 'result' in cellVal
+                  ? (cellVal as { result: unknown }).result ?? ''
+                  : cellVal ?? '';
+            }
+          });
+          rows.push(obj);
+        });
       }
-
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
       const headers = rows.length > 0 ? Object.keys(rows[0]).map((header) => header.replace(/[\s_]+/g, '').toLowerCase()) : [];
       const missingColumns = REQUIRED_IMPORT_COLUMNS.filter((column) => !headers.includes(column));
 
