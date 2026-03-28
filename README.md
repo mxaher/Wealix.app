@@ -3,7 +3,6 @@
 Wealix is a personal wealth operating system built with Next.js App Router, Clerk, Zustand, Tailwind, and shadcn/ui.
 
 It helps users track:
-
 - income
 - expenses
 - receipt OCR
@@ -12,7 +11,6 @@ It helps users track:
 - budget limits
 - FIRE progress
 - reports
-
 The app supports:
 
 - Clerk-based user accounts
