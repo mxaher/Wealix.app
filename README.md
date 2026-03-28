@@ -1,7 +1,7 @@
-# Wealix
+# Wealix APP - PWOS
 
 Wealix is a personal wealth operating system built with Next.js App Router, Clerk, Zustand, Tailwind, and shadcn/ui.
-
+  
 It helps users track:
 
 - income
