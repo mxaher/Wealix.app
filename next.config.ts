@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+import type { Configuration } from "webpack";
 
 const contentSecurityPolicy = `
   default-src 'self';
@@ -31,6 +32,26 @@ const nextConfig: NextConfig = {
     },
   },
   reactStrictMode: true,
+  // Reduce Cloudflare Worker bundle size by replacing heavy animation/chart
+  // libraries with lightweight server stubs. The real libraries are still
+  // shipped as client-side JS chunks — they just don't get SSR'd.
+  webpack(config: Configuration, { isServer }: { isServer: boolean }) {
+    if (isServer) {
+      const cwd = process.cwd();
+      config.resolve = config.resolve ?? {};
+      config.resolve.alias = {
+        ...(config.resolve.alias as Record<string, string>),
+        // framer-motion: replaces ~3-5 MB from the worker bundle
+        'framer-motion': path.resolve(cwd, 'scripts/framer-motion-stub.js'),
+        // recharts: replaces ~3-5 MB from the worker bundle
+        'recharts': path.resolve(cwd, 'scripts/recharts-stub.js'),
+        // @vercel/og is pulled in by Next.js internals even when unused
+        '@vercel/og': path.resolve(cwd, 'scripts/sharp-shim.js'),
+        'next/dist/compiled/@vercel/og': path.resolve(cwd, 'scripts/sharp-shim.js'),
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {
