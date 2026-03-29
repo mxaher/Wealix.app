@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Bot, Briefcase, Flame, Globe, LineChart, Moon, Receipt, ShieldCheck, Sun, Wallet } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { SignedIn, SignedOut, SignInButton, SignUpButton } from '@clerk/nextjs';
+import { Show, SignInButton, SignUpButton } from '@clerk/nextjs';
 import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui/button';
 import { CookieConsentBanner } from '@/components/shared/CookieConsentBanner';
@@ -120,10 +120,10 @@ const pricingByCycle = {
     {
       id: 'core',
       name: 'Core',
-      price: 108,
+      price: 100.08,
       currency: 'USD',
       suffix: { en: '/year', ar: '/سنوياً' },
-      savings: { en: 'Save $12/yr', ar: 'وفّر 12$ سنوياً' },
+      savings: { en: 'Save $19.92/yr', ar: 'وفّر 19.92$ سنوياً' },
       description: {
         en: 'Annual Core access — same essential layer, better value. Billed once a year.',
         ar: 'اشتراك سنوي لخطة Core بقيمة أفضل. يُحسب مرة واحدة سنوياً.',
@@ -136,10 +136,10 @@ const pricingByCycle = {
     {
       id: 'pro',
       name: 'Pro',
-      price: 144,
+      price: 150,
       currency: 'USD',
       suffix: { en: '/year', ar: '/سنوياً' },
-      savings: { en: 'Save $36/yr', ar: 'وفّر 36$ سنوياً' },
+      savings: { en: 'Save $30/yr', ar: 'وفّر 30$ سنوياً' },
       description: {
         en: 'Annual Pro access — the full Wealix intelligence stack at the best long-term price.',
         ar: 'اشتراك سنوي لخطة Pro للمستخدم الذي يريد طبقة الذكاء والتحليل الكاملة بأفضل قيمة.',
@@ -220,7 +220,7 @@ export default function LandingPage() {
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
-            <SignedOut>
+            <Show when="signed-out">
               <SignInButton mode="modal">
                 <Button variant="ghost" className="hidden rounded-full md:inline-flex">
                   {isArabic ? 'تسجيل الدخول' : 'Log In'}
@@ -231,14 +231,14 @@ export default function LandingPage() {
                   {isArabic ? 'ابدأ الآن' : 'Get Started'}
                 </Button>
               </SignUpButton>
-            </SignedOut>
-            <SignedIn>
+            </Show>
+            <Show when="signed-in">
               <Button asChild className="btn-primary rounded-full">
                 <Link href="/app">
                   {isArabic ? 'افتح التطبيق' : 'Open App'}
                 </Link>
               </Button>
-            </SignedIn>
+            </Show>
           </div>
         </div>
       </nav>
@@ -273,22 +273,22 @@ export default function LandingPage() {
                   : 'Wealix combines budgeting, investing, FIRE planning, OCR-powered expense capture, and AI analysis into one calm operating system for personal wealth.'}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <SignedOut>
+                <Show when="signed-out">
                   <SignUpButton mode="modal">
                     <Button className="btn-primary rounded-xl px-5 py-6 text-sm">
                       {isArabic ? 'ابدأ التجربة المجانية 14 يوماً' : 'Start 14-Day Trial'}
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </SignUpButton>
-                </SignedOut>
-                <SignedIn>
+                </Show>
+                <Show when="signed-in">
                   <Button asChild className="btn-primary rounded-xl px-5 py-6 text-sm">
                     <Link href="/app">
                       {isArabic ? 'افتح Wealix' : 'Open Wealix'}
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </Button>
-                </SignedIn>
+                </Show>
                 <Button asChild variant="outline" className="rounded-xl border-border bg-card/70 px-5 py-6 text-sm">
                   <a href="#features">{isArabic ? 'استكشف المميزات' : 'Explore Features'}</a>
                 </Button>
@@ -532,7 +532,7 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <div className="mt-8">
-                    <SignedOut>
+                    <Show when="signed-out">
                       <SignUpButton mode="modal">
                         <Button
                           className={`w-full rounded-xl ${plan.id === 'pro' ? 'btn-primary' : ''}`}
@@ -541,14 +541,14 @@ export default function LandingPage() {
                           {isArabic ? 'ابدأ التجربة المجانية' : 'Start Free Trial'}
                         </Button>
                       </SignUpButton>
-                    </SignedOut>
-                    <SignedIn>
+                    </Show>
+                    <Show when="signed-in">
                       <Button asChild className={`w-full rounded-xl ${plan.id === 'pro' ? 'btn-primary' : ''}`} variant={plan.id === 'pro' ? 'default' : 'outline'}>
                         <Link href="/settings/billing">
                           {isArabic ? 'اشترك الآن' : 'Subscribe Now'}
                         </Link>
                       </Button>
-                    </SignedIn>
+                    </Show>
                   </div>
                 </div>
               ))}
@@ -587,16 +587,16 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <SignedOut>
+                <Show when="signed-out">
                   <SignUpButton mode="modal">
                     <Button className="btn-primary rounded-xl">{isArabic ? 'أنشئ مساحتك الآن' : 'Create your workspace'}</Button>
                   </SignUpButton>
-                </SignedOut>
-                <SignedIn>
+                </Show>
+                <Show when="signed-in">
                   <Button asChild className="btn-primary rounded-xl">
                     <Link href="/app">{isArabic ? 'اذهب إلى التطبيق' : 'Go to app'}</Link>
                   </Button>
-                </SignedIn>
+                </Show>
               </div>
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border/70 pt-6 text-sm text-muted-foreground">
