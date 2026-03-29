@@ -39,7 +39,12 @@ export default function RootLayout({
       <body
         className="antialiased bg-background text-foreground font-sans"
       >
-        <ClerkProvider>
+        <ClerkProvider
+          signInUrl="https://accounts.wealix.app/sign-in"
+          signUpUrl="https://accounts.wealix.app/sign-up"
+          afterSignInUrl="/app"
+          afterSignUpUrl="/app"
+        >
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
