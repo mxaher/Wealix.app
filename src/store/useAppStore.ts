@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+const APP_STORAGE_KEY = 'wealix-storage-v4';
+const LEGACY_STORAGE_KEYS = ['wealthos-storage', 'wealix-storage-v3'];
+
 export type Locale = 'ar' | 'en';
 export type Theme = 'dark' | 'light' | 'system';
 export type SubscriptionTier = 'free' | 'core' | 'pro';
@@ -870,7 +873,9 @@ export const useAppStore = create<AppState>()(
       ),
       clearAllData: () => {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('wealthos-storage');
+          for (const storageKey of [APP_STORAGE_KEY, ...LEGACY_STORAGE_KEYS]) {
+            window.localStorage.removeItem(storageKey);
+          }
         }
 
         set((state) =>
@@ -944,8 +949,8 @@ export const useAppStore = create<AppState>()(
       setIsMobile: (isMobile) => set({ isMobile }),
     }),
     {
-      name: 'wealthos-storage',
-      version: 3,
+      name: APP_STORAGE_KEY,
+      version: 4,
       migrate: (persistedState, _version) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as AppState;
