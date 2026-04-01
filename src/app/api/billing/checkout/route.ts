@@ -5,7 +5,7 @@ import { getPublicEnv } from '@/lib/env';
 import stripe from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+// NOTE: Do NOT set runtime = 'edge' — OpenNext Cloudflare handles all routes as Workers already
 
 const PRICE_IDS: Record<'core' | 'pro', Record<'monthly' | 'annual', string | undefined>> = {
   core: {
