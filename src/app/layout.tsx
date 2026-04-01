@@ -43,9 +43,9 @@ export default function RootLayout({
         className="antialiased bg-background text-foreground font-sans"
       >
         <ClerkProvider
-          publishableKey={publishableKey}
-          signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || "https://accounts.wealix.app/sign-in"}
-          signUpUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || "https://accounts.wealix.app/sign-up"}
+         publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
           afterSignOutUrl="/"
         >
           <ThemeProvider
