@@ -55,8 +55,6 @@ const nextConfig: NextConfig = {
         ...(config.resolve.alias as Record<string, string>),
         'framer-motion': path.resolve(cwd, 'scripts/framer-motion-stub.js'),
         'recharts': path.resolve(cwd, 'scripts/recharts-stub.js'),
-        '@vercel/og': path.resolve(cwd, 'scripts/sharp-shim.js'),
-        'next/dist/compiled/@vercel/og': path.resolve(cwd, 'scripts/sharp-shim.js'),
       };
     }
     return config;
@@ -80,7 +78,6 @@ const nextConfig: NextConfig = {
         ],
       },
       // Feature pages — public landing shells, indexable
-      // Authenticated users see live data; guests see demo data.
       {
         source: '/(advisor|budget|expenses|income|portfolio|reports|net-worth|fire|retirement)/:path*',
         headers: [
