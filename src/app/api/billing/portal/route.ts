@@ -1,24 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { getPublicEnv, getRequiredEnv } from '@/lib/env';
+import { getPublicEnv } from '@/lib/env';
+import stripe from '@/lib/stripe';
 
-async function withTimeout<T>(label: string, action: Promise<T>, timeoutMs = 12_000): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
-
-  try {
-    return await Promise.race([action, timeoutPromise]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export async function POST(_req: NextRequest) {
   let userId: string | null = null;
@@ -28,11 +14,11 @@ export async function POST(_req: NextRequest) {
     const authResult = await auth();
     userId = authResult.userId;
     const sessionClaims = authResult.sessionClaims;
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const stripeSecretKey = getRequiredEnv('STRIPE_SECRET_KEY');
     const appUrl = getPublicEnv().NEXT_PUBLIC_APP_URL;
 
     customerId =
@@ -42,7 +28,7 @@ export async function POST(_req: NextRequest) {
 
     if (!customerId) {
       const clerk = await clerkClient();
-      const user = await withTimeout('clerk.users.getUser', clerk.users.getUser(userId));
+      const user = await clerk.users.getUser(userId);
       customerId =
         (user.privateMetadata?.stripeCustomerId as string | undefined) ||
         (user.publicMetadata?.stripeCustomerId as string | undefined);
@@ -55,16 +41,10 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    const { default: Stripe } = await import('stripe');
-    const stripe = new Stripe(stripeSecretKey);
-
-    const session = await withTimeout(
-      'stripe.billingPortal.sessions.create',
-      stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: `${appUrl}/settings/billing`,
-      })
-    );
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${appUrl}/settings/billing`,
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
@@ -76,10 +56,9 @@ export async function POST(_req: NextRequest) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? `Unable to open Stripe billing portal: ${error.message}`
-            : 'Unable to open Stripe billing portal.',
+        error: error instanceof Error
+          ? `Unable to open Stripe billing portal: ${error.message}`
+          : 'Unable to open Stripe billing portal.',
       },
       { status: 502 }
     );
