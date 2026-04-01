@@ -34,16 +34,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Hardcoded production key to force the correct instance
-  const publishableKey = "pk_live_Y2xlcmsud2VhbGl4LmFwcCQ";
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className="antialiased bg-background text-foreground font-sans"
       >
         <ClerkProvider
-         publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
           afterSignOutUrl="/"
