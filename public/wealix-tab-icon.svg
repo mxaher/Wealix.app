@@ -1,17 +1,59 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="tabBg" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#006aff" />
       <stop offset="1" stop-color="#00cc99" />
     </linearGradient>
-    <linearGradient id="tabMark" x1="18" y1="12" x2="46" y2="52" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#e6fbff" />
-    </linearGradient>
   </defs>
-  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#tabBg)" />
+  <!-- Rounded square background -->
+  <rect width="64" height="64" rx="14" fill="url(#bgGrad)" />
+  <!-- Wealix double-infinity W mark, centered and scaled to fit -->
+  <g transform="translate(32,32) scale(0.047) translate(-230,-150)">
+    <path
+      d="
+        M230 80
+        C195 80 170 108 170 143
+        C170 178 195 206 230 206
+        C248 206 262 198 272 186
+        L230 143 L188 100
+        C198 88 212 80 230 80 Z
+
+        M230 80
+        C265 80 290 108 290 143
+        C290 178 265 206 230 206
+        C212 206 198 198 188 186
+        L230 143 L272 100
+        C262 88 248 80 230 80 Z
+      "
+      fill="none"
+      stroke="white"
+      stroke-width="18"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+  <!-- Cleaner direct path: Wealix W-infinity mark -->
+  <!-- Left lobe -->
   <path
-    d="M16 18h10.4l5.6 14.6L37.8 18h8.4L34.8 46h-5.6L16 18Zm21.8 28 10.8-28H38.2l-5.4 14.1L37.8 46Z"
-    fill="url(#tabMark)"
+    d="M32 32
+       C32 24 26 18 18 18
+       C10 18 4 24 4 32
+       C4 40 10 46 18 46
+       C26 46 32 40 32 32 Z"
+    fill="none" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"
+  />
+  <!-- Right lobe -->
+  <path
+    d="M32 32
+       C32 24 38 18 46 18
+       C54 18 60 24 60 32
+       C60 40 54 46 46 46
+       C38 46 32 40 32 32 Z"
+    fill="none" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"
+  />
+  <!-- Top peak (W point) -->
+  <path
+    d="M18 18 L32 28 L46 18"
+    fill="none" stroke="white" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"
   />
 </svg>
