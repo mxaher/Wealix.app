@@ -15,28 +15,30 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app';
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Wealix — AI Portfolio Tracker & FIRE Planner for MENA",
+    default: "Wealix — AI Wealth OS | Portfolio Tracker & FIRE Planner",
     template: "%s | Wealix",
   },
   description:
-    "Track your net worth, analyze your investment portfolio across TASI, EGX & NASDAQ, and plan financial independence with AI. Built for Saudi Arabia, UAE, and Egypt. Start your 14-day free trial.",
+    "Track your net worth, analyze your investment portfolio across global markets, and plan financial independence with AI. One calm operating system for personal wealth. Start your 14-day free trial.",
   keywords: [
-    "portfolio tracker Saudi Arabia",
-    "FIRE calculator MENA",
+    "portfolio tracker",
+    "FIRE calculator",
     "net worth tracker",
     "AI financial advisor",
-    "TASI investment tracker",
-    "EGX portfolio",
-    "financial independence Saudi",
+    "investment portfolio analysis",
+    "financial independence planner",
     "wealth management app",
+    "personal finance OS",
+    "budget tracker",
+    "retirement planner",
     "حاسبة الاستقلال المالي",
     "تتبع المحفظة الاستثمارية",
     "صافي الثروة",
-    "تداول تحليل",
-    "استقلال مالي السعودية",
     "مستشار مالي ذكي",
-    "FIRE Saudi Arabia",
-    "retirement planning MENA",
+    "تخطيط التقاعد المبكر",
+    "إدارة الثروة الشخصية",
+    "تتبع الميزانية",
+    "تحليل الاستثمار",
   ],
   authors: [{ name: "Wealix Team", url: siteUrl }],
   creator: "Wealix",
@@ -50,18 +52,18 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    alternateLocale: ["ar_SA"],
+    alternateLocale: ["ar_SA", "ar_AE", "ar_EG"],
     url: siteUrl,
     siteName: "Wealix",
-    title: "Wealix — AI Portfolio Tracker & FIRE Planner for MENA",
+    title: "Wealix — AI Wealth OS | Portfolio Tracker & FIRE Planner",
     description:
-      "Track your net worth, analyze your investment portfolio across TASI, EGX & NASDAQ, and plan financial independence with AI. Built for Saudi Arabia, UAE, and Egypt.",
+      "Track your net worth, analyze your investment portfolio across global markets, and plan financial independence with AI. One calm operating system for personal wealth.",
     images: [
       {
         url: "/og/og-default.png",
         width: 1200,
         height: 630,
-        alt: "Wealix — AI Wealth Operating System for MENA",
+        alt: "Wealix — AI Wealth Operating System",
       },
     ],
   },
@@ -69,9 +71,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@WealixApp",
     creator: "@WealixApp",
-    title: "Wealix — AI Portfolio Tracker & FIRE Planner for MENA",
+    title: "Wealix — AI Wealth OS | Portfolio Tracker & FIRE Planner",
     description:
-      "Track portfolios across TASI, EGX & NASDAQ. Plan FIRE. Get AI-powered wealth advice. Built for Saudi Arabia, UAE & Egypt.",
+      "Track portfolios across global markets. Plan FIRE. Get AI-powered wealth advice. One operating system for your personal wealth.",
     images: ["/og/og-default.png"],
   },
   icons: {
@@ -84,8 +86,8 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteUrl,
     languages: {
-      "en-US": siteUrl,
-      "ar-SA": siteUrl,
+      "en": `${siteUrl}/en`,
+      "ar": `${siteUrl}/ar`,
     },
   },
   verification: {
