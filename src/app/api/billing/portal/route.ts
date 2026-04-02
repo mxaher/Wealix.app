@@ -51,6 +51,9 @@ async function getPortalConfigurationId(stripe: ReturnType<typeof getStripe>, ap
       proration_behavior: 'none' as const,
       cancellation_reason: {
         enabled: true,
+        options: ['too_expensive', 'missing_features', 'switched_service', 'unused', 'other'] as Array<
+          'too_expensive' | 'missing_features' | 'switched_service' | 'unused' | 'other'
+        >,
       },
     },
     subscription_update: {
