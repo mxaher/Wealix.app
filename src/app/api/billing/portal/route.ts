@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { getPublicEnv } from '@/lib/env';
-import stripe from '@/lib/stripe';
+import { getPublicAppEnv } from '@/lib/env';
+import { getStripe } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 // NOTE: Do NOT set runtime = 'edge' — OpenNext Cloudflare handles all routes as Workers already
@@ -19,7 +19,8 @@ export async function POST(_req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const appUrl = getPublicEnv().NEXT_PUBLIC_APP_URL;
+    const stripe = getStripe();
+    const appUrl = getPublicAppEnv().NEXT_PUBLIC_APP_URL;
 
     customerId =
       typeof (sessionClaims?.publicMetadata as Record<string, unknown> | undefined)?.stripeCustomerId === 'string'

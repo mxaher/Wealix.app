@@ -3,12 +3,10 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import type { markets as MarketsType } from './page';
-
-type Market = (typeof MarketsType)[number];
+import type { MarketSummary } from './data';
 
 type Props = {
-  markets: Market[];
+  markets: MarketSummary[];
 };
 
 export function MarketsPageClient({ markets }: Props) {

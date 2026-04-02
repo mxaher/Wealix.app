@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import stripe from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,7 @@ async function resolveClerkUserId(
 
 export async function POST(_req: NextRequest) {
   try {
+    const stripe = getStripe();
     const { userId, sessionClaims } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

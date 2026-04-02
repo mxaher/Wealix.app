@@ -1,23 +1,38 @@
 import { z } from 'zod';
 
-const publicEnvSchema = z.object({
+const publicAppEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default('https://wealix.app'),
+});
+
+const publicClerkEnvSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1, 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required'),
 });
 
-let cachedPublicEnv: z.infer<typeof publicEnvSchema> | null = null;
+let cachedPublicAppEnv: z.infer<typeof publicAppEnvSchema> | null = null;
+let cachedPublicClerkEnv: z.infer<typeof publicClerkEnvSchema> | null = null;
 
-export function getPublicEnv() {
-  if (cachedPublicEnv) {
-    return cachedPublicEnv;
+export function getPublicAppEnv() {
+  if (cachedPublicAppEnv) {
+    return cachedPublicAppEnv;
   }
 
-  cachedPublicEnv = publicEnvSchema.parse({
+  cachedPublicAppEnv = publicAppEnvSchema.parse({
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app',
+  });
+
+  return cachedPublicAppEnv;
+}
+
+export function getPublicClerkEnv() {
+  if (cachedPublicClerkEnv) {
+    return cachedPublicClerkEnv;
+  }
+
+  cachedPublicClerkEnv = publicClerkEnvSchema.parse({
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   });
 
-  return cachedPublicEnv;
+  return cachedPublicClerkEnv;
 }
 
 export function getRequiredEnv(name: string) {

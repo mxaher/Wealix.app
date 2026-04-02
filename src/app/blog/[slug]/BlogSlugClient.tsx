@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAppStore } from '@/store/useAppStore';
-import type { Article } from './page';
+import type { Article } from '../data';
 
 type Props = {
   article: Article;

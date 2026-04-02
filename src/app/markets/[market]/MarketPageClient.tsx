@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import type { MarketData } from './page';
+import type { MarketData } from '../data';
 
 type Props = {
   data: MarketData;

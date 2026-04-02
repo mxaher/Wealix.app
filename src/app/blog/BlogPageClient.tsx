@@ -3,12 +3,10 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import type { posts as PostsType } from './page';
-
-type Post = (typeof PostsType)[number];
+import type { BlogPostSummary } from './data';
 
 type Props = {
-  posts: Post[];
+  posts: BlogPostSummary[];
 };
 
 export function BlogPageClient({ posts }: Props) {

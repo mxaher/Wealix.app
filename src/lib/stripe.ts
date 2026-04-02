@@ -1,16 +1,21 @@
 import Stripe from 'stripe';
+import { getRequiredEnv } from '@/lib/env';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+let cachedStripe: Stripe | null = null;
+
+export function getStripe() {
+  if (cachedStripe) {
+    return cachedStripe;
+  }
+
+  const secretKey = getRequiredEnv('STRIPE_SECRET_KEY');
+
+  cachedStripe = new Stripe(secretKey, {
+    apiVersion: '2025-02-24.acacia',
+    httpClient: Stripe.createFetchHttpClient(),
+    timeout: 8000,
+    maxNetworkRetries: 2,
+  });
+
+  return cachedStripe;
 }
-
-// Module-level singleton — instantiated once at Worker startup, not per request
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-02-24.acacia',
-  // Cloudflare Workers use the fetch API natively — do NOT use default Node.js http client
-  httpClient: Stripe.createFetchHttpClient(),
-  timeout: 8000,
-  maxNetworkRetries: 2,
-});
-
-export default stripe;

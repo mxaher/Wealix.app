@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getBillingState } from '@/lib/billing-state';
-import { getPublicEnv } from '@/lib/env';
-import stripe from '@/lib/stripe';
+import { getPublicAppEnv } from '@/lib/env';
+import { getStripe } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const appUrl = getPublicEnv().NEXT_PUBLIC_APP_URL;
+    const stripe = getStripe();
+    const appUrl = getPublicAppEnv().NEXT_PUBLIC_APP_URL;
 
     const body = (await req.json().catch(() => null)) as { plan?: string; cycle?: string } | null;
     const plan = body?.plan;
