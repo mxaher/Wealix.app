@@ -222,7 +222,7 @@ export default async function MarketPage({ params }: Props) {
           href="/markets"
           className="text-sm text-muted-foreground hover:text-primary mb-8 inline-flex items-center gap-2"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className={`h-4 w-4 ${isArabic ? 'rotate-180' : ''}`} />
           {isArabic ? 'العودة لجميع الأسواق' : 'All Markets'}
         </Link>
         <div className="flex items-center gap-3 mb-4">
