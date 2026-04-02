@@ -151,6 +151,7 @@ export function Header() {
                     userButtonTrigger: 'flex h-9 w-9 items-center justify-center rounded-full',
                     userButtonBox: 'flex h-9 w-9 items-center justify-center',
                     avatarBox: 'h-9 w-9',
+                              avatarImage: 'object-cover object-center w-full h-full',
                   },
                 }}
               />
