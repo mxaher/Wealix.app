@@ -50,7 +50,7 @@ export default function MarketsPage() {
           href="/app"
           className="text-sm text-muted-foreground hover:text-primary mb-8 inline-flex items-center gap-2"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className={`h-4 w-4 ${isArabic ? 'rotate-180' : ''}`} />
           {isArabic ? 'العودة إلى الرئيسية' : 'Back to Home'}
         </Link>
         <h1 className="text-4xl font-bold text-foreground mb-4">
