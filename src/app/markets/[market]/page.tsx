@@ -1,25 +1,37 @@
+'use client';
+
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { useAppStore } from '@/store/useAppStore';
+import { ArrowLeft } from 'lucide-react';
 
 type Props = { params: Promise<{ market: string }> };
 
 type MarketData = {
   name: string;
+  nameAr: string;
   flag: string;
   headline: string;
+  headlineAr: string;
   description: string;
+  descriptionAr: string;
   features: string[];
-  faq: { q: string; a: string }[];
+  featuresAr: string[];
+  faq: { q: string; a: string; qAr: string; aAr: string }[];
 };
 
 const marketData: Record<string, MarketData> = {
   'saudi-arabia': {
     name: 'Saudi Arabia',
+    nameAr: 'المملكة العربية السعودية',
     flag: '🇸🇦',
     headline: 'Investment Portfolio Tracking for Saudi Investors | Wealix',
+    headlineAr: 'تتبع المحفظة الاستثمارية للمستثمرين السعوديين | Wealix',
     description:
       'Wealix is the personal wealth OS built for Saudi investors — with native Arabic support, SAR currency, Tadawul integration, and FIRE planning calibrated to the Kingdom.',
+    descriptionAr:
+      'Wealix هو نظام تشغيل الثروة الشخصية المصمم للمستثمرين السعوديين — مع دعم اللغة العربية الأصيل، وعملة الريال السعودي، وتكامل تداول، وتخطيط FIRE المعاير للمملكة.',
     features: [
       'Track Tadawul and Nomu stocks in real time',
       'SAR as primary currency with multi-currency support',
@@ -28,31 +40,51 @@ const marketData: Record<string, MarketData> = {
       'AI portfolio analysis with Gulf-aware risk scoring',
       'Net worth tracking including real estate and local funds',
     ],
+    featuresAr: [
+      'تتبع أسهم تداول ونمو في الوقت الفعلي',
+      'الريال السعودي كعملة أساسية مع دعم العملات المتعددة',
+      'واجهة عربية أصيلة (RTL)',
+      'تخطيط FIRE معاير لتكاليف المعيشة في السعودية (نموذج بدون ضريبة دخل)',
+      'تحليل المحفظة بالذكاء الاصطناعي مع تقييم مخاطر مراعٍ للخليج',
+      'تتبع صافي الثروة بما في ذلك العقارات والصناديق المحلية',
+    ],
     faq: [
       {
         q: 'Is there an investment tracking app for Saudi Arabia in Arabic?',
         a: 'Wealix is built natively in Arabic with full RTL support, SAR currency, and Tadawul stock tracking. It is one of the few personal finance platforms built specifically for Saudi investors.',
+        qAr: 'هل يوجد تطبيق لتتبع الاستثمار في السعودية باللغة العربية؟',
+        aAr: 'تم بناء Wealix بشكل أصيل باللغة العربية مع دعم كامل لليمين إلى اليسار (RTL)، وعملة الريال السعودي، وتتبع أسهم تداول. إنها واحدة من منصات التمويل الشخصي القليلة المصممة خصيصاً للمستثمرين السعوديين.',
       },
       {
         q: 'Can I track my Tadawul portfolio automatically?',
         a: 'Yes. Wealix connects to Tadawul (Saudi Stock Exchange) data and updates your portfolio positions in real time without manual entry.',
+        qAr: 'هل يمكنني تتبع محفظة تداول الخاصة بي تلقائياً؟',
+        aAr: 'نعم. يتصل Wealix ببيانات تداول (السوق المالية السعودية) ويحدث مراكز محفظتك في الوقت الفعلي دون إدخال يدوي.',
       },
       {
         q: 'Does Wealix support Islamic finance screening?',
         a: 'Wealix includes halal stock screening flags so Saudi investors can filter their portfolios by Shariah compliance.',
+        qAr: 'هل يدعم Wealix فحص التمويل الإسلامي؟',
+        aAr: 'يتضمن Wealix أعلام فحص الأسهم الحلال حتى يتمكن المستثمرون السعوديون من تصفية محافظهم حسب الامتثال للشريعة.',
       },
       {
         q: 'How does FIRE planning work for Saudi investors?',
         a: 'Saudi Arabia has no income tax, which significantly changes the FIRE calculation. Wealix applies a Gulf-adjusted safe withdrawal rate and uses SAR-based cost of living to calculate your true FIRE number.',
+        qAr: 'كيف يعمل تخطيط FIRE للمستثمرين السعوديين؟',
+        aAr: 'لا توجد ضريبة دخل في السعودية، مما يغير حساب FIRE بشكل كبير. يطبق Wealix معدل سحب آمن معدل للخليج ويستخدم تكلفة المعيشة القائمة على الريال لحساب رقم FIRE الحقيقي الخاص بك.',
       },
     ],
   },
   uae: {
     name: 'United Arab Emirates',
+    nameAr: 'الإمارات العربية المتحدة',
     flag: '🇦🇪',
     headline: 'Investment Portfolio Tracking for UAE Investors | Wealix',
+    headlineAr: 'تتبع المحفظة الاستثمارية للمستثمرين في الإمارات | Wealix',
     description:
       'Wealix tracks DFM, ADX, and international investments for UAE-based investors — with AED support, multi-currency net worth, and AI portfolio analysis.',
+    descriptionAr:
+      'يتتبع Wealix أسهم سوق دبي وسوق أبوظبي والاستثمارات الدولية للمستثمرين المقيمين في الإمارات — مع دعم الدرهم، وصافي الثروة متعدد العملات، وتحليل المحفظة بالذكاء الاصطناعي.',
     features: [
       'Track DFM and ADX listed stocks',
       'AED and multi-currency support (USD, EUR, GBP)',
@@ -61,27 +93,45 @@ const marketData: Record<string, MarketData> = {
       'FIRE planning for UAE expat and national investors',
       'Arabic and English bilingual interface',
     ],
+    featuresAr: [
+      'تتبع الأسهم المدرجة في سوق دبي وسوق أبوظبي',
+      'دعم الدرهم والعملات المتعددة (الدولار، اليورو، الجنيه الإسترليني)',
+      'تتبع صافي الثروة عبر العقارات الإماراتية والأسهم والكريبتو',
+      'اقتراحات إعادة توازن المحفظة المدعومة بالذكاء الاصطناعي',
+      'تخطيط FIRE للمستثمرين الوافدين والمواطنين في الإمارات',
+      'واجهة ثنائية اللغة العربية والإنجليزية',
+    ],
     faq: [
       {
         q: 'What is the best investment tracking app in the UAE?',
         a: 'Wealix supports UAE investors with DFM/ADX stock tracking, AED currency, multi-currency net worth, and Gulf-calibrated FIRE planning in both Arabic and English.',
+        qAr: 'ما هو أفضل تطبيق لتتبع الاستثمار في الإمارات؟',
+        aAr: 'يدعم Wealix المستثمرين في الإمارات من خلال تتبع أسهم سوق دبي/سوق أبوظبي، وعملة الدرهم، وصافي الثروة متعدد العملات، وتخطيط FIRE المعاير للخليج باللغتين العربية والإنجليزية.',
       },
       {
         q: 'Can I track DFM and ADX stocks with an app?',
         a: 'Yes. Wealix supports Dubai Financial Market (DFM) and Abu Dhabi Securities Exchange (ADX) stock tracking alongside international equities.',
+        qAr: 'هل يمكنني تتبع أسهم سوق دبي وسوق أبوظبي من خلال تطبيق؟',
+        aAr: 'نعم. يدعم Wealix تتبع أسهم سوق دبي المالي وسوق أبوظبي للأوراق المالية جنباً إلى جنب مع الأسهم الدولية.',
       },
       {
         q: 'How does Wealix handle UAE expat investment tracking?',
         a: 'UAE expats often hold investments in multiple currencies and countries. Wealix aggregates all accounts with real-time FX conversion, giving a unified view of net worth in AED or any other base currency.',
+        qAr: 'كيف يتعامل Wealix مع تتبع استثمارات الوافدين في الإمارات؟',
+        aAr: 'غالباً ما يمتلك الوافدون في الإمارات استثمارات بعملات وبلدان متعددة. يجمع Wealix جميع الحسابات مع تحويل العملات في الوقت الفعلي، مما يعطي رؤية موحدة لصافي الثروة بالدرهم أو أي عملة أساسية أخرى.',
       },
     ],
   },
   global: {
     name: 'Global Markets',
+    nameAr: 'الأسواق العالمية',
     flag: '🌍',
     headline: 'Global Investment Portfolio Tracker — Stocks, ETFs, Crypto | Wealix',
+    headlineAr: 'متتبع المحفظة الاستثمارية العالمية — أسهم، صناديق، كريبتو | Wealix',
     description:
       'Track US equities, international ETFs, crypto, and multi-asset portfolios from anywhere in the world — with AI analysis and real-time net worth.',
+    descriptionAr:
+      'تتبع الأسهم الأمريكية، وصناديق الاستثمار المتداولة الدولية، والكريبتو، والمحافظ متعددة الأصول من أي مكان في العالم — مع تحليل الذكاء الاصطناعي وصافي الثروة في الوقت الفعلي.',
     features: [
       'US equities, ETFs, and index funds (NYSE, NASDAQ)',
       'International stock markets (LSE, Euronext, TSX)',
@@ -90,18 +140,32 @@ const marketData: Record<string, MarketData> = {
       'AI-powered portfolio analysis and rebalancing',
       'FIRE progress tracking with custom withdrawal rate',
     ],
+    featuresAr: [
+      'الأسهم الأمريكية، الصناديق المتداولة، وصناديق المؤشرات (NYSE, NASDAQ)',
+      'أسواق الأسهم الدولية (لندن، يورونكست، تورونتو)',
+      'تتبع محفظة العملات المشفرة',
+      'أسعار صرف فورية لأكثر من 150 عملة',
+      'تحليل وإعادة توازن المحفظة بالذكاء الاصطناعي',
+      'تتبع تقدم FIRE مع معدل سحب مخصص',
+    ],
     faq: [
       {
         q: 'Can I track international stocks and ETFs with Wealix?',
         a: 'Yes. Wealix supports equities from NYSE, NASDAQ, LSE, and other major exchanges alongside ETFs, mutual funds, and crypto — all in one consolidated portfolio view.',
+        qAr: 'هل يمكنني تتبع الأسهم الدولية وصناديق الاستثمار المتداولة مع Wealix؟',
+        aAr: 'نعم. يدعم Wealix الأسهم من NYSE وNASDAQ ولندن والبورصات الرئيسية الأخرى جنباً إلى جنب مع الصناديق المتداولة والصناديق المشتركة والكريبتو — كل ذلك في عرض واحد موحد للمحفظة.',
       },
       {
         q: 'Does Wealix support multi-currency portfolios?',
         a: 'Wealix supports 150+ currencies with real-time exchange rates, allowing investors who hold assets in multiple currencies to see a unified net worth in their preferred base currency.',
+        qAr: 'هل يدعم Wealix المحافظ متعددة العملات؟',
+        aAr: 'يدعم Wealix أكثر من 150 عملة مع أسعار صرف فورية، مما يسمح للمستثمرين الذين يمتلكون أصولاً بعملات متعددة برؤية صافي ثروة موحد بعملتهم الأساسية المفضلة.',
       },
       {
         q: 'Can I track crypto alongside my stock portfolio?',
         a: 'Yes. Wealix integrates crypto holdings alongside traditional equities, giving you a complete picture of your total investment portfolio.',
+        qAr: 'هل يمكنني تتبع الكريبتو جنباً إلى جنب مع محفظة الأسهم الخاصة بي؟',
+        aAr: 'نعم. يدمج Wealix ممتلكات الكريبتو جنباً إلى جنب مع الأسهم التقليدية، مما يمنحك صورة كاملة لإجمالي محفظتك الاستثمارية.',
       },
     ],
   },
@@ -134,13 +198,16 @@ export default async function MarketPage({ params }: Props) {
   const data = marketData[market];
   if (!data) notFound();
 
+  const locale = useAppStore((state) => state.locale);
+  const isArabic = locale === 'ar';
+
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: data.faq.map((item) => ({
       '@type': 'Question',
-      name: item.q,
-      acceptedAnswer: { '@type': 'Answer', text: item.a },
+      name: isArabic ? item.qAr : item.q,
+      acceptedAnswer: { '@type': 'Answer', text: isArabic ? item.aAr : item.a },
     })),
   };
 
@@ -153,22 +220,29 @@ export default async function MarketPage({ params }: Props) {
       <section className="max-w-4xl mx-auto px-4 py-20">
         <Link
           href="/markets"
-          className="text-sm text-muted-foreground hover:text-primary mb-8 inline-block"
+          className="text-sm text-muted-foreground hover:text-primary mb-8 inline-flex items-center gap-2"
         >
-          ← All Markets
+          <ArrowLeft className="h-4 w-4" />
+          {isArabic ? 'العودة لجميع الأسواق' : 'All Markets'}
         </Link>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-4xl">{data.flag}</span>
-          <h1 className="text-3xl font-bold text-foreground">{data.headline.split('|')[0].trim()}</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            {isArabic ? data.headlineAr.split('|')[0].trim() : data.headline.split('|')[0].trim()}
+          </h1>
         </div>
-        <p className="text-lg text-muted-foreground mb-10">{data.description}</p>
+        <p className="text-lg text-muted-foreground mb-10">
+          {isArabic ? data.descriptionAr : data.description}
+        </p>
 
         <div className="mb-12">
           <h2 className="text-xl font-semibold text-foreground mb-4">
-            What Wealix Supports for {data.name} Investors
+            {isArabic
+              ? `ما يدعمه Wealix لمستثمري ${data.nameAr}`
+              : `What Wealix Supports for ${data.name} Investors`}
           </h2>
           <ul className="space-y-3">
-            {data.features.map((f, i) => (
+            {(isArabic ? data.featuresAr : data.features).map((f, i) => (
               <li key={i} className="flex items-start gap-3">
                 <span className="text-primary mt-0.5">✓</span>
                 <span className="text-muted-foreground">{f}</span>
@@ -178,25 +252,37 @@ export default async function MarketPage({ params }: Props) {
         </div>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-6">Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-6">
+            {isArabic ? 'الأسئلة الشائعة' : 'Frequently Asked Questions'}
+          </h2>
           <div className="space-y-4">
             {data.faq.map((item, i) => (
               <div key={i} className="border border-border rounded-lg p-5">
-                <h3 className="font-semibold text-foreground mb-2">{item.q}</h3>
-                <p className="text-muted-foreground text-sm">{item.a}</p>
+                <h3 className="font-semibold text-foreground mb-2">
+                  {isArabic ? item.qAr : item.q}
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  {isArabic ? item.aAr : item.a}
+                </p>
               </div>
             ))}
           </div>
         </section>
 
         <div className="mt-12 p-6 bg-primary/5 border border-primary/20 rounded-xl">
-          <p className="font-semibold text-foreground mb-2">Start tracking your {data.name} portfolio</p>
-          <p className="text-sm text-muted-foreground mb-4">Free to start. No credit card required.</p>
+          <p className="font-semibold text-foreground mb-2">
+            {isArabic
+              ? `ابدأ بتتبع محفظتك في ${data.nameAr}`
+              : `Start tracking your ${data.name} portfolio`}
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {isArabic ? 'مجاني للبدء. لا تطلب بطاقة ائتمان.' : 'Free to start. No credit card required.'}
+          </p>
           <Link
             href="/sign-up"
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
           >
-            Start free →
+            {isArabic ? 'ابدأ مجاناً ←' : 'Start free →'}
           </Link>
         </div>
       </section>
