@@ -4,12 +4,13 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import {
   isRemotePersistenceConfigured,
   loadRemoteWorkspace,
+  type RemoteUserWorkspace,
   saveRemoteWorkspace,
 } from '@/lib/remote-user-data';
 
 const remoteUserWorkspaceSchema = z.object({
   appMode: z.enum(['demo', 'live']),
-  notificationPreferences: z.record(z.unknown()),
+  notificationPreferences: z.record(z.string(), z.unknown()),
   notificationFeed: z.array(z.unknown()),
   incomeEntries: z.array(z.unknown()),
   expenseEntries: z.array(z.unknown()),
@@ -92,7 +93,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const result = await saveRemoteWorkspace(authResult.userId, parsed.data, knownUpdatedAt);
+    const result = await saveRemoteWorkspace(authResult.userId, parsed.data as unknown as RemoteUserWorkspace, knownUpdatedAt);
 
     if (knownUpdatedAt && result.updatedAt && knownUpdatedAt !== result.updatedAt) {
       return NextResponse.json(

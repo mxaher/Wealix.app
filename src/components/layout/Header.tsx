@@ -130,27 +130,27 @@ export function Header() {
           </Link>
         </Button>
 
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-1 py-1 shadow-sm">
+        <div className="flex items-center gap-2">
           <Show when="signed-out">
-            <SignInButton mode="modal">
-              <Button variant="ghost" size="sm" className="rounded-full">{isArabic ? 'دخول' : 'Sign in'}</Button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <Button size="sm" className="btn-primary rounded-full">{isArabic ? 'إنشاء حساب' : 'Sign up'}</Button>
-            </SignUpButton>
+            <div className="flex items-center gap-2 rounded-full border border-border bg-card px-1 py-1 shadow-sm">
+              <SignInButton mode="modal">
+                <Button variant="ghost" size="sm" className="rounded-full">{isArabic ? 'دخول' : 'Sign in'}</Button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <Button size="sm" className="btn-primary rounded-full">{isArabic ? 'إنشاء حساب' : 'Sign up'}</Button>
+              </SignUpButton>
+            </div>
           </Show>
           <Show when="signed-in">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full">
-              <UserButton
-                appearance={{
-                  elements: {
-                    userButtonTrigger: 'flex h-9 w-9 items-center justify-center rounded-full',
-                    userButtonBox: 'flex h-9 w-9 items-center justify-center',
-                    avatarBox: 'h-9 w-9',
-                  },
-                }}
-              />
-            </div>
+            <UserButton
+              appearance={{
+                elements: {
+                  userButtonTrigger: 'flex h-9 w-9 items-center justify-center rounded-full',
+                  userButtonBox: 'flex h-9 w-9 items-center justify-center',
+                  avatarBox: 'h-9 w-9',
+                },
+              }}
+            />
           </Show>
         </div>
       </div>
