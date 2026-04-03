@@ -112,14 +112,38 @@ function parseAmount(value: unknown): number {
     return value;
   }
 
-  const normalized = String(value || '')
-    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
-    .replace(/[^0-9.,-]/g, '')
-    .replace(/,(?=\d{3}\b)/g, '')
-    .replace(',', '.');
+  const parseNumericToken = (token: string) => {
+    const normalized = token.replace(/[^0-9.,-]/g, '');
+    if (!normalized) {
+      return 0;
+    }
 
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
+    const isNegative = normalized.includes('-');
+    const unsigned = normalized.replace(/-/g, '');
+    const lastComma = unsigned.lastIndexOf(',');
+    const lastDot = unsigned.lastIndexOf('.');
+    const decimalIndex = Math.max(lastComma, lastDot);
+
+    let normalizedNumber = unsigned;
+    if (decimalIndex >= 0) {
+      const integerPart = unsigned.slice(0, decimalIndex).replace(/[.,]/g, '');
+      const decimalPart = unsigned.slice(decimalIndex + 1).replace(/[.,]/g, '');
+      normalizedNumber = decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+    } else {
+      normalizedNumber = unsigned.replace(/[.,]/g, '');
+    }
+
+    const parsed = Number(`${isNegative ? '-' : ''}${normalizedNumber}`);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const source = normalizeEasternArabicDigits(String(value || ''))
+    .replace(/[٫٬]/g, (match) => (match === '٫' ? '.' : ','));
+  const tokens = source.match(/-?\d[\d.,]*/g) ?? [];
+  const rawCandidate = tokens.length > 1
+    ? [...tokens].sort((left, right) => parseNumericToken(right) - parseNumericToken(left))[0]
+    : (tokens[0] ?? source);
+  return parseNumericToken(rawCandidate);
 }
 
 function normalizeCategory(value: unknown): string {
@@ -273,12 +297,12 @@ function parseBestTotalFromText(rawText: string): number {
       continue;
     }
     const matches = [...line.matchAll(numericPattern)].map((match) => parseAmount(match[1]));
-    const best = matches.filter((value) => value > 0).sort((a, b) => b - a)[0];
+    const best = matches.filter((value) => value > 0 && value <= MAX_RECEIPT_AMOUNT).sort((a, b) => b - a)[0];
     if (best) return best;
   }
 
   const allMatches = [...normalized.matchAll(numericPattern)].map((match) => parseAmount(match[1]));
-  return allMatches.filter((value) => value > 0).sort((a, b) => b - a)[0] || 0;
+  return allMatches.filter((value) => value > 0 && value <= MAX_RECEIPT_AMOUNT).sort((a, b) => b - a)[0] || 0;
 }
 
 function buildStructuredReceipt(rawText: string, fileName: string) {
@@ -412,7 +436,7 @@ async function runNvidiaReceiptOcr(file: File) {
   const content = json?.choices?.[0]?.message?.content || '';
   const parsed = parseJsonObject(content);
   const fallback = fallbackFromFilename(file.name);
-  const nvidiaRawText = String(parsed?.rawText || fallback.rawText);
+  const nvidiaRawText = String(parsed?.rawText || content || fallback.rawText);
   const structuredFromRawText = buildStructuredReceipt(nvidiaRawText, file.name);
   const parsedAmount = parseAmount(parsed?.amount);
   const recoveredAmount = parsedAmount > 0 ? parsedAmount : structuredFromRawText.amount;
