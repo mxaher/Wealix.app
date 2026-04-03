@@ -29,6 +29,11 @@ type PdfTextItem = {
   transform?: number[];
 };
 
+const PDFJS_IMPORT_WARNING_PATTERNS = [
+  'Warning: Cannot polyfill `Path2D`, rendering may be broken.',
+  'Warning: Cannot load "@napi-rs/canvas" package:',
+];
+
 function hasZipSignature(bytes: Uint8Array) {
   return bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
 }
@@ -298,17 +303,26 @@ function mapPdfLineToRow(lineItems: Array<{ text: string; x: number }>) {
 
 async function parsePdfRows(bytes: Uint8Array) {
   ensurePdfJsNodePolyfills();
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const workerModule = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+  const originalConsoleWarn = console.warn;
+  let pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 
-  if (!globalThis.pdfjsWorker) {
-    Object.assign(globalThis, {
-      pdfjsWorker: workerModule,
-    });
+  try {
+    console.warn = (...args: unknown[]) => {
+      const message = args.map((value) => String(value)).join(' ');
+      if (PDFJS_IMPORT_WARNING_PATTERNS.some((pattern) => message.includes(pattern))) {
+        return;
+      }
+
+      originalConsoleWarn(...args);
+    };
+
+    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  } finally {
+    console.warn = originalConsoleWarn;
   }
 
   const loadingTask = pdfjs.getDocument({
-    data: bytes,
+    data: Uint8Array.from(bytes),
     isEvalSupported: false,
     useWorkerFetch: false,
     useSystemFonts: false,
@@ -365,6 +379,15 @@ async function parsePdfRows(bytes: Uint8Array) {
     }
 
     throw error;
+  } finally {
+    try {
+      if (bytes.byteLength > 0 && bytes.buffer.byteLength > 0) {
+        bytes.fill(0);
+      }
+    } catch {
+      // pdfjs may transfer the underlying buffer during parsing, which leaves
+      // this Uint8Array detached by the time cleanup runs.
+    }
   }
 }
 

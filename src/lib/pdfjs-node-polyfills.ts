@@ -203,4 +203,22 @@ export function ensurePdfJsNodePolyfills() {
   if (typeof globalThis.DOMMatrix === 'undefined') {
     Object.assign(globalThis, { DOMMatrix: MinimalDOMMatrix });
   }
+
+  if (typeof globalThis.Path2D === 'undefined') {
+    class MinimalPath2D {
+      addPath() {}
+      closePath() {}
+      moveTo() {}
+      lineTo() {}
+      bezierCurveTo() {}
+      quadraticCurveTo() {}
+      rect() {}
+      roundRect() {}
+      arc() {}
+      arcTo() {}
+      ellipse() {}
+    }
+
+    Object.assign(globalThis, { Path2D: MinimalPath2D });
+  }
 }
