@@ -243,7 +243,7 @@ export default function ExpensesPage() {
         description: row.description,
         merchantName: row.merchantName,
         date: row.date,
-        paymentMethod: statementAccountType === 'credit_card' ? 'Card' : 'Transfer',
+        paymentMethod: (statementAccountType === 'credit_card' ? 'Card' : 'Transfer') as const,
         notes: [`Imported from ${statementAccountType === 'credit_card' ? 'credit card' : 'current account'} statement`, row.notes]
           .filter(Boolean)
           .join(' • '),
