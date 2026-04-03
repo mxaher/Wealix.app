@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WealixLogo } from '@/components/shared/WealixLogo';
+import { useSubscription } from '@/store/useAppStore';
 
 const navSections = [
   {
@@ -63,7 +64,19 @@ const navSections = [
 export function Sidebar() {
   const pathname = usePathname();
   const { locale, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { tier, trialActive } = useSubscription();
   const isArabic = locale === 'ar';
+  const subscriptionLabel = trialActive
+    ? isArabic
+      ? 'تجريبي'
+      : 'Trial'
+    : tier === 'pro'
+      ? 'Pro'
+      : tier === 'core'
+        ? 'Core'
+        : isArabic
+          ? 'الاشتراك'
+          : 'Subscription';
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -83,7 +96,7 @@ export function Sidebar() {
           </Link>
           {!sidebarCollapsed && (
             <div className="rounded-full bg-accent/10 px-2 py-1 text-[11px] font-medium text-accent">
-              Core / Pro
+              {subscriptionLabel}
             </div>
           )}
         </div>
