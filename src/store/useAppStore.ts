@@ -640,9 +640,11 @@ interface AppState {
   clearClerkUser: () => void;
   incomeEntries: IncomeEntry[];
   addIncomeEntry: (entry: IncomeEntry) => void;
+  addIncomeEntries: (entries: IncomeEntry[]) => void;
   deleteIncomeEntry: (id: string) => void;
   expenseEntries: ExpenseEntry[];
   addExpenseEntry: (entry: ExpenseEntry) => void;
+  addExpenseEntries: (entries: ExpenseEntry[]) => void;
   deleteExpenseEntry: (id: string) => void;
   receiptScans: ReceiptScanResult[];
   addReceiptScan: (receipt: ReceiptScanResult) => void;
@@ -838,6 +840,11 @@ export const useAppStore = create<AppState>()(
           incomeEntries: [entry, ...state.incomeEntries],
         })
       ),
+      addIncomeEntries: (entries) => set((state) =>
+        syncActiveProfileState(state, {
+          incomeEntries: [...entries, ...state.incomeEntries],
+        })
+      ),
       deleteIncomeEntry: (id) => set((state) =>
         syncActiveProfileState(state, {
           incomeEntries: state.incomeEntries.filter((entry) => entry.id !== id),
@@ -847,6 +854,11 @@ export const useAppStore = create<AppState>()(
       addExpenseEntry: (entry) => set((state) =>
         syncActiveProfileState(state, {
           expenseEntries: [entry, ...state.expenseEntries],
+        })
+      ),
+      addExpenseEntries: (entries) => set((state) =>
+        syncActiveProfileState(state, {
+          expenseEntries: [...entries, ...state.expenseEntries],
         })
       ),
       deleteExpenseEntry: (id) => set((state) =>
