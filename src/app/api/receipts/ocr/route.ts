@@ -536,27 +536,7 @@ async function runNvidiaReceiptOcr(file: File) {
   const base64 = Buffer.from(bytes).toString('base64');
   const imageUrl = `data:${file.type};base64,${base64}`;
 
-  const prompt = `You are a receipt OCR and expense extraction engine for bilingual Arabic and English receipts.
-
-Read the entire receipt image carefully, including merchant name, grand total, VAT lines, currency markers, and visible date fields.
-
-Return JSON only in this exact shape:
-{
-  "merchantName": "string",
-  "amount": number,
-  "date": "YYYY-MM-DD",
-  "currency": "SAR|USD|EUR|EGP",
-  "confidence": number,
-  "suggestedCategory": "Food|Transport|Utilities|Entertainment|Healthcare|Education|Shopping|Housing|Other",
-  "rawText": "full important text visible on the receipt"
-}
-
-Rules:
-- prefer the grand total or total due, not line item subtotals
-- preserve Arabic text inside rawText when visible
-- if the exact date is unclear, infer the most likely receipt date from the image
-- confidence must be an integer from 0 to 100
-- return valid JSON only, with no markdown`;
+  const prompt = `You are a receipt OCR and expense extraction engine for bilingual Arabic and English receipts.\n\nRead the entire receipt image carefully, including merchant name, grand total, VAT lines, currency markers, and visible date fields.\n\nReturn JSON only in this exact shape:\n{\n  "merchantName": "string",\n  "amount": number,\n  "date": "YYYY-MM-DD",\n  "currency": "SAR|USD|EUR|EGP",\n  "confidence": number,\n  "suggestedCategory": "Food|Transport|Utilities|Entertainment|Healthcare|Education|Shopping|Housing|Other",\n  "rawText": "full important text visible on the receipt"\n}\n\nRules:\n- prefer the grand total or total due, not line item subtotals\n- preserve Arabic text inside rawText when visible\n- if the exact date is unclear, infer the most likely receipt date from the image\n- confidence must be an integer from 0 to 100\n- return valid JSON only, with no markdown`;
 
   const response = await fetch(`${nvidiaBase}/chat/completions`, {
     method: 'POST',
@@ -625,7 +605,9 @@ export async function POST(request: NextRequest) {
     }
 
     const sanitizedImage = await sanitizeReceiptImage(file);
-    const normalizedFile = new File([new Uint8Array(sanitizedImage.buffer)], sanitizedImage.name, {
+    // Fix: pass the Buffer directly instead of new Uint8Array(buffer.buffer),
+    // which incorrectly references the full underlying Node.js memory pool.
+    const normalizedFile = new File([sanitizedImage.buffer], sanitizedImage.name, {
       type: sanitizedImage.type,
     });
 
