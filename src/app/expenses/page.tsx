@@ -224,7 +224,7 @@ export default function ExpensesPage() {
         currency: row.currency,
         source: row.incomeSource,
         sourceName: row.typeLabel || row.description,
-        frequency: 'one_time',
+        frequency: 'one_time' as const,
         date: row.date,
         isRecurring: false,
         notes: [`Imported from ${statementAccountType === 'credit_card' ? 'credit card' : 'current account'} statement`, row.notes, row.description]
