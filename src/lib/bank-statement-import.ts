@@ -10,7 +10,6 @@ import type {
   StatementRawData,
 } from '@/lib/bank-statement-types';
 import type { ExpenseCategory, IncomeSource } from '@/store/useAppStore';
-import { ensurePdfJsNodePolyfills } from '@/lib/pdfjs-node-polyfills';
 
 const MAX_STATEMENT_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_STATEMENT_ROWS = 2000;
@@ -31,17 +30,6 @@ type ParsedStatementSource = {
   rows: Record<string, unknown>[];
   sourceFormat: 'csv' | 'xlsx' | 'pdf';
 };
-
-type PdfTextItem = {
-  str?: string;
-  transform?: number[];
-};
-
-const PDFJS_IMPORT_WARNING_PATTERNS = [
-  'Warning: Cannot polyfill `Path2D`, rendering may be broken.',
-  'Warning: Cannot polyfill `ImageData`, rendering may be broken.',
-  'Warning: Cannot load "@napi-rs/canvas" package:',
-];
 
 function hasZipSignature(bytes: Uint8Array) {
   return bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
@@ -258,30 +246,6 @@ async function parseXlsxRows(buffer: ArrayBuffer, fileName: string) {
     });
     return output;
   }).filter(Boolean) ?? [];
-}
-
-function groupPdfItemsIntoLines(items: PdfTextItem[]) {
-  const lines = new Map<string, Array<{ text: string; x: number }>>();
-
-  for (const item of items) {
-    const text = normalizeWhitespace(String(item.str ?? ''));
-    const transform = Array.isArray(item.transform) ? item.transform : [];
-    const x = Number(transform[4] ?? 0);
-    const y = Number(transform[5] ?? 0);
-
-    if (!text) {
-      continue;
-    }
-
-    const lineKey = String(Math.round(y));
-    const existing = lines.get(lineKey) ?? [];
-    existing.push({ text, x });
-    lines.set(lineKey, existing);
-  }
-
-  return Array.from(lines.entries())
-    .sort((left, right) => Number(right[0]) - Number(left[0]))
-    .map(([, lineItems]) => lineItems.sort((left, right) => left.x - right.x));
 }
 
 function parsePdfDateCandidate(value: string) {
@@ -583,101 +547,8 @@ async function extractPdfTextFallback(bytes: Uint8Array) {
   return rows.slice(0, MAX_STATEMENT_ROWS);
 }
 
-function shouldUsePdfFallback(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return /detached|out-of-bounds ArrayBuffer|Cannot perform %TypedArray%\.prototype\.fill/i.test(error.message);
-}
-
 async function parsePdfRows(bytes: Uint8Array) {
-  ensurePdfJsNodePolyfills();
-  const originalConsoleWarn = console.warn;
-  let pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs');
-
-  try {
-    console.warn = (...args: unknown[]) => {
-      const message = args.map((value) => String(value)).join(' ');
-      if (PDFJS_IMPORT_WARNING_PATTERNS.some((pattern) => message.includes(pattern))) {
-        return;
-      }
-
-      originalConsoleWarn(...args);
-    };
-
-    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  } finally {
-    console.warn = originalConsoleWarn;
-  }
-
-  const loadingTask = pdfjs.getDocument({
-    data: Uint8Array.from(bytes),
-    isEvalSupported: false,
-    useWorkerFetch: false,
-    useSystemFonts: false,
-    stopAtErrors: true,
-    enableXfa: false,
-    isOffscreenCanvasSupported: false,
-    verbosity: 0,
-  });
-
-  try {
-    const document = await loadingTask.promise;
-
-    if (document.numPages > MAX_PDF_PAGES) {
-      throw new Error(`PDF statements are limited to ${MAX_PDF_PAGES} pages.`);
-    }
-
-    const rows: Record<string, unknown>[] = [];
-    let totalTextLength = 0;
-
-    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-      const page = await document.getPage(pageNumber);
-      const textContent = await page.getTextContent();
-      const items = Array.isArray(textContent.items) ? (textContent.items as PdfTextItem[]) : [];
-      const pageText = items.map((item) => String(item.str ?? '')).join(' ');
-      totalTextLength += pageText.length;
-
-      if (totalTextLength > MAX_PDF_TEXT_LENGTH) {
-        throw new Error('PDF statement contains too much text to import safely.');
-      }
-
-      for (const line of groupPdfItemsIntoLines(items)) {
-        if (rows.length >= MAX_PDF_LINE_COUNT) {
-          throw new Error('PDF statement contains too many text lines to import safely.');
-        }
-
-        const row = mapPdfLineToRow(line);
-        if (row) {
-          rows.push(row);
-        }
-      }
-    }
-
-    await loadingTask.destroy();
-
-    if (rows.length === 0) {
-      throw new Error('This PDF does not appear to contain extractable statement rows. Try a CSV/XLSX export or a text-based PDF.');
-    }
-
-    return rows.slice(0, MAX_STATEMENT_ROWS);
-  } catch (error) {
-    try {
-      await loadingTask.destroy();
-    } catch {
-      // Ignore worker teardown errors and continue with fallback/error handling.
-    }
-
-    if (shouldUsePdfFallback(error)) {
-      return extractPdfTextFallback(Uint8Array.from(bytes));
-    }
-    if (error instanceof Error && /password/i.test(error.message)) {
-      throw new Error('Password-protected PDF statements are not supported.');
-    }
-
-    throw error;
-  }
+  return extractPdfTextFallback(bytes);
 }
 
 async function parseStatementRows(file: File, bytes: Uint8Array, buffer: ArrayBuffer): Promise<ParsedStatementSource> {
