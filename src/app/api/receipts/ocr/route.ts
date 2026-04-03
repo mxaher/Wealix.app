@@ -654,9 +654,10 @@ export async function POST(request: NextRequest) {
     }
 
     const sanitizedImage = await sanitizeReceiptImage(file);
-    // Fix: pass the Buffer directly instead of new Uint8Array(buffer.buffer),
-    // which incorrectly references the full underlying Node.js memory pool.
-    const normalizedFile = new File([sanitizedImage.buffer], sanitizedImage.name, {
+    // Copy the exact bytes into a standalone Uint8Array so we avoid both
+    // Buffer pool over-read issues and the stricter BlobPart typing mismatch.
+    const normalizedBytes = new Uint8Array(sanitizedImage.buffer);
+    const normalizedFile = new File([normalizedBytes], sanitizedImage.name, {
       type: sanitizedImage.type,
     });
 
