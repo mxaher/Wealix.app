@@ -221,6 +221,71 @@ function mergePortfolioHoldingEntries(holdings: PortfolioHolding[]) {
   return Array.from(merged.values());
 }
 
+function coerceFiniteNumber(value: unknown, fallback = 0) {
+  const numeric = typeof value === 'number'
+    ? value
+    : Number(String(value ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeAssetEntries(entries: unknown): AssetEntry[] {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.flatMap((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      return [];
+    }
+
+    const asset = entry as Record<string, unknown>;
+    const value = coerceFiniteNumber(asset.value ?? asset.amount);
+    const name = String(asset.name ?? '').trim();
+    const category = String(asset.category ?? 'other');
+
+    if (!name || value < 0) {
+      return [];
+    }
+
+    return [{
+      id: String(asset.id ?? `asset-${index + 1}`),
+      name,
+      category: (['cash', 'investment', 'real_estate', 'vehicle', 'other'].includes(category) ? category : 'other') as AssetCategory,
+      value,
+      currency: String(asset.currency ?? 'SAR').toUpperCase() || 'SAR',
+    }];
+  });
+}
+
+function normalizeLiabilityEntries(entries: unknown): LiabilityEntry[] {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.flatMap((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      return [];
+    }
+
+    const liability = entry as Record<string, unknown>;
+    const balance = coerceFiniteNumber(liability.balance ?? liability.amount ?? liability.value);
+    const name = String(liability.name ?? '').trim();
+    const category = String(liability.category ?? 'other');
+
+    if (!name || balance < 0) {
+      return [];
+    }
+
+    return [{
+      id: String(liability.id ?? `liability-${index + 1}`),
+      name,
+      category: (['loan', 'mortgage', 'credit_card', 'other'].includes(category) ? category : 'other') as LiabilityCategory,
+      balance,
+      currency: String(liability.currency ?? 'SAR').toUpperCase() || 'SAR',
+    }];
+  });
+}
+
 const defaultUser: User = {
   id: 'demo-user',
   email: 'demo@wealix.app',
@@ -453,8 +518,8 @@ function sanitizeRemoteWorkspace(workspace: Partial<RemoteWorkspaceSnapshot> | u
     receiptScans: Array.isArray(workspace?.receiptScans) ? workspace.receiptScans : live.receiptScans,
     portfolioHoldings: Array.isArray(workspace?.portfolioHoldings) ? workspace.portfolioHoldings : live.portfolioHoldings,
     portfolioAnalysisHistory: Array.isArray(workspace?.portfolioAnalysisHistory) ? workspace.portfolioAnalysisHistory : live.portfolioAnalysisHistory,
-    assets: Array.isArray(workspace?.assets) ? workspace.assets : live.assets,
-    liabilities: Array.isArray(workspace?.liabilities) ? workspace.liabilities : live.liabilities,
+    assets: normalizeAssetEntries(workspace?.assets),
+    liabilities: normalizeLiabilityEntries(workspace?.liabilities),
     budgetLimits: Array.isArray(workspace?.budgetLimits) ? workspace.budgetLimits : live.budgetLimits,
   };
 }
@@ -540,8 +605,8 @@ function profileToState(profile: LocalProfile) {
     receiptScans: profile.receiptScans,
     portfolioHoldings: profile.portfolioHoldings,
     portfolioAnalysisHistory: profile.portfolioAnalysisHistory,
-    assets: profile.assets,
-    liabilities: profile.liabilities,
+    assets: normalizeAssetEntries(profile.assets),
+    liabilities: normalizeLiabilityEntries(profile.liabilities),
     budgetLimits: profile.budgetLimits,
   };
 }
@@ -850,21 +915,22 @@ export const useAppStore = create<AppState>()(
           budgetLimits: limits,
         })
       ),
-      hydrateRemoteWorkspace: (workspace) => set((state) =>
-        syncActiveProfileState(state, {
-          appMode: workspace.appMode,
-          notificationPreferences: workspace.notificationPreferences,
-          notificationFeed: workspace.notificationFeed,
-          incomeEntries: workspace.incomeEntries,
-          expenseEntries: workspace.expenseEntries,
-          receiptScans: workspace.receiptScans,
-          portfolioHoldings: mergePortfolioHoldingEntries(workspace.portfolioHoldings),
-          portfolioAnalysisHistory: workspace.portfolioAnalysisHistory,
-          assets: workspace.assets,
-          liabilities: workspace.liabilities,
-          budgetLimits: workspace.budgetLimits,
-        })
-      ),
+      hydrateRemoteWorkspace: (workspace) => set((state) => {
+        const sanitizedWorkspace = sanitizeRemoteWorkspace(workspace);
+        return syncActiveProfileState(state, {
+          appMode: sanitizedWorkspace.appMode,
+          notificationPreferences: sanitizedWorkspace.notificationPreferences,
+          notificationFeed: sanitizedWorkspace.notificationFeed,
+          incomeEntries: sanitizedWorkspace.incomeEntries,
+          expenseEntries: sanitizedWorkspace.expenseEntries,
+          receiptScans: sanitizedWorkspace.receiptScans,
+          portfolioHoldings: mergePortfolioHoldingEntries(sanitizedWorkspace.portfolioHoldings),
+          portfolioAnalysisHistory: sanitizedWorkspace.portfolioAnalysisHistory,
+          assets: sanitizedWorkspace.assets,
+          liabilities: sanitizedWorkspace.liabilities,
+          budgetLimits: sanitizedWorkspace.budgetLimits,
+        });
+      }),
       setSubscriptionTier: (tier) => set((state) =>
         syncActiveProfileState(state, {
           user: {

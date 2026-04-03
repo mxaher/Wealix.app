@@ -469,8 +469,8 @@ export default function NetWorthPage() {
                           <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                           <Tooltip formatter={(value: number) => [formatCurrency(value, 'SAR', locale), '']} />
                           <Legend />
-                          <Bar dataKey="assets" name={isArabic ? 'الأصول' : 'Assets'} fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="liabilities" name={isArabic ? 'الالتزامات' : 'Liabilities'} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="assets" name={isArabic ? 'الأصول' : 'Assets'} fill="var(--chart-2)" radius={[4, 4, 0, 0]} minPointSize={6} />
+                          <Bar dataKey="liabilities" name={isArabic ? 'الالتزامات' : 'Liabilities'} fill="#ef4444" radius={[4, 4, 0, 0]} minPointSize={6} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

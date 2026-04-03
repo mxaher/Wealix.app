@@ -132,6 +132,10 @@ function parseJsonObject(content: string): Record<string, unknown> | null {
   }
 }
 
+function normalizeEasternArabicDigits(value: string) {
+  return value.replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
+}
+
 function parseAmount(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -177,6 +181,14 @@ function fallbackFromFilename(fileName: string) {
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function resolveProviderUrl(url: string, apiBase: string) {
+  try {
+    return new URL(url, apiBase).toString();
+  } catch {
+    throw new Error('OCR provider returned an invalid status URL.');
+  }
 }
 
 function detectPromptInjection(text: string) {
@@ -235,10 +247,10 @@ function dedupeLines(lines: string[]) {
 }
 
 function parseDateFromText(rawText: string): string {
-  const normalized = rawText.replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
+  const normalized = normalizeEasternArabicDigits(rawText);
   const patterns = [
-    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
-    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+    /(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/,
+    /(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/,
   ];
 
   for (const pattern of patterns) {
@@ -252,6 +264,38 @@ function parseDateFromText(rawText: string): string {
 
     const [, day, month, year] = match;
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeReceiptDate(value: unknown, rawText?: string) {
+  const normalizedValue = normalizeEasternArabicDigits(String(value || '')).trim();
+  const directPatterns = [
+    /(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/,
+    /(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/,
+  ];
+
+  for (const pattern of directPatterns) {
+    const match = normalizedValue.match(pattern);
+    if (!match) continue;
+
+    if (pattern === directPatterns[0]) {
+      const [, year, month, day] = match;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    const [, day, month, year] = match;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  const parsedDate = new Date(normalizedValue);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return parsedDate.toISOString().slice(0, 10);
+  }
+
+  if (rawText?.trim()) {
+    return parseDateFromText(rawText);
   }
 
   return new Date().toISOString().slice(0, 10);
@@ -358,7 +402,8 @@ function validateReceiptExtraction(extraction: ReceiptExtraction, fileName: stri
     throw new Error('Receipt amount is invalid or outside the allowed range.');
   }
 
-  const dateValue = new Date(String(extraction.date || fallback.date));
+  const normalizedDate = normalizeReceiptDate(extraction.date || fallback.date, rawText);
+  const dateValue = new Date(`${normalizedDate}T00:00:00.000Z`);
   if (Number.isNaN(dateValue.getTime())) {
     throw new Error('Receipt date is invalid.');
   }
@@ -384,7 +429,7 @@ function validateReceiptExtraction(extraction: ReceiptExtraction, fileName: stri
   return {
     merchantName,
     amount,
-    date: dateValue.toISOString().slice(0, 10),
+    date: normalizedDate,
     currency,
     confidence,
     suggestedCategory,
@@ -418,8 +463,10 @@ async function runDatalabOcr(file: File) {
     throw new Error(submitData.error || 'Failed to submit receipt to Datalab OCR.');
   }
 
+  const pollUrl = resolveProviderUrl(submitData.request_check_url, apiBase);
+
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const pollResponse = await fetch(submitData.request_check_url, {
+    const pollResponse = await fetch(pollUrl, {
       headers: {
         'X-API-Key': apiKey,
       },
@@ -474,8 +521,10 @@ async function runDatalabMarker(file: File) {
     throw new Error(submitData.error || 'Failed to submit receipt to Datalab Marker.');
   }
 
+  const pollUrl = resolveProviderUrl(submitData.request_check_url, apiBase);
+
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const pollResponse = await fetch(submitData.request_check_url, {
+    const pollResponse = await fetch(pollUrl, {
       headers: {
         'X-API-Key': apiKey,
       },
