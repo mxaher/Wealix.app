@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import {
   isRemotePersistenceConfigured,
@@ -53,8 +54,16 @@ export async function GET() {
   }
 
   try {
+    const rateLimit = await enforceRateLimit(`user-data:get:${authResult.userId}`, 120, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const { workspace, updatedAt } = await loadRemoteWorkspace(authResult.userId);
-    return NextResponse.json({ workspace, updatedAt });
+    return NextResponse.json({ workspace, updatedAt }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('[user-data] load failed', error);
     return NextResponse.json(
@@ -82,6 +91,14 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
+    const rateLimit = await enforceRateLimit(`user-data:put:${authResult.userId}`, 60, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const body = await request.json();
     const knownUpdatedAt =
       typeof body?.knownUpdatedAt === 'string' || body?.knownUpdatedAt === null
@@ -95,7 +112,7 @@ export async function PUT(request: NextRequest) {
           error: 'Workspace payload is invalid.',
           code: 'INVALID_WORKSPACE',
         },
-        { status: 400 }
+        { status: 400, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
@@ -109,11 +126,14 @@ export async function PUT(request: NextRequest) {
           workspace: result.workspace,
           updatedAt: result.updatedAt,
         },
-        { status: 409 }
+        { status: 409, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
-    return NextResponse.json({ workspace: result.workspace, updatedAt: result.updatedAt, saved: true });
+    return NextResponse.json(
+      { workspace: result.workspace, updatedAt: result.updatedAt, saved: true },
+      { headers: buildRateLimitHeaders(rateLimit) }
+    );
   } catch (error) {
     console.error('[user-data] save failed', error);
     return NextResponse.json(

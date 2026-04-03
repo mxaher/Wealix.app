@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { sanitizeUserMessage, logAiAuditEvent } from '@/lib/ai-safety';
+import { buildFinancialSnapshotFromWorkspace } from '@/lib/financial-snapshot';
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
+import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
 
 // Financial advisor system prompt
@@ -92,22 +94,95 @@ type NvidiaChatResponse = {
 };
 
 type AdvisorUserContext = {
+  snapshotDate?: string;
+  currency?: string;
   netWorth?: number;
   portfolioValue?: number;
   monthlyIncome?: number;
   monthlyExpenses?: number;
   monthlySavings?: number;
   savingsRate?: number;
+  fireGoal?: number;
+  fireProgress?: number;
   holdings?: Array<{
     ticker?: string;
     name?: string;
     sector?: string;
     exchange?: string;
+    shares?: number;
+    avgCost?: number;
+    currentPrice?: number;
     totalValue?: number;
     profitLossPercent?: number;
     isShariah?: boolean;
   }>;
+  assets?: unknown[];
+  liabilities?: unknown[];
+  budgetLimits?: unknown[];
+  expenseEntries?: unknown[];
+  incomeEntries?: unknown[];
+  receiptScans?: unknown[];
 };
+
+function isValidMessageArray(value: unknown): value is Array<{ role: string; content: string }> {
+  return Array.isArray(value) && value.every((message) => (
+    message &&
+    typeof message === 'object' &&
+    typeof (message as { role?: unknown }).role === 'string' &&
+    typeof (message as { content?: unknown }).content === 'string'
+  ));
+}
+
+function capConversationHistory<T>(messages: T[]) {
+  return messages.slice(-50);
+}
+
+async function loadAdvisorUserContext(userId: string): Promise<AdvisorUserContext | null> {
+  if (!isRemotePersistenceConfigured()) {
+    return null;
+  }
+
+  const { workspace } = await loadRemoteWorkspace(userId);
+  if (!workspace) {
+    return null;
+  }
+
+  const snapshot = buildFinancialSnapshotFromWorkspace(workspace);
+  const fireGoal = snapshot.activeGoals.find((goal) => goal.id === 'fire-goal');
+
+  return {
+    snapshotDate: snapshot.snapshotDate,
+    currency: snapshot.currency,
+    netWorth: snapshot.netWorth,
+    portfolioValue: snapshot.portfolioValue,
+    monthlyIncome: snapshot.monthlyIncome,
+    monthlyExpenses: snapshot.monthlyExpenses,
+    monthlySavings: snapshot.monthlySavings,
+    savingsRate: snapshot.savingsRate,
+    fireGoal: fireGoal?.targetAmount,
+    fireProgress: fireGoal?.progressPct,
+    holdings: snapshot.holdings.map((holding) => ({
+      ticker: holding.ticker,
+      name: holding.name,
+      sector: holding.sector,
+      exchange: holding.exchange,
+      shares: holding.shares,
+      avgCost: holding.avgCost,
+      currentPrice: holding.currentPrice,
+      totalValue: holding.shares * holding.currentPrice,
+      profitLossPercent: holding.avgCost > 0
+        ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100
+        : 0,
+      isShariah: holding.isShariah,
+    })),
+    assets: snapshot.assets,
+    liabilities: snapshot.liabilities,
+    budgetLimits: workspace.budgetLimits.slice(0, 25),
+    expenseEntries: workspace.expenseEntries.slice(-30),
+    incomeEntries: workspace.incomeEntries.slice(-20),
+    receiptScans: workspace.receiptScans.slice(-10),
+  };
+}
 
 function formatSarAmount(value: number | undefined, locale: string) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -191,7 +266,7 @@ function generateFallbackAdvisorResponse(params: {
     }
 
     lines.push('');
-    lines.push('هذه إجابة احتياطية محلية لأن خدمة الذكاء الخارجي غير مهيأة حالياً. أضف `NVIDIA_API_KEY` لتفعيل التحليل الكامل.');
+    lines.push('هذه إجابة احتياطية محلية لأن خدمة التحليل المتقدم غير متاحة حالياً.');
     return lines.join('\n');
   }
 
@@ -227,7 +302,7 @@ function generateFallbackAdvisorResponse(params: {
   }
 
   lines.push('');
-  lines.push('This is a local fallback response because the external AI service is not configured right now. Add `NVIDIA_API_KEY` to enable the full advisor.');
+  lines.push('This is a local fallback response because the advanced AI service is temporarily unavailable right now.');
   return lines.join('\n');
 }
 
@@ -291,13 +366,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, userContext, locale = 'ar' } = body;
+    const { messages, locale = 'ar' } = body;
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!isValidMessageArray(messages)) {
       return new Response(
         JSON.stringify({ error: 'Messages array is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    let userContext: AdvisorUserContext | undefined;
+    try {
+      userContext = (await loadAdvisorUserContext(authResult.userId!)) ?? undefined;
+    } catch (error) {
+      console.error('[ai/chat] failed to load persisted advisor context', error);
     }
 
     // Build system prompt with user context
@@ -354,30 +436,32 @@ export async function POST(request: NextRequest) {
     systemPrompt += `\n\nRespond in ${locale === 'ar' ? 'Arabic' : 'English'}.`;
 
     // Cap history to prevent token exhaustion (F-06)
-    const cappedMessages = messages.slice(-50);
+    const cappedMessages = capConversationHistory(messages);
 
     // Prepare messages for the API
     const apiMessages: ChatMessage[] = [
       { role: 'system' as const, content: systemPrompt },
-      ...cappedMessages.map((m: { role: string; content: string }) => {
-        const original = String(m.content || '');
-        const result = sanitizeUserMessage(original);
-        // QA-3: sanitize all roles, not just 'user', to block adversarial history injection
-        if (m.role === 'user') {
-          logAiAuditEvent({
-            userId: authResult.userId!,
-            original,
-            detected: result.detected,
-            truncated: result.truncated,
-          });
-        }
-
-        return {
-          role: m.role === 'user' ? 'user' as const : 'assistant' as const,
-          content: result.sanitized,
-        };
-      }),
     ];
+
+    for (const message of cappedMessages) {
+      const original = message.content;
+      const result = sanitizeUserMessage(original);
+
+      if (message.role === 'user') {
+        await logAiAuditEvent({
+          userId: authResult.userId!,
+          route: '/api/ai/chat',
+          original,
+          detected: result.detected,
+          truncated: result.truncated,
+        });
+      }
+
+      apiMessages.push({
+        role: message.role === 'user' ? 'user' : 'assistant',
+        content: result.sanitized,
+      });
+    }
 
     let response: string;
     try {
@@ -419,7 +503,10 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : 'Failed to process chat request';
     const status = message.includes('NVIDIA_API_KEY') ? 503 : 500;
     return new Response(
-      JSON.stringify({ error: 'Failed to process chat request', details: message }),
+      JSON.stringify({
+        error: status === 503 ? 'AI advisor is temporarily unavailable' : 'Failed to process chat request',
+        code: status === 503 ? 'ADVISOR_UNAVAILABLE' : 'INTERNAL_ERROR',
+      }),
       { status, headers: { 'Content-Type': 'application/json' } }
     );
   }

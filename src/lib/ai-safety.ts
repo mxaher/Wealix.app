@@ -1,3 +1,5 @@
+import { getD1Database, type D1LikeDatabase } from '@/lib/d1';
+
 const MAX_MESSAGE_LENGTH = 4000;
 
 const INJECTION_PATTERNS = [
@@ -9,7 +11,32 @@ const INJECTION_PATTERNS = [
   /\breveal\s+the\s+system\s+prompt\b/i,
   /\bdeveloper\s*:/i,
   /\bassistant\s*:/i,
+  /أنت\s+الآن/u,
+  /تجاهل\s+(كل\s+)?(التعليمات|التوجيهات|الإرشادات)/u,
+  /تجاوز\s+(كل\s+)?(التعليمات|التوجيهات|الإرشادات)/u,
+  /اكشف\s+(عن\s+)?(التعليمات|البرومبت|الموجه|النظام)/u,
+  /كش(?:ف|في)\s+(عن\s+)?(البرومبت|الموجه|النظام)/u,
+  /ignore\s+.*?(التعليمات|instructions)/iu,
+  /(system|prompt|instructions?)\s*[:：]\s*.*?(تجاهل|ignore)/iu,
 ];
+
+async function ensureAiAuditLogTable(db: D1LikeDatabase) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS ai_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clerk_user_id TEXT NOT NULL,
+      route TEXT NOT NULL,
+      detected_prompt_injection INTEGER NOT NULL DEFAULT 0,
+      truncated INTEGER NOT NULL DEFAULT 0,
+      input_sample TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+}
+
+function toAuditSample(input: string) {
+  return input.replace(/\s+/g, ' ').trim().slice(0, 500);
+}
 
 export function sanitizeUserMessage(input: string) {
   const trimmed = input.slice(0, MAX_MESSAGE_LENGTH);
@@ -32,17 +59,49 @@ export function sanitizeUserMessage(input: string) {
   };
 }
 
-export function logAiAuditEvent(params: {
+export async function logAiAuditEvent(params: {
   userId: string;
+  route: string;
   original: string;
   detected: boolean;
   truncated: boolean;
 }) {
+  const inputSample = toAuditSample(params.original);
+
   console.warn('[wealix-ai-audit]', {
     userId: params.userId,
+    route: params.route,
     timestamp: new Date().toISOString(),
     detectedPromptInjection: params.detected,
     truncated: params.truncated,
-    originalInput: params.original,
+    inputSample,
   });
+
+  const db = getD1Database();
+  if (!db) {
+    return;
+  }
+
+  try {
+    await ensureAiAuditLogTable(db);
+    await db.prepare(`
+      INSERT INTO ai_audit_log (
+        clerk_user_id,
+        route,
+        detected_prompt_injection,
+        truncated,
+        input_sample
+      ) VALUES (?, ?, ?, ?, ?)
+    `)
+      .bind(
+        params.userId,
+        params.route,
+        params.detected ? 1 : 0,
+        params.truncated ? 1 : 0,
+        inputSample
+      )
+      .run();
+  } catch (error) {
+    console.error('[wealix-ai-audit] failed to persist event', error);
+  }
 }

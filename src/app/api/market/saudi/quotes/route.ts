@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Price provider unavailable.',
-          details: 'SAHMK did not return any quotes for the requested Saudi symbols.',
+          code: 'PROVIDER_UNAVAILABLE',
         },
         { status: 503, headers: buildRateLimitHeaders(rateLimit) }
       );
@@ -169,7 +169,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: 'Service unavailable.',
-        details: error instanceof Error ? error.message : 'Unknown SAHMK error.',
+        code: 'SERVICE_UNAVAILABLE',
       },
       { status: 503, headers: buildRateLimitHeaders(rateLimit) }
     );

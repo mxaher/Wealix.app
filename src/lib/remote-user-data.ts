@@ -1,4 +1,4 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { getD1Database, type D1LikeDatabase } from '@/lib/d1';
 import type {
   AppMode,
   AssetEntry,
@@ -32,29 +32,10 @@ export type RemoteWorkspaceRecord = {
   updatedAt: string | null;
 };
 
-type D1LikeDatabase = {
-  prepare: (query: string) => {
-    bind: (...values: unknown[]) => {
-      first: <T = unknown>() => Promise<T | null>;
-      run: () => Promise<unknown>;
-    };
-    run: () => Promise<unknown>;
-  };
-};
-
 type WorkspaceRow = {
   workspace_json: string | null;
   updated_at: string | null;
 };
-
-function getD1Database(): D1LikeDatabase | null {
-  try {
-    const context = getCloudflareContext();
-    return (context?.env as Record<string, unknown> | undefined)?.WEALIX_DB as D1LikeDatabase | null;
-  } catch {
-    return null;
-  }
-}
 
 export function isRemotePersistenceConfigured() {
   return Boolean(getD1Database());

@@ -1,20 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { getStripe } from '@/lib/stripe';
 import { getCycleFromPriceId, getPlanFromPriceId } from '@/lib/stripe-billing';
 
 export const dynamic = 'force-dynamic';
-
-// Helper — resolve clerkUserId from subscription metadata or checkout session
-async function resolveClerkUserId(
-  subscription: import('stripe').Stripe.Subscription,
-  fallbackUserId: string
-): Promise<string> {
-  if (subscription.metadata?.clerkUserId) {
-    return subscription.metadata.clerkUserId;
-  }
-  return fallbackUserId;
-}
 
 export async function POST(_req: NextRequest) {
   try {
@@ -22,6 +12,14 @@ export async function POST(_req: NextRequest) {
     const { userId, sessionClaims } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const rateLimit = await enforceRateLimit(`billing-sync:${userId}`, 60, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
     }
 
     const metadata = (sessionClaims?.publicMetadata ?? {}) as Record<string, unknown>;
@@ -134,7 +132,10 @@ export async function POST(_req: NextRequest) {
     }
 
     if (!subscription) {
-      return NextResponse.json({ synced: false, message: 'No subscription found in Stripe' });
+      return NextResponse.json(
+        { synced: false, message: 'No subscription found in Stripe' },
+        { headers: buildRateLimitHeaders(rateLimit) }
+      );
     }
 
     const currentPriceId = subscription.items.data[0]?.price.id ?? null;
@@ -216,11 +217,11 @@ export async function POST(_req: NextRequest) {
       plan,
       cycle,
       paymentAdded,
-    });
+    }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('[billing/sync] failed', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Sync failed' },
+      { error: 'Sync failed', code: 'BILLING_SYNC_FAILED' },
       { status: 500 }
     );
   }

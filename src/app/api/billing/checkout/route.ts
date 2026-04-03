@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getBillingState } from '@/lib/billing-state';
 import { getPublicAppEnv } from '@/lib/env';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { getStripe } from '@/lib/stripe';
 import { getPriceId } from '@/lib/stripe-billing';
 
@@ -14,6 +15,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const rateLimit = await enforceRateLimit(`billing-checkout:${userId}`, 20, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const stripe = getStripe();
     const appUrl = getPublicAppEnv().NEXT_PUBLIC_APP_URL;
 
@@ -22,17 +31,23 @@ export async function POST(req: NextRequest) {
     const cycle = body?.cycle;
 
     if (plan !== 'core' && plan !== 'pro') {
-      return NextResponse.json({ error: 'Invalid plan. Must be "core" or "pro".' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid plan. Must be "core" or "pro".' },
+        { status: 400, headers: buildRateLimitHeaders(rateLimit) }
+      );
     }
     if (cycle !== 'monthly' && cycle !== 'annual') {
-      return NextResponse.json({ error: 'Invalid cycle. Must be "monthly" or "annual".' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid cycle. Must be "monthly" or "annual".' },
+        { status: 400, headers: buildRateLimitHeaders(rateLimit) }
+      );
     }
 
     const priceId = getPriceId(plan, cycle);
     if (!priceId) {
       return NextResponse.json(
-        { error: `Missing Stripe price env var for ${plan} ${cycle}.` },
-        { status: 503 }
+        { error: 'Billing configuration unavailable.', code: 'BILLING_CONFIG_UNAVAILABLE' },
+        { status: 503, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
@@ -65,7 +80,7 @@ export async function POST(req: NextRequest) {
               plan,
               cycle,
               subscriptionId: existingSub.id,
-            });
+            }, { headers: buildRateLimitHeaders(rateLimit) });
           }
 
           if (currentItem && hasDefaultPaymentMethod) {
@@ -91,7 +106,7 @@ export async function POST(req: NextRequest) {
               plan,
               cycle,
               subscriptionId: updatedSubscription.id,
-            });
+            }, { headers: buildRateLimitHeaders(rateLimit) });
           }
 
           // Create a SetupIntent checkout to collect payment method and
@@ -109,7 +124,7 @@ export async function POST(req: NextRequest) {
           });
 
           if (setupSession.url) {
-            return NextResponse.json({ url: setupSession.url });
+            return NextResponse.json({ url: setupSession.url }, { headers: buildRateLimitHeaders(rateLimit) });
           }
         }
       } catch {
@@ -149,14 +164,17 @@ export async function POST(req: NextRequest) {
     });
 
     if (!session.url) {
-      return NextResponse.json({ error: 'Stripe checkout URL was not returned.' }, { status: 502 });
+      return NextResponse.json(
+        { error: 'Unable to start checkout.', code: 'CHECKOUT_UNAVAILABLE' },
+        { status: 502, headers: buildRateLimitHeaders(rateLimit) }
+      );
     }
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('[billing/checkout] failed', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to start Stripe checkout.' },
+      { error: 'Unable to start Stripe checkout.', code: 'CHECKOUT_FAILED' },
       { status: 502 }
     );
   }

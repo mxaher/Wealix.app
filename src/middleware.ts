@@ -51,9 +51,19 @@ const CLERK_COOKIES = [
   '__clerk_redirect_count',
 ];
 
+function buildCookieDomains(hostname: string) {
+  const parts = hostname.split('.').filter(Boolean);
+  const domains = new Set<string>([hostname]);
+
+  for (let index = 1; index < parts.length - 1; index += 1) {
+    domains.add(`.${parts.slice(index).join('.')}`);
+  }
+
+  return [...domains];
+}
+
 function nukeCookies(response: NextResponse, hostname: string) {
-  // Clear for exact hostname AND parent domain (covers subdomains)
-  const domains = [hostname, hostname.replace(/^[^.]+\./, '.')];
+  const domains = buildCookieDomains(hostname);
   for (const name of CLERK_COOKIES) {
     for (const domain of domains) {
       response.cookies.set(name, '', {
@@ -92,32 +102,107 @@ function handleStaleHandshake(req: NextRequest): NextResponse | null {
   return null; // valid handshake — let Clerk handle it normally
 }
 
+function buildContentSecurityPolicy(nonce: string) {
+  return `
+    default-src 'self';
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'
+      https://*.clerk.com
+      https://clerk.wealix.app
+      https://accounts.wealix.app
+      https://challenges.cloudflare.com
+      https://www.googletagmanager.com
+      https://www.google-analytics.com;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob: https: https://www.google-analytics.com;
+    font-src 'self' data: https://clerk.wealix.app https://accounts.wealix.app;
+    connect-src 'self'
+      https://*.clerk.com
+      https://api.clerk.com
+      https://clerk.wealix.app
+      https://accounts.wealix.app
+      https://*.wealix.app
+      https://challenges.cloudflare.com
+      https://www.datalab.to
+      https://app.sahmk.sa
+      https://api.twelvedata.com
+      https://www.google-analytics.com
+      https://analytics.google.com
+      https://region1.google-analytics.com
+      https://www.googletagmanager.com;
+    frame-src
+      https://*.clerk.com
+      https://clerk.wealix.app
+      https://accounts.wealix.app
+      https://challenges.cloudflare.com;
+    object-src 'none';
+    base-uri 'self';
+    frame-ancestors 'none';
+    form-action 'self' https://*.clerk.com https://clerk.wealix.app https://accounts.wealix.app;
+    upgrade-insecure-requests;
+  `.replace(/\s{2,}/g, ' ').trim();
+}
+
+function applySecurityHeaders(response: Response, pathname: string, nonce: string) {
+  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(nonce));
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'origin-when-cross-origin');
+  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  response.headers.set(
+    'Permissions-Policy',
+    pathname === '/expenses'
+      ? 'camera=(self), microphone=(), geolocation=()'
+      : 'camera=(), microphone=(), geolocation=()'
+  );
+  response.headers.set('x-nonce', nonce);
+  return response;
+}
+
 // ─── Main middleware export ────────────────────────────────────────────────────
 export default function middleware(req: NextRequest) {
+  const nonce = crypto.randomUUID().replace(/-/g, '');
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', buildContentSecurityPolicy(nonce));
+
   // 1. Block scanner bots before anything else
   const { pathname } = req.nextUrl;
   const blockedPaths = ['/wp-admin', '/wp-login', '/xmlrpc', '/.env', '/.git', '/admin', '/phpmyadmin'];
   if (blockedPaths.some((p) => pathname.startsWith(p))) {
-    return new NextResponse('Not Found', { status: 404 });
+    return applySecurityHeaders(new NextResponse('Not Found', { status: 404 }), pathname, nonce);
   }
 
   // 2. Intercept stale / dev-instance handshakes BEFORE Clerk runs
   const staleResponse = handleStaleHandshake(req);
-  if (staleResponse) return staleResponse;
+  if (staleResponse) return applySecurityHeaders(staleResponse, pathname, nonce);
 
   // 3. Hand off to Clerk for all remaining requests
-  return clerkMiddleware(async (auth, request) => {
-    if (isPublicRoute(request)) return;
+  const clerkHandler = clerkMiddleware(async (auth, request) => {
+    if (isPublicRoute(request)) {
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
 
     if (isProtectedApiRoute(request)) {
       await auth.protect();
-      return;
+      return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     if (isAppRoute(request)) {
       await auth.protect();
+      return NextResponse.next({ request: { headers: requestHeaders } });
     }
-  })(req, {} as any);
+
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  });
+  const response = clerkHandler(req, {} as any) ?? NextResponse.next({ request: { headers: requestHeaders } });
+
+  return Promise.resolve(response).then((resolvedResponse) => (
+    applySecurityHeaders(
+      resolvedResponse ?? NextResponse.next({ request: { headers: requestHeaders } }),
+      pathname,
+      nonce
+    )
+  ));
 }
 
 export const config = {
@@ -125,4 +210,11 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|images|fonts|icons|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.ico).*)',
     '/(api|trpc)(.*)',
   ],
+};
+
+export {
+  buildContentSecurityPolicy,
+  buildCookieDomains,
+  getHandshakeKid,
+  handleStaleHandshake,
 };

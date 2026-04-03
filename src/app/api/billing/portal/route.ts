@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getPublicAppEnv } from '@/lib/env';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { getStripe } from '@/lib/stripe';
 import { getCatalogPriceIds } from '@/lib/stripe-billing';
 
@@ -104,6 +105,14 @@ export async function POST(_req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const rateLimit = await enforceRateLimit(`billing-portal:${userId}`, 30, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const stripe = getStripe();
     const appUrl = getPublicAppEnv().NEXT_PUBLIC_APP_URL;
 
@@ -123,7 +132,7 @@ export async function POST(_req: NextRequest) {
     if (!customerId) {
       return NextResponse.json(
         { error: 'No Stripe customer found. Please add a payment method first.' },
-        { status: 404 }
+        { status: 404, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
@@ -134,7 +143,7 @@ export async function POST(_req: NextRequest) {
       return_url: `${appUrl}/settings/billing`,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('[billing/portal] failed', {
       userId,
@@ -143,11 +152,7 @@ export async function POST(_req: NextRequest) {
     });
 
     return NextResponse.json(
-      {
-        error: error instanceof Error
-          ? `Unable to open Stripe billing portal: ${error.message}`
-          : 'Unable to open Stripe billing portal.',
-      },
+      { error: 'Unable to open Stripe billing portal.', code: 'PORTAL_FAILED' },
       { status: 502 }
     );
   }

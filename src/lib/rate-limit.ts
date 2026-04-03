@@ -1,28 +1,17 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
-
-type D1LikeDatabase = {
-  prepare: (query: string) => {
-    bind: (...values: unknown[]) => {
-      first: <T = unknown>() => Promise<T | null>;
-      run: () => Promise<unknown>;
-    };
-    run: () => Promise<unknown>;
-  };
-};
+import { getD1Database, type D1LikeDatabase } from '@/lib/d1';
 
 type RateLimitRow = {
   count: number;
   reset_at: number;
 };
 
-function getD1Database(): D1LikeDatabase | null {
-  try {
-    const context = getCloudflareContext();
-    return (context?.env as Record<string, unknown> | undefined)?.WEALIX_DB as D1LikeDatabase | null;
-  } catch {
-    return null;
-  }
-}
+type RateLimitResult = {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+};
+
+const inMemoryBuckets = new Map<string, { count: number; resetAt: number }>();
 
 async function ensureRateLimitTable(db: D1LikeDatabase) {
   await db.prepare(`
@@ -34,19 +23,45 @@ async function ensureRateLimitTable(db: D1LikeDatabase) {
   `).run();
 }
 
+function enforceInMemoryRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
+  const now = Date.now();
+  const existing = inMemoryBuckets.get(key);
+  const expired = !existing || existing.resetAt <= now;
+  const nextBucket = expired
+    ? { count: 1, resetAt: now + windowMs }
+    : { count: existing.count + 1, resetAt: existing.resetAt };
+
+  inMemoryBuckets.set(key, nextBucket);
+
+  for (const [bucketKey, bucket] of inMemoryBuckets) {
+    if (bucket.resetAt <= now) {
+      inMemoryBuckets.delete(bucketKey);
+    }
+  }
+
+  if (nextBucket.count > limit) {
+    return { allowed: false, remaining: 0, resetAt: nextBucket.resetAt };
+  }
+
+  return {
+    allowed: true,
+    remaining: Math.max(0, limit - nextBucket.count),
+    resetAt: nextBucket.resetAt,
+  };
+}
+
 export async function enforceRateLimit(
   key: string,
   limit: number,
   windowMs: number,
-): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+) : Promise<RateLimitResult> {
   const now = Date.now();
   const resetAt = now + windowMs;
 
   const db = getD1Database();
 
   if (!db) {
-    // Local dev fallback — not safe for production, but D1 is always present on Workers
-    return { allowed: true, remaining: limit - 1, resetAt };
+    return enforceInMemoryRateLimit(key, limit, windowMs);
   }
 
   await ensureRateLimitTable(db);
@@ -84,4 +99,8 @@ export function buildRateLimitHeaders(result: { remaining: number; resetAt: numb
     'X-RateLimit-Remaining': String(result.remaining),
     'X-RateLimit-Reset': String(Math.floor(result.resetAt / 1000)),
   };
+}
+
+export function resetInMemoryRateLimitState() {
+  inMemoryBuckets.clear();
 }

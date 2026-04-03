@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireInternalRouteSecret } from '@/lib/internal-route-auth';
 
 type NvidiaChatResponse = {
   choices?: Array<{
@@ -11,16 +12,10 @@ type NvidiaChatResponse = {
   };
 };
 
-function unauthorized() {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-}
-
 export async function POST(request: NextRequest) {
-  const providedSecret = request.headers.get('x-agent-secret');
-  const expectedSecret = process.env.AGENTS_SECRET_KEY;
-
-  if (!expectedSecret || providedSecret !== expectedSecret) {
-    return unauthorized();
+  const authError = requireInternalRouteSecret(request);
+  if (authError) {
+    return authError;
   }
 
   const body = await request.json().catch(() => null) as

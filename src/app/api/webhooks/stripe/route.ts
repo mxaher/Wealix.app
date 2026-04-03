@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import type Stripe from 'stripe';
+import { getD1Database } from '@/lib/d1';
 import { getRequiredEnv } from '@/lib/env';
 import { getCycleFromPriceId, getPlanFromPriceId } from '@/lib/stripe-billing';
 
@@ -25,6 +26,53 @@ function getPlanFromSubscription(subscription: Stripe.Subscription): 'core' | 'p
     }
   }
   return getPlanFromMetadata(subscription);
+}
+
+async function ensureWebhookEventsTable() {
+  const db = getD1Database();
+  if (!db) {
+    return null;
+  }
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+      event_id TEXT PRIMARY KEY,
+      processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  return db;
+}
+
+async function markWebhookEventProcessed(eventId: string, dbOverride?: Awaited<ReturnType<typeof ensureWebhookEventsTable>>) {
+  const db = dbOverride ?? await ensureWebhookEventsTable();
+  if (!db) {
+    return { duplicate: false };
+  }
+
+  const existing = await db
+    .prepare('SELECT event_id FROM stripe_webhook_events WHERE event_id = ? LIMIT 1')
+    .bind(eventId)
+    .first<{ event_id: string }>();
+
+  if (existing?.event_id) {
+    return { duplicate: true };
+  }
+
+  await db
+    .prepare('INSERT INTO stripe_webhook_events (event_id) VALUES (?)')
+    .bind(eventId)
+    .run();
+
+  return { duplicate: false };
+}
+
+function getMissingStripeSignatureResponse(signature: string | null) {
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+  }
+
+  return null;
 }
 
 async function updateUserFromSubscription(
@@ -92,19 +140,26 @@ export async function POST(req: NextRequest) {
 
     const body = await req.text();
     const sig  = req.headers.get('stripe-signature');
-    if (!sig) {
-      return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+    const signatureError = getMissingStripeSignatureResponse(sig);
+    if (signatureError) {
+      return signatureError;
     }
+    const signature = sig as string;
 
     let event: Stripe.Event;
     try {
-      event = await stripe.webhooks.constructEventAsync(body, sig, stripeWebhookSecret);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      event = await stripe.webhooks.constructEventAsync(body, signature, stripeWebhookSecret);
+    } catch (error) {
+      console.warn('[stripe/webhook] signature verification failed', error);
       return NextResponse.json(
-        { error: `Webhook signature verification failed: ${message}` },
+        { error: 'Webhook signature verification failed' },
         { status: 400 }
       );
+    }
+
+    const replayCheck = await markWebhookEventProcessed(event.id);
+    if (replayCheck.duplicate) {
+      return NextResponse.json({ received: true, duplicate: true });
     }
 
     switch (event.type) {
@@ -243,7 +298,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('[stripe/webhook] failed', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Webhook processing failed' },
+      { error: 'Webhook processing failed' },
       { status: 500 }
     );
   }

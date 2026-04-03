@@ -186,7 +186,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Price provider unavailable.',
-          details: quoteFailures.join(' | ') || 'Twelve Data did not return any prices.',
+          code: 'PROVIDER_UNAVAILABLE',
         },
         { status: 503, headers: buildRateLimitHeaders(rateLimit) }
       );
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: 'Service unavailable.',
-        details: error instanceof Error ? error.message : 'Unknown Twelve Data error.',
+        code: 'SERVICE_UNAVAILABLE',
       },
       { status: 503, headers: buildRateLimitHeaders(rateLimit) }
     );

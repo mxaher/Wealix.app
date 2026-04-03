@@ -11,5 +11,6 @@ db/*.db-journal
 .wrangler
 coverage
 npm-debug.log*
+*.tsbuildinfo
 /.clerk/
 /.claude/

@@ -2,45 +2,6 @@ import type { NextConfig } from "next";
 import path from "path";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-// Production-only Clerk domains
-const contentSecurityPolicy = `
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval'
-    https://*.clerk.com
-    https://clerk.wealix.app
-    https://accounts.wealix.app
-    https://challenges.cloudflare.com
-    https://www.googletagmanager.com
-    https://www.google-analytics.com;
-  style-src 'self' 'unsafe-inline';
-  img-src 'self' data: blob: https: https://www.google-analytics.com;
-  font-src 'self' data: https://clerk.wealix.app https://accounts.wealix.app;
-  connect-src 'self'
-    https://*.clerk.com
-    https://api.clerk.com
-    https://clerk.wealix.app
-    https://accounts.wealix.app
-    https://*.wealix.app
-    https://challenges.cloudflare.com
-    https://www.datalab.to
-    https://app.sahmk.sa
-    https://api.twelvedata.com
-    https://www.google-analytics.com
-    https://analytics.google.com
-    https://region1.google-analytics.com
-    https://www.googletagmanager.com;
-  frame-src
-    https://*.clerk.com
-    https://clerk.wealix.app
-    https://accounts.wealix.app
-    https://challenges.cloudflare.com;
-  object-src 'none';
-  base-uri 'self';
-  frame-ancestors 'none';
-  form-action 'self' https://*.clerk.com https://clerk.wealix.app https://accounts.wealix.app;
-  upgrade-insecure-requests;
-`.replace(/\s{2,}/g, " ").trim();
-
 const nextConfig: NextConfig = {
   // NOTE: Do NOT set output: 'standalone' — it breaks @opennextjs/cloudflare
   images: {
@@ -83,25 +44,6 @@ const nextConfig: NextConfig = {
         source: '/(advisor|budget|expenses|income|portfolio|reports|net-worth|fire|retirement)/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
-        ],
-      },
-      // Global security headers
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'Content-Security-Policy', value: contentSecurityPolicy },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
-          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-        ],
-      },
-      // Expenses page needs camera access for OCR
-      {
-        source: '/expenses',
-        headers: [
-          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
         ],
       },
     ];

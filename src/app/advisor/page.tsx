@@ -76,13 +76,6 @@ const suggestedPrompts = [
 export default function AdvisorPage() {
   const {
     locale,
-    portfolioHoldings,
-    assets,
-    liabilities,
-    incomeEntries,
-    expenseEntries,
-    budgetLimits,
-    receiptScans,
   } = useAppStore();
   const isArabic = locale === 'ar';
 
@@ -103,94 +96,6 @@ export default function AdvisorPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
-
-  const portfolioValue = portfolioHoldings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
-  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0) + portfolioValue;
-  const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
-  const netWorth = totalAssets - totalLiabilities;
-  const monthlyIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const monthlyExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
-
-  const spendingByCategory = expenseEntries.reduce<Record<string, number>>((acc, entry) => {
-    acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
-    return acc;
-  }, {});
-
-  const budgetByCategory = budgetLimits.reduce<Record<string, number>>((acc, limit) => {
-    acc[limit.category.toLowerCase()] = limit.limit;
-    return acc;
-  }, {});
-
-  const userContext = {
-    snapshotDate: new Date().toISOString(),
-    currency: 'SAR',
-    portfolioValue,
-    totalAssets,
-    totalLiabilities,
-    netWorth,
-    monthlyIncome,
-    monthlyExpenses,
-    monthlySavings: monthlyIncome - monthlyExpenses,
-    savingsRate: monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0,
-    holdings: portfolioHoldings.map((holding) => ({
-      ticker: holding.ticker,
-      name: holding.name,
-      exchange: holding.exchange,
-      sector: holding.sector,
-      shares: holding.shares,
-      averageBuyPrice: holding.avgCost,
-      currentPrice: holding.currentPrice,
-      totalValue: holding.shares * holding.currentPrice,
-      profitLossPercent: holding.avgCost > 0
-        ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100
-        : 0,
-      isShariah: holding.isShariah,
-    })),
-    assets: assets.map((asset) => ({
-      name: asset.name,
-      category: asset.category,
-      value: asset.value,
-      currency: asset.currency,
-    })),
-    liabilities: liabilities.map((liability) => ({
-      name: liability.name,
-      category: liability.category,
-      balance: liability.balance,
-      currency: liability.currency,
-    })),
-    incomeEntries: incomeEntries.slice(0, 20).map((entry) => ({
-      source: entry.source,
-      sourceName: entry.sourceName,
-      amount: entry.amount,
-      frequency: entry.frequency,
-      isRecurring: entry.isRecurring,
-      date: entry.date,
-    })),
-    expenseEntries: expenseEntries.slice(0, 30).map((entry) => ({
-      category: entry.category,
-      description: entry.description,
-      merchantName: entry.merchantName,
-      amount: entry.amount,
-      paymentMethod: entry.paymentMethod,
-      date: entry.date,
-    })),
-    budgetLimits: budgetLimits.map((limit) => ({
-      category: limit.category,
-      limit: limit.limit,
-      spent: spendingByCategory[limit.category] || spendingByCategory[limit.category.charAt(0).toUpperCase() + limit.category.slice(1)] || 0,
-      variance: limit.limit - ((spendingByCategory[limit.category] || spendingByCategory[limit.category.charAt(0).toUpperCase() + limit.category.slice(1)] || 0)),
-    })),
-    receiptScans: receiptScans.slice(0, 10).map((receipt) => ({
-      merchantName: receipt.merchantName,
-      amount: receipt.amount,
-      date: receipt.date,
-      confidence: receipt.confidence,
-      suggestedCategory: receipt.suggestedCategory,
-    })),
-    uncategorizedBudgetSpending: Object.entries(spendingByCategory)
-      .filter(([category]) => !budgetByCategory[category.toLowerCase()])
-      .map(([category, amount]) => ({ category, amount })),
-  };
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -230,7 +135,6 @@ export default function AdvisorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          userContext,
           locale,
         }),
       });

@@ -1,13 +1,4 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
-
-type D1LikeDatabase = {
-  prepare: (query: string) => {
-    bind: (...values: unknown[]) => {
-      run: () => Promise<unknown>;
-    };
-    run: () => Promise<unknown>;
-  };
-};
+import { getD1Database, type D1LikeDatabase } from '@/lib/d1';
 
 type LogInvestmentDecisionParams = {
   clerkUserId: string;
@@ -17,15 +8,6 @@ type LogInvestmentDecisionParams = {
   payloadJson: string;
   decisionJson: string;
 };
-
-function getD1Database(): D1LikeDatabase | null {
-  try {
-    const context = getCloudflareContext();
-    return (context?.env as Record<string, unknown> | undefined)?.WEALIX_DB as D1LikeDatabase | null;
-  } catch {
-    return null;
-  }
-}
 
 async function ensureDecisionsLogTable(db: D1LikeDatabase) {
   await db.prepare(`

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { getBillingState } from '@/lib/billing-state';
+import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 
 const TRIAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
@@ -10,6 +11,14 @@ export async function POST(request: NextRequest) {
     const authResult = await requireAuthenticatedUser();
     if (!authResult.userId) {
       return authResult.error ?? NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
+    }
+
+    const rateLimit = await enforceRateLimit(`billing-trial:${authResult.userId}`, 12, 60 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
     }
 
     const body = (await request.json().catch(() => ({}))) as { plan?: string };
@@ -34,7 +43,7 @@ export async function POST(request: NextRequest) {
         trialEnd: billingState.trialEndsAt,
         paymentAdded: billingState.paymentAdded,
         initialized: false,
-      });
+      }, { headers: buildRateLimitHeaders(rateLimit) });
     }
 
     // Check if trial was already used and expired
@@ -45,7 +54,7 @@ export async function POST(request: NextRequest) {
           code: 'TRIAL_ALREADY_USED',
           effectiveTier: 'none',
         },
-        { status: 409 }
+        { status: 409, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
@@ -72,12 +81,12 @@ export async function POST(request: NextRequest) {
       trialEnd,
       paymentAdded: false,
       initialized: true,
-    });
+    }, { headers: buildRateLimitHeaders(rateLimit) });
   } catch (error) {
     console.error('[billing/trial] failed', error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to initialize trial.',
+        error: 'Failed to initialize trial.',
         code: 'TRIAL_INIT_FAILED',
       },
       { status: 500 }
