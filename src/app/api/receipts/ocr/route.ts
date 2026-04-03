@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import sharp from 'sharp';
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 
@@ -102,21 +101,22 @@ function assertReceiptImage(file: File, bytes: Uint8Array) {
 async function sanitizeReceiptImage(file: File) {
   const inputBytes = new Uint8Array(await file.arrayBuffer());
   assertReceiptImage(file, inputBytes);
+  const normalizedType = file.type === 'image/png'
+    ? 'image/png'
+    : file.type === 'image/webp'
+      ? 'image/webp'
+      : 'image/jpeg';
+  const normalizedExtension = normalizedType === 'image/png'
+    ? '.png'
+    : normalizedType === 'image/webp'
+      ? '.webp'
+      : '.jpg';
 
-  const image = sharp(inputBytes, { failOn: 'error' }).rotate();
-
-  if (file.type === 'image/png') {
-    const buffer = await image.png({ compressionLevel: 9 }).toBuffer();
-    return { buffer, type: 'image/png', name: file.name.replace(/\.[^.]+$/, '.png') };
-  }
-
-  if (file.type === 'image/webp') {
-    const buffer = await image.webp({ quality: 92 }).toBuffer();
-    return { buffer, type: 'image/webp', name: file.name.replace(/\.[^.]+$/, '.webp') };
-  }
-
-  const buffer = await image.jpeg({ quality: 92, mozjpeg: true }).toBuffer();
-  return { buffer, type: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '.jpg') };
+  return {
+    buffer: inputBytes,
+    type: normalizedType,
+    name: file.name.replace(/\.[^.]+$/, normalizedExtension),
+  };
 }
 
 function parseJsonObject(content: string): Record<string, unknown> | null {
