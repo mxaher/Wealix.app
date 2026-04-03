@@ -233,6 +233,9 @@ export default function ExpensesPage() {
       }))
       .sort((left, right) => right.date.localeCompare(left.date));
 
+    const importedExpensePaymentMethod: PaymentMethod =
+      statementAccountType === 'credit_card' ? 'Card' : 'Transfer';
+
     const importedExpenseEntries: ExpenseEntry[] = statementPreview.rows
       .filter((row) => row.direction === 'expense')
       .map((row) => ({
@@ -243,7 +246,7 @@ export default function ExpensesPage() {
         description: row.description,
         merchantName: row.merchantName,
         date: row.date,
-        paymentMethod: (statementAccountType === 'credit_card' ? 'Card' : 'Transfer') as const,
+        paymentMethod: importedExpensePaymentMethod,
         notes: [`Imported from ${statementAccountType === 'credit_card' ? 'credit card' : 'current account'} statement`, row.notes]
           .filter(Boolean)
           .join(' • '),
