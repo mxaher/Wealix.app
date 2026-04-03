@@ -39,6 +39,7 @@ type PdfTextItem = {
 
 const PDFJS_IMPORT_WARNING_PATTERNS = [
   'Warning: Cannot polyfill `Path2D`, rendering may be broken.',
+  'Warning: Cannot polyfill `ImageData`, rendering may be broken.',
   'Warning: Cannot load "@napi-rs/canvas" package:',
 ];
 

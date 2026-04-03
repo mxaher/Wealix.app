@@ -1,5 +1,9 @@
 type MatrixInit = Iterable<number> | ArrayLike<number> | undefined;
 type MatrixSource = MinimalDOMMatrix | MatrixInit | string;
+type ImageDataConstructorSource =
+  | Uint8ClampedArray
+  | ArrayLike<number>
+  | number[];
 
 function toNumberArray(init: MatrixInit): number[] {
   if (!init) {
@@ -202,6 +206,34 @@ function multiplyMatrices(
 export function ensurePdfJsNodePolyfills() {
   if (typeof globalThis.DOMMatrix === 'undefined') {
     Object.assign(globalThis, { DOMMatrix: MinimalDOMMatrix });
+  }
+
+  if (typeof globalThis.ImageData === 'undefined') {
+    class MinimalImageData {
+      data: Uint8ClampedArray;
+      width: number;
+      height: number;
+      colorSpace: PredefinedColorSpace;
+
+      constructor(dataOrWidth: ImageDataConstructorSource | number, width?: number, height?: number) {
+        if (typeof dataOrWidth === 'number') {
+          this.width = dataOrWidth;
+          this.height = Math.max(1, width ?? 1);
+          this.data = new Uint8ClampedArray(this.width * this.height * 4);
+        } else {
+          this.data = dataOrWidth instanceof Uint8ClampedArray
+            ? dataOrWidth
+            : new Uint8ClampedArray(Array.from(dataOrWidth, (value) => Number(value)));
+          this.width = Math.max(1, width ?? 1);
+          const inferredHeight = Math.floor(this.data.length / 4 / this.width);
+          this.height = Math.max(1, height ?? inferredHeight ?? 1);
+        }
+
+        this.colorSpace = 'srgb';
+      }
+    }
+
+    Object.assign(globalThis, { ImageData: MinimalImageData });
   }
 
   if (typeof globalThis.Path2D === 'undefined') {
