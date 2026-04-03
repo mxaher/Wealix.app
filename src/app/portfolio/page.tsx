@@ -74,6 +74,7 @@ import {
   type PortfolioExchange,
   type PortfolioHolding,
   type PortfolioAnalysisAction,
+  type InvestmentDecisionRecord,
   type PortfolioTradeRecommendation,
 } from '@/store/useAppStore';
 
@@ -163,6 +164,32 @@ function getTradeRecommendationMeta(side: PortfolioTradeRecommendation['side'], 
   };
 }
 
+function getDecisionVerdictMeta(verdict: InvestmentDecisionRecord['verdict']) {
+  switch (verdict) {
+    case 'proceed_now':
+      return {
+        badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600',
+        icon: ArrowUpRight,
+      };
+    case 'proceed_with_caution':
+      return {
+        badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-600',
+        icon: ShieldAlert,
+      };
+    case 'postpone':
+      return {
+        badgeClass: 'border-blue-500/30 bg-blue-500/10 text-blue-600',
+        icon: CalendarDays,
+      };
+    case 'do_not_proceed':
+    default:
+      return {
+        badgeClass: 'border-rose-500/30 bg-rose-500/10 text-rose-600',
+        icon: TrendingDown,
+      };
+  }
+}
+
 function assertSpreadsheetFile(file: File, bytes: Uint8Array) {
   if (file.size > MAX_IMPORT_FILE_SIZE) {
     throw new Error('Portfolio import files must be 2MB or smaller.');
@@ -196,6 +223,8 @@ export default function PortfolioPage() {
     portfolioAnalysisHistory,
     addPortfolioAnalysisRecord,
     deletePortfolioAnalysisRecord,
+    investmentDecisionHistory,
+    deleteInvestmentDecisionRecord,
     addPortfolioHolding,
     deletePortfolioHolding,
     replacePortfolioHoldings,
@@ -1371,6 +1400,104 @@ export default function PortfolioPage() {
           </TabsContent>
 
         </Tabs>
+
+        <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+          <CardHeader className="border-b border-border/70 bg-secondary/20">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className={isArabic ? 'text-right' : ''}>
+                <CardTitle className="flex items-center gap-2">
+                  <BrainCircuit className="h-5 w-5 text-primary" />
+                  {isArabic ? 'سجل Decision Check' : 'Decision Check History'}
+                </CardTitle>
+                <CardDescription>
+                  {isArabic
+                    ? 'سجل منفصل تماماً عن صفوف تحليل المحفظة حتى يبقى ترتيب الصفحة واضحاً.'
+                    : 'A separate history stream from portfolio analysis so both sections stay clean and aligned.'}
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="w-fit border-border bg-background/80 text-muted-foreground">
+                {investmentDecisionHistory.length} {isArabic ? 'قرارات محفوظة' : 'saved checks'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5" dir={isArabic ? 'rtl' : 'ltr'}>
+            {investmentDecisionHistory.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+                {isArabic
+                  ? 'لا يوجد سجل محفوظ لقرارات الاستثمار بعد. شغّل Decision Check وسيظهر هنا بشكل منفصل عن تحليل المحفظة.'
+                  : 'No saved investment decision checks yet. Run Decision Check and they will appear here separately from portfolio analysis.'}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {investmentDecisionHistory.map((record, index) => {
+                  const verdictMeta = getDecisionVerdictMeta(record.verdict);
+                  const VerdictIcon = verdictMeta.icon;
+
+                  return (
+                    <div key={record.id} className="rounded-2xl border border-border/80 bg-background/80 p-4 shadow-sm">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className={`min-w-0 flex-1 space-y-3 ${isArabic ? 'text-right' : ''}`}>
+                          <div className={`flex flex-wrap items-center gap-2 text-xs text-muted-foreground ${isArabic ? 'justify-end' : ''}`}>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1">
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              {new Date(record.createdAt).toLocaleString(isArabic ? 'ar-SA-u-nu-latn' : 'en-US')}
+                            </span>
+                            {index === 0 ? (
+                              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                                {isArabic ? 'الأحدث' : 'Latest'}
+                              </Badge>
+                            ) : null}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className={verdictMeta.badgeClass}>
+                              <VerdictIcon className="h-3.5 w-3.5" />
+                              {record.verdictLabel}
+                            </Badge>
+                            <Badge variant="outline" className="border-border bg-background/80 text-muted-foreground">
+                              {record.investmentName}
+                            </Badge>
+                            <Badge variant="outline" className="border-border bg-background/80 text-muted-foreground">
+                              {formatCurrency(record.price, 'SAR', locale)}
+                            </Badge>
+                          </div>
+
+                          <p className="text-sm leading-7 text-foreground">{record.summary}</p>
+
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <div className="rounded-xl border border-border/70 bg-card p-3">
+                              <p className="text-xs text-muted-foreground">{isArabic ? 'الحجم المقترح' : 'Suggested size'}</p>
+                              <p className="mt-1 text-sm font-semibold">{formatCurrency(record.suggestedAllocation.amount, 'SAR', locale)}</p>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-card p-3">
+                              <p className="text-xs text-muted-foreground">{isArabic ? 'إعادة النظر' : 'Revisit'}</p>
+                              <p className="mt-1 text-sm font-semibold">
+                                {record.revisitPlan.month ?? (isArabic ? 'لا حاجة' : 'Not needed')}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-card p-3">
+                              <p className="text-xs text-muted-foreground">{isArabic ? 'البديل' : 'Alternative'}</p>
+                              <p className="mt-1 text-sm font-semibold line-clamp-2">{record.alternativeSuggestion}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 text-rose-500 hover:text-rose-600"
+                          onClick={() => deleteInvestmentDecisionRecord(record.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="border-dashed">
           <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">

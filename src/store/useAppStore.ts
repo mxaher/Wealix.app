@@ -78,6 +78,7 @@ export interface LocalProfile {
   receiptScans: ReceiptScanResult[];
   portfolioHoldings: PortfolioHolding[];
   portfolioAnalysisHistory: PortfolioAnalysisRecord[];
+  investmentDecisionHistory: InvestmentDecisionRecord[];
   assets: AssetEntry[];
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];
@@ -169,6 +170,36 @@ export interface PortfolioAnalysisRecord {
   tradePlan: PortfolioTradeRecommendation[];
 }
 
+export interface InvestmentDecisionDimensionRecord {
+  key: string;
+  title: string;
+  status: 'positive' | 'neutral' | 'warning' | 'negative';
+  score: number;
+  analysis: string;
+}
+
+export interface InvestmentDecisionRecord {
+  id: string;
+  createdAt: string;
+  investmentName: string;
+  price: number;
+  verdict: 'proceed_now' | 'proceed_with_caution' | 'postpone' | 'do_not_proceed';
+  verdictLabel: string;
+  summary: string;
+  alternativeSuggestion: string;
+  suggestedAllocation: {
+    amount: number;
+    percentOfNetWorth: number;
+    percentOfLiquidReserves: number;
+  };
+  revisitPlan: {
+    month: string | null;
+    savingsMilestone: number | null;
+    monthsToWait: number;
+  };
+  dimensions: InvestmentDecisionDimensionRecord[];
+}
+
 export interface AssetEntry {
   id: string;
   name: string;
@@ -200,6 +231,7 @@ export interface RemoteWorkspaceSnapshot {
   receiptScans: ReceiptScanResult[];
   portfolioHoldings: PortfolioHolding[];
   portfolioAnalysisHistory: PortfolioAnalysisRecord[];
+  investmentDecisionHistory: InvestmentDecisionRecord[];
   assets: AssetEntry[];
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];
@@ -302,6 +334,77 @@ function normalizePortfolioAnalysisHistory(entries: unknown): PortfolioAnalysisR
       summary: record.summary,
       actions: Array.isArray(record.actions) ? record.actions : [],
       tradePlan: Array.isArray(record.tradePlan) ? record.tradePlan : [],
+    }];
+  });
+}
+
+function normalizeInvestmentDecisionHistory(entries: unknown): InvestmentDecisionRecord[] {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return [];
+    }
+
+    const record = entry as Partial<InvestmentDecisionRecord>;
+    if (
+      typeof record.id !== 'string' ||
+      typeof record.createdAt !== 'string' ||
+      typeof record.investmentName !== 'string' ||
+      typeof record.price !== 'number' ||
+      typeof record.verdict !== 'string' ||
+      typeof record.verdictLabel !== 'string' ||
+      typeof record.summary !== 'string' ||
+      typeof record.alternativeSuggestion !== 'string'
+    ) {
+      return [];
+    }
+
+    return [{
+      id: record.id,
+      createdAt: record.createdAt,
+      investmentName: record.investmentName,
+      price: record.price,
+      verdict: record.verdict,
+      verdictLabel: record.verdictLabel,
+      summary: record.summary,
+      alternativeSuggestion: record.alternativeSuggestion,
+      suggestedAllocation: {
+        amount: coerceFiniteNumber(record.suggestedAllocation?.amount),
+        percentOfNetWorth: coerceFiniteNumber(record.suggestedAllocation?.percentOfNetWorth),
+        percentOfLiquidReserves: coerceFiniteNumber(record.suggestedAllocation?.percentOfLiquidReserves),
+      },
+      revisitPlan: {
+        month: typeof record.revisitPlan?.month === 'string' ? record.revisitPlan.month : null,
+        savingsMilestone: typeof record.revisitPlan?.savingsMilestone === 'number' ? record.revisitPlan.savingsMilestone : null,
+        monthsToWait: coerceFiniteNumber(record.revisitPlan?.monthsToWait),
+      },
+      dimensions: Array.isArray(record.dimensions) ? record.dimensions.flatMap((dimension) => {
+        if (!dimension || typeof dimension !== 'object') {
+          return [];
+        }
+
+        const item = dimension as Partial<InvestmentDecisionDimensionRecord>;
+        if (
+          typeof item.key !== 'string' ||
+          typeof item.title !== 'string' ||
+          typeof item.status !== 'string' ||
+          typeof item.score !== 'number' ||
+          typeof item.analysis !== 'string'
+        ) {
+          return [];
+        }
+
+        return [{
+          key: item.key,
+          title: item.title,
+          status: item.status,
+          score: item.score,
+          analysis: item.analysis,
+        }];
+      }) : [],
     }];
   });
 }
@@ -531,6 +634,7 @@ function buildDemoState() {
     receiptScans: defaultReceiptScans,
     portfolioHoldings: defaultPortfolioHoldings,
     portfolioAnalysisHistory: [] as PortfolioAnalysisRecord[],
+    investmentDecisionHistory: [] as InvestmentDecisionRecord[],
     assets: defaultAssets,
     liabilities: defaultLiabilities,
     budgetLimits: defaultBudgetLimits,
@@ -547,6 +651,7 @@ function buildLiveState() {
     receiptScans: [] as ReceiptScanResult[],
     portfolioHoldings: [] as PortfolioHolding[],
     portfolioAnalysisHistory: [] as PortfolioAnalysisRecord[],
+    investmentDecisionHistory: [] as InvestmentDecisionRecord[],
     assets: [] as AssetEntry[],
     liabilities: [] as LiabilityEntry[],
     budgetLimits: [] as BudgetLimit[],
@@ -568,6 +673,7 @@ function sanitizeRemoteWorkspace(workspace: Partial<RemoteWorkspaceSnapshot> | u
     receiptScans: Array.isArray(workspace?.receiptScans) ? workspace.receiptScans : live.receiptScans,
     portfolioHoldings: Array.isArray(workspace?.portfolioHoldings) ? workspace.portfolioHoldings : live.portfolioHoldings,
     portfolioAnalysisHistory: normalizePortfolioAnalysisHistory(workspace?.portfolioAnalysisHistory),
+    investmentDecisionHistory: normalizeInvestmentDecisionHistory(workspace?.investmentDecisionHistory),
     assets: normalizeAssetEntries(workspace?.assets),
     liabilities: normalizeLiabilityEntries(workspace?.liabilities),
     budgetLimits: Array.isArray(workspace?.budgetLimits) ? workspace.budgetLimits : live.budgetLimits,
@@ -598,6 +704,7 @@ function createProfileSnapshot(
     receiptScans: state.receiptScans,
     portfolioHoldings: state.portfolioHoldings,
     portfolioAnalysisHistory: state.portfolioAnalysisHistory,
+    investmentDecisionHistory: state.investmentDecisionHistory,
     assets: state.assets,
     liabilities: state.liabilities,
     budgetLimits: state.budgetLimits,
@@ -620,6 +727,7 @@ function snapshotActiveProfile(state: AppState): LocalProfile {
     receiptScans: state.receiptScans,
     portfolioHoldings: state.portfolioHoldings,
     portfolioAnalysisHistory: state.portfolioAnalysisHistory,
+    investmentDecisionHistory: state.investmentDecisionHistory,
     assets: state.assets,
     liabilities: state.liabilities,
     budgetLimits: state.budgetLimits,
@@ -655,6 +763,7 @@ function profileToState(profile: LocalProfile) {
     receiptScans: profile.receiptScans,
     portfolioHoldings: profile.portfolioHoldings,
     portfolioAnalysisHistory: profile.portfolioAnalysisHistory,
+    investmentDecisionHistory: profile.investmentDecisionHistory,
     assets: normalizeAssetEntries(profile.assets),
     liabilities: normalizeLiabilityEntries(profile.liabilities),
     budgetLimits: profile.budgetLimits,
@@ -705,6 +814,9 @@ interface AppState {
   portfolioAnalysisHistory: PortfolioAnalysisRecord[];
   addPortfolioAnalysisRecord: (record: PortfolioAnalysisRecord) => void;
   deletePortfolioAnalysisRecord: (id: string) => void;
+  investmentDecisionHistory: InvestmentDecisionRecord[];
+  addInvestmentDecisionRecord: (record: InvestmentDecisionRecord) => void;
+  deleteInvestmentDecisionRecord: (id: string) => void;
   assets: AssetEntry[];
   addAsset: (asset: AssetEntry) => void;
   deleteAsset: (id: string) => void;
@@ -949,6 +1061,17 @@ export const useAppStore = create<AppState>()(
           portfolioAnalysisHistory: state.portfolioAnalysisHistory.filter((record) => record.id !== id),
         })
       ),
+      investmentDecisionHistory: initialGuestProfile.investmentDecisionHistory,
+      addInvestmentDecisionRecord: (record) => set((state) =>
+        syncActiveProfileState(state, {
+          investmentDecisionHistory: [record, ...state.investmentDecisionHistory].slice(0, 30),
+        })
+      ),
+      deleteInvestmentDecisionRecord: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          investmentDecisionHistory: state.investmentDecisionHistory.filter((record) => record.id !== id),
+        })
+      ),
       assets: initialGuestProfile.assets,
       addAsset: (asset) => set((state) =>
         syncActiveProfileState(state, {
@@ -988,6 +1111,7 @@ export const useAppStore = create<AppState>()(
           receiptScans: sanitizedWorkspace.receiptScans,
           portfolioHoldings: mergePortfolioHoldingEntries(sanitizedWorkspace.portfolioHoldings),
           portfolioAnalysisHistory: normalizePortfolioAnalysisHistory(sanitizedWorkspace.portfolioAnalysisHistory),
+          investmentDecisionHistory: normalizeInvestmentDecisionHistory(sanitizedWorkspace.investmentDecisionHistory),
           assets: sanitizedWorkspace.assets,
           liabilities: sanitizedWorkspace.liabilities,
           budgetLimits: sanitizedWorkspace.budgetLimits,
@@ -1116,6 +1240,7 @@ export const useAppStore = create<AppState>()(
         receiptScans: state.receiptScans,
         portfolioHoldings: state.portfolioHoldings,
         portfolioAnalysisHistory: state.portfolioAnalysisHistory,
+        investmentDecisionHistory: state.investmentDecisionHistory,
         assets: state.assets,
         liabilities: state.liabilities,
         budgetLimits: state.budgetLimits,

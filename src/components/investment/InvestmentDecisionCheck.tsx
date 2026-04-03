@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatCurrency } from '@/components/shared';
+import { createOpaqueId } from '@/lib/ids';
 
 type DecisionDimension = {
   key: string;
@@ -100,6 +101,7 @@ export function InvestmentDecisionCheck() {
     incomeEntries,
     expenseEntries,
     budgetLimits,
+    addInvestmentDecisionRecord,
   } = useAppStore();
   const isArabic = locale === 'ar';
 
@@ -152,7 +154,21 @@ export function InvestmentDecisionCheck() {
         throw new Error(data.error || 'Failed to evaluate investment.');
       }
 
-      setResult(data as DecisionResponse);
+      const nextResult = data as DecisionResponse;
+      setResult(nextResult);
+      addInvestmentDecisionRecord({
+        id: createOpaqueId('investment-decision'),
+        createdAt: new Date().toISOString(),
+        investmentName: nextResult.investmentName,
+        price: nextResult.price,
+        verdict: nextResult.decision.verdict,
+        verdictLabel: nextResult.decision.verdictLabel,
+        summary: nextResult.decision.summary,
+        alternativeSuggestion: nextResult.decision.alternativeSuggestion,
+        suggestedAllocation: nextResult.decision.suggestedAllocation,
+        revisitPlan: nextResult.decision.revisitPlan,
+        dimensions: nextResult.decision.dimensions,
+      });
     } catch (error) {
       toast({
         title: isArabic ? 'تعذر فحص القرار' : 'Decision check failed',

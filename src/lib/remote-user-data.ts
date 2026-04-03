@@ -8,6 +8,7 @@ import type {
   LiabilityEntry,
   NotificationItem,
   NotificationPreferences,
+  InvestmentDecisionRecord,
   PortfolioAnalysisRecord,
   PortfolioHolding,
   ReceiptScanResult,
@@ -22,6 +23,7 @@ export type RemoteUserWorkspace = {
   receiptScans: ReceiptScanResult[];
   portfolioHoldings: PortfolioHolding[];
   portfolioAnalysisHistory: PortfolioAnalysisRecord[];
+  investmentDecisionHistory: InvestmentDecisionRecord[];
   assets: AssetEntry[];
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];

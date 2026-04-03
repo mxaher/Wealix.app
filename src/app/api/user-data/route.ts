@@ -24,6 +24,7 @@ const remoteUserWorkspaceSchema = z.object({
   receiptScans: z.array(z.unknown()),
   portfolioHoldings: z.array(z.unknown()),
   portfolioAnalysisHistory: z.array(z.unknown()),
+  investmentDecisionHistory: z.array(z.unknown()),
   assets: z.array(z.unknown()),
   liabilities: z.array(z.unknown()),
   budgetLimits: z.array(z.unknown()),

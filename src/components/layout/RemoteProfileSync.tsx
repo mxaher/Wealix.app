@@ -15,6 +15,7 @@ export function RemoteProfileSync() {
   const receiptScans = useAppStore((state) => state.receiptScans);
   const portfolioHoldings = useAppStore((state) => state.portfolioHoldings);
   const portfolioAnalysisHistory = useAppStore((state) => state.portfolioAnalysisHistory);
+  const investmentDecisionHistory = useAppStore((state) => state.investmentDecisionHistory);
   const assets = useAppStore((state) => state.assets);
   const liabilities = useAppStore((state) => state.liabilities);
   const budgetLimits = useAppStore((state) => state.budgetLimits);
@@ -28,6 +29,7 @@ export function RemoteProfileSync() {
     receiptScans,
     portfolioHoldings,
     portfolioAnalysisHistory,
+    investmentDecisionHistory,
     assets,
     liabilities,
     budgetLimits,
@@ -40,6 +42,7 @@ export function RemoteProfileSync() {
     receiptScans,
     portfolioHoldings,
     portfolioAnalysisHistory,
+    investmentDecisionHistory,
     assets,
     liabilities,
     budgetLimits,
