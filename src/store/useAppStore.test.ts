@@ -7,6 +7,7 @@ function resetStore() {
     locale: 'en',
     theme: 'light',
     appMode: 'demo',
+    startPage: 'dashboard',
     notificationPreferences: {
       email: true,
       push: true,
@@ -113,6 +114,7 @@ describe('useAppStore mode isolation', () => {
     const persistableWhileDemo = getPersistableWorkspaceSnapshot(useAppStore.getState());
     expect(useAppStore.getState().incomeEntries.some((entry) => entry.id === 'income-demo')).toBe(true);
     expect(persistableWhileDemo.appMode).toBe('live');
+    expect(persistableWhileDemo.startPage).toBe('dashboard');
     expect(persistableWhileDemo.incomeEntries.map((entry) => entry.id)).toEqual(['income-live']);
 
     useAppStore.getState().setAppMode('live');
@@ -135,6 +137,7 @@ describe('useAppStore mode isolation', () => {
 
     useAppStore.getState().stashRemoteWorkspace({
       appMode: 'live',
+      startPage: 'portfolio',
       notificationPreferences: useAppStore.getState().notificationPreferences,
       notificationFeed: [],
       incomeEntries: [buildIncomeEntry('income-remote', 'Remote Salary')],
@@ -154,5 +157,6 @@ describe('useAppStore mode isolation', () => {
     useAppStore.getState().setAppMode('live');
 
     expect(useAppStore.getState().incomeEntries.map((entry) => entry.id)).toEqual(['income-remote']);
+    expect(useAppStore.getState().startPage).toBe('portfolio');
   });
 });

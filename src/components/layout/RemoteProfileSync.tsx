@@ -13,6 +13,7 @@ export function RemoteProfileSync() {
   const hydrateRemoteWorkspace = useAppStore((state) => state.hydrateRemoteWorkspace);
   const stashRemoteWorkspace = useAppStore((state) => state.stashRemoteWorkspace);
   const appMode = useAppStore((state) => state.appMode);
+  const startPage = useAppStore((state) => state.startPage);
   const profiles = useAppStore((state) => state.profiles);
   const activeProfileId = useAppStore((state) => state.activeProfileId);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
@@ -29,6 +30,7 @@ export function RemoteProfileSync() {
 
   const remoteWorkspace = useMemo<RemoteWorkspaceSnapshot>(() => getPersistableWorkspaceSnapshot({
     appMode,
+    startPage,
     activeProfileId,
     profiles,
     notificationPreferences,
@@ -45,6 +47,7 @@ export function RemoteProfileSync() {
   }), [
     activeProfileId,
     appMode,
+    startPage,
     profiles,
     notificationPreferences,
     notificationFeed,

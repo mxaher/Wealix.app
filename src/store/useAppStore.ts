@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { useUser } from '@clerk/nextjs';
 import { getBillingState } from '@/lib/billing-state';
 import { createOpaqueId } from '@/lib/ids';
+import { DEFAULT_START_PAGE, isStartPage, type StartPage } from '@/lib/start-page';
 
 const APP_STORAGE_KEY = 'wealix-storage-v4';
 const LEGACY_STORAGE_KEYS = ['wealthos-storage', 'wealix-storage-v3'];
@@ -71,6 +72,7 @@ export interface LocalProfile {
   email: string;
   avatarUrl: string | null;
   appMode: AppMode;
+  startPage: StartPage;
   user: User | null;
   notificationPreferences: NotificationPreferences;
   notificationFeed: NotificationItem[];
@@ -269,6 +271,7 @@ export interface BudgetLimit {
 
 export interface RemoteWorkspaceSnapshot {
   appMode: AppMode;
+  startPage: StartPage;
   notificationPreferences: NotificationPreferences;
   notificationFeed: NotificationItem[];
   incomeEntries: IncomeEntry[];
@@ -284,6 +287,7 @@ export interface RemoteWorkspaceSnapshot {
 
 function workspaceFieldsToSnapshot(source: {
   appMode: AppMode;
+  startPage: StartPage;
   notificationPreferences: NotificationPreferences;
   notificationFeed: NotificationItem[];
   incomeEntries: IncomeEntry[];
@@ -298,6 +302,7 @@ function workspaceFieldsToSnapshot(source: {
 }): RemoteWorkspaceSnapshot {
   return {
     appMode: source.appMode,
+    startPage: source.startPage,
     notificationPreferences: source.notificationPreferences,
     notificationFeed: source.notificationFeed,
     incomeEntries: source.incomeEntries,
@@ -826,6 +831,7 @@ function sanitizeRemoteWorkspace(workspace: Partial<RemoteWorkspaceSnapshot> | u
 
   return {
     appMode: workspace?.appMode === 'demo' ? 'demo' : 'live',
+    startPage: isStartPage(workspace?.startPage) ? workspace.startPage : DEFAULT_START_PAGE,
     notificationPreferences: {
       ...defaultNotificationPreferences,
       ...(workspace?.notificationPreferences ?? {}),
@@ -851,6 +857,7 @@ function createProfileSnapshot(
   overrides?: {
     user?: User | null;
     notificationPreferences?: NotificationPreferences;
+    startPage?: StartPage;
   }
 ): LocalProfile {
   return {
@@ -859,6 +866,7 @@ function createProfileSnapshot(
     email,
     avatarUrl: overrides?.user?.avatarUrl ?? state.user?.avatarUrl ?? null,
     appMode: state.appMode,
+    startPage: overrides?.startPage ?? DEFAULT_START_PAGE,
     user: overrides?.user ?? state.user,
     notificationPreferences: overrides?.notificationPreferences ?? defaultNotificationPreferences,
     notificationFeed: state.notificationFeed,
@@ -878,9 +886,52 @@ function findProfileById(profiles: LocalProfile[], profileId: string) {
   return profiles.find((profile) => profile.id === profileId);
 }
 
+function normalizeLocalProfiles(profiles: unknown): LocalProfile[] {
+  if (!Array.isArray(profiles)) {
+    return [];
+  }
+
+  return profiles.flatMap((profile) => {
+    if (!profile || typeof profile !== 'object') {
+      return [];
+    }
+
+    const item = profile as Partial<LocalProfile>;
+
+    if (typeof item.id !== 'string' || typeof item.label !== 'string' || typeof item.email !== 'string') {
+      return [];
+    }
+
+    return [{
+      id: item.id,
+      label: item.label,
+      email: item.email,
+      avatarUrl: typeof item.avatarUrl === 'string' ? item.avatarUrl : null,
+      appMode: item.appMode === 'demo' ? 'demo' : 'live',
+      startPage: isStartPage(item.startPage) ? item.startPage : DEFAULT_START_PAGE,
+      user: item.user ?? null,
+      notificationPreferences: {
+        ...defaultNotificationPreferences,
+        ...(item.notificationPreferences ?? {}),
+      },
+      notificationFeed: Array.isArray(item.notificationFeed) ? item.notificationFeed : [],
+      incomeEntries: Array.isArray(item.incomeEntries) ? item.incomeEntries : [],
+      expenseEntries: Array.isArray(item.expenseEntries) ? item.expenseEntries : [],
+      receiptScans: Array.isArray(item.receiptScans) ? item.receiptScans : [],
+      portfolioHoldings: Array.isArray(item.portfolioHoldings) ? item.portfolioHoldings : [],
+      portfolioAnalysisHistory: normalizePortfolioAnalysisHistory(item.portfolioAnalysisHistory),
+      investmentDecisionHistory: normalizeInvestmentDecisionHistory(item.investmentDecisionHistory),
+      assets: normalizeAssetEntries(item.assets),
+      liabilities: normalizeLiabilityEntries(item.liabilities),
+      budgetLimits: Array.isArray(item.budgetLimits) ? item.budgetLimits : [],
+    }];
+  });
+}
+
 function profileToRemoteWorkspace(profile: LocalProfile): RemoteWorkspaceSnapshot {
   return workspaceFieldsToSnapshot({
     appMode: 'live',
+    startPage: profile.startPage,
     notificationPreferences: profile.notificationPreferences,
     notificationFeed: profile.notificationFeed,
     incomeEntries: profile.incomeEntries,
@@ -903,6 +954,7 @@ function snapshotActiveProfile(state: AppState): LocalProfile {
     email: state.user?.email || existing?.email || '',
     avatarUrl: state.user?.avatarUrl || existing?.avatarUrl || null,
     appMode: state.appMode,
+    startPage: state.startPage,
     user: state.user,
     notificationPreferences: state.notificationPreferences,
     notificationFeed: state.notificationFeed,
@@ -943,6 +995,7 @@ function syncActiveProfileState(state: AppState, partial: Partial<AppState>) {
 function profileToState(profile: LocalProfile) {
   return {
     appMode: profile.appMode,
+    startPage: profile.startPage,
     user: profile.user,
     notificationPreferences: profile.notificationPreferences,
     notificationFeed: profile.notificationFeed,
@@ -976,6 +1029,8 @@ interface AppState {
   setTheme: (theme: Theme) => void;
   appMode: AppMode;
   setAppMode: (mode: AppMode) => void;
+  startPage: StartPage;
+  setStartPage: (startPage: StartPage) => void;
   notificationPreferences: NotificationPreferences;
   updateNotificationPreferences: (updates: Partial<NotificationPreferences>) => void;
   notificationFeed: NotificationItem[];
@@ -1094,6 +1149,7 @@ export const useAppStore = create<AppState>()(
                 }
               : null,
             notificationPreferences: activeProfile?.notificationPreferences ?? state.notificationPreferences,
+            startPage: activeProfile?.startPage ?? state.startPage,
             sidebarCollapsed: false,
             activeDashboardTab: 'overview',
             selectedExchange: 'all',
@@ -1152,6 +1208,12 @@ export const useAppStore = create<AppState>()(
           isLoading: false,
         });
       }),
+      startPage: DEFAULT_START_PAGE,
+      setStartPage: (startPage) => set((state) =>
+        syncActiveProfileState(state, {
+          startPage,
+        })
+      ),
       notificationPreferences: initialGuestProfile.notificationPreferences,
       updateNotificationPreferences: (updates) => set((state) =>
         syncActiveProfileState(state, {
@@ -1362,6 +1424,7 @@ export const useAppStore = create<AppState>()(
         const sanitizedWorkspace = sanitizeRemoteWorkspace(workspace);
         return syncActiveProfileState(state, {
           appMode: sanitizedWorkspace.appMode,
+          startPage: sanitizedWorkspace.startPage,
           notificationPreferences: sanitizedWorkspace.notificationPreferences,
           notificationFeed: sanitizedWorkspace.notificationFeed,
           incomeEntries: sanitizedWorkspace.incomeEntries,
@@ -1400,6 +1463,7 @@ export const useAppStore = create<AppState>()(
           email: state.user?.email || existingProfile?.email || '',
           avatarUrl: state.user?.avatarUrl ?? existingProfile?.avatarUrl ?? null,
           appMode: 'live',
+          startPage: sanitizedWorkspace.startPage,
           user: state.user ?? existingProfile?.user ?? null,
           notificationPreferences: sanitizedWorkspace.notificationPreferences,
           notificationFeed: sanitizedWorkspace.notificationFeed,
@@ -1444,6 +1508,7 @@ export const useAppStore = create<AppState>()(
               : null,
             locale: 'en',
             theme: 'light',
+            startPage: DEFAULT_START_PAGE,
             notificationPreferences: defaultNotificationPreferences,
             sidebarCollapsed: false,
             activeDashboardTab: 'overview',
@@ -1505,7 +1570,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: APP_STORAGE_KEY,
-      version: 4,
+      version: 5,
       migrate: (persistedState, _version) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return persistedState as AppState;
@@ -1519,10 +1584,11 @@ export const useAppStore = create<AppState>()(
         return {
           ...nextState,
           ...sanitizeRemoteWorkspace(nextState),
-          profiles: Array.isArray(nextState.profiles) ? nextState.profiles : [],
+          profiles: normalizeLocalProfiles(nextState.profiles),
           activeProfileId: typeof nextState.activeProfileId === 'string' ? nextState.activeProfileId : initialGuestProfile.id,
           locale,
           theme,
+          startPage: isStartPage(nextState.startPage) ? nextState.startPage : DEFAULT_START_PAGE,
           sidebarCollapsed: Boolean(nextState.sidebarCollapsed),
           shariahFilterEnabled: Boolean(nextState.shariahFilterEnabled),
         };
@@ -1532,6 +1598,7 @@ export const useAppStore = create<AppState>()(
         locale: state.locale,
         theme: state.theme,
         appMode: state.appMode,
+        startPage: state.startPage,
         profiles: state.profiles,
         activeProfileId: state.activeProfileId,
         notificationPreferences: state.notificationPreferences,
@@ -1557,6 +1624,7 @@ export function getPersistableWorkspaceSnapshot(state: Pick<
   | 'appMode'
   | 'activeProfileId'
   | 'profiles'
+  | 'startPage'
   | 'notificationPreferences'
   | 'notificationFeed'
   | 'incomeEntries'
@@ -1578,6 +1646,7 @@ export function getPersistableWorkspaceSnapshot(state: Pick<
 
   return workspaceFieldsToSnapshot({
     appMode: state.appMode === 'demo' ? 'live' : state.appMode,
+    startPage: state.startPage,
     notificationPreferences: state.notificationPreferences,
     notificationFeed: state.notificationFeed,
     incomeEntries: state.incomeEntries,

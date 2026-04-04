@@ -39,7 +39,7 @@ export function SectionErrorState({
             Try again
           </Button>
           <Button asChild variant="outline">
-            <a href="/app">Go to dashboard</a>
+            <a href="/dashboard">Go to dashboard</a>
           </Button>
         </div>
       </CardContent>

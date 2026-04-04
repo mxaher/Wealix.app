@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
 const isProtectedApiRoute = createRouteMatcher(['/api(.*)']);
 const isAppRoute = createRouteMatcher([
   '/app(.*)',
+  '/dashboard(.*)',
   '/settings(.*)',
   '/advisor(.*)',
   '/budget(.*)',

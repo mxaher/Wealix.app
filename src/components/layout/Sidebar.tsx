@@ -26,12 +26,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WealixLogo } from '@/components/shared/WealixLogo';
 import { useSubscription } from '@/store/useAppStore';
+import { getStartPageHref } from '@/lib/start-page';
 
 const navSections = [
   {
     title: { en: 'Overview', ar: 'نظرة عامة' },
     items: [
-      { href: '/app', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
+      { href: '/dashboard', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
       { href: '/net-worth', label: { en: 'Net Worth', ar: 'صافي الثروة' }, icon: ChartNoAxesCombined },
       { href: '/budget', label: { en: 'Budget', ar: 'الميزانية' }, icon: Landmark },
       { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
@@ -63,9 +64,10 @@ const navSections = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { locale, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { locale, sidebarCollapsed, toggleSidebar, startPage } = useAppStore();
   const { tier, trialActive } = useSubscription();
   const isArabic = locale === 'ar';
+  const startPageHref = getStartPageHref(startPage);
   const subscriptionLabel = trialActive
     ? isArabic
       ? 'تجريبي'
@@ -91,7 +93,7 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link href="/app" dir="ltr" className="overflow-hidden">
+          <Link href={startPageHref} dir="ltr" className="overflow-hidden">
             <WealixLogo compact={sidebarCollapsed} textClassName={sidebarCollapsed ? 'sr-only' : ''} />
           </Link>
           {!sidebarCollapsed && (

@@ -13,9 +13,11 @@ import type {
   PortfolioHolding,
   ReceiptScanResult,
 } from '@/store/useAppStore';
+import type { StartPage } from '@/lib/start-page';
 
 export type RemoteUserWorkspace = {
   appMode: AppMode;
+  startPage: StartPage;
   notificationPreferences: NotificationPreferences;
   notificationFeed: NotificationItem[];
   incomeEntries: IncomeEntry[];

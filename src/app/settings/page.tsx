@@ -34,6 +34,7 @@ import { DashboardShell } from '@/components/layout';
 import { useAppStore } from '@/store/useAppStore';
 import { useTheme } from 'next-themes';
 import { toast } from '@/hooks/use-toast';
+import { getStartPageHref, type StartPage } from '@/lib/start-page';
 
 // ---------------------------------------------------------------------------
 // Pricing data — kept in sync with LandingPageClient.tsx pricingByCycle
@@ -141,6 +142,8 @@ function SettingsPageContent() {
     clearAllData,
     appMode,
     setAppMode,
+    startPage,
+    setStartPage,
   } = useAppStore();
   const { user: clerkUser } = useUser();
   const isSignedIn = Boolean(clerkUser);
@@ -227,6 +230,17 @@ function SettingsPageContent() {
     key: 'email' | 'push' | 'priceAlerts' | 'budgetAlerts' | 'weeklyDigest',
     value: boolean
   ) => { updateNotificationPreferences({ [key]: value }); };
+
+  const handleStartPageChange = (value: StartPage) => {
+    if (!isSignedIn) { requireAccount(); return; }
+    setStartPage(value);
+    toast({
+      title: isArabic ? 'تم تحديث صفحة البدء' : 'Start page updated',
+      description: isArabic
+        ? 'سيتم فتح التطبيق على الصفحة التي اخترتها في المرة القادمة.'
+        : 'The app will open on your selected page the next time you enter it.',
+    });
+  };
 
   const handleDeleteAllData = () => {
     clearAllData();
@@ -382,6 +396,31 @@ function SettingsPageContent() {
                     </SelectContent>
                   </Select>
                 </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>{isArabic ? 'صفحة البدء' : 'Start Page'}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {isArabic
+                        ? 'اختر الصفحة التي تفتح أولاً عند دخول التطبيق.'
+                        : 'Choose which page opens first when you enter the app.'}
+                    </p>
+                  </div>
+                  <Select value={startPage} onValueChange={(value) => handleStartPageChange(value as StartPage)} disabled={!isSignedIn}>
+                    <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dashboard">{isArabic ? 'لوحة التحكم' : 'Dashboard'}</SelectItem>
+                      <SelectItem value="portfolio">{isArabic ? 'المحفظة' : 'Portfolio'}</SelectItem>
+                      <SelectItem value="advisor">{isArabic ? 'المستشار الذكي' : 'AI Advisor'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {isArabic ? 'الرابط الحالي:' : 'Current destination:'}{' '}
+                  <Link href={getStartPageHref(startPage)} className="font-medium text-foreground underline-offset-4 hover:underline">
+                    {getStartPageHref(startPage)}
+                  </Link>
+                </p>
                 <Separator />
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">

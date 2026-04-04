@@ -8,9 +8,11 @@ import {
   saveRemoteWorkspace,
   type RemoteUserWorkspace,
 } from '@/lib/remote-user-data';
+import { START_PAGE_VALUES } from '@/lib/start-page';
 
 const remoteUserWorkspaceSchema = z.object({
   appMode: z.enum(['demo', 'live']),
+  startPage: z.enum(START_PAGE_VALUES),
   notificationPreferences: z.object({
     email: z.boolean(),
     push: z.boolean(),

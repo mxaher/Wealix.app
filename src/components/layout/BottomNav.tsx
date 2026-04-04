@@ -22,16 +22,17 @@ import {
   FileText,
   Settings,
 } from 'lucide-react';
+import { getStartPageHref } from '@/lib/start-page';
 
 const bottomNavItems = [
-  { href: '/app', label: { en: 'Home', ar: 'الرئيسية' }, icon: LayoutDashboard },
+  { href: 'start-page', label: { en: 'Home', ar: 'الرئيسية' }, icon: LayoutDashboard },
   { href: '/income', label: { en: 'Income', ar: 'الدخل' }, icon: TrendingUp },
   { href: '/expenses', label: { en: 'Expenses', ar: 'المصروفات' }, icon: Receipt },
   { href: '/advisor', label: { en: 'AI', ar: 'المستشار' }, icon: Bot },
 ];
 
 const allNavItems = [
-  { href: '/app', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
+  { href: '/dashboard', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
   { href: '/income', label: { en: 'Income', ar: 'الدخل' }, icon: TrendingUp },
   { href: '/expenses', label: { en: 'Expenses', ar: 'المصروفات' }, icon: Receipt },
   { href: '/net-worth', label: { en: 'Net Worth', ar: 'صافي الثروة' }, icon: Wallet },
@@ -46,8 +47,9 @@ const allNavItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { locale } = useAppStore();
+  const { locale, startPage } = useAppStore();
   const isArabic = locale === 'ar';
+  const startPageHref = getStartPageHref(startPage);
 
   return (
     <>
@@ -55,13 +57,14 @@ export function BottomNav() {
       <nav className="glass md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border/70">
         <div className="flex items-center justify-around h-16 px-2">
           {bottomNavItems.map((item) => {
-            const isActive = pathname === item.href;
+            const href = item.href === 'start-page' ? startPageHref : item.href;
+            const isActive = pathname === href;
             const Icon = item.icon;
 
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={href}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-lg transition-colors',
                   isActive

@@ -6,6 +6,7 @@ describe('saveRemoteWorkspace', () => {
     await expect(
       saveRemoteWorkspace('user_demo', {
         appMode: 'demo',
+        startPage: 'dashboard',
         notificationPreferences: {
           email: true,
           push: true,
