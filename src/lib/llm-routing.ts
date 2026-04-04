@@ -121,7 +121,7 @@ export function getAiProviderModel(surface: AiSurface, provider: AiProvider) {
 export function getAiProviderEndpoint(provider: AiProvider) {
   if (provider === 'gemma') {
     return {
-      apiKey: readEnv('GEMMA_API_KEY') || readEnv('NVIDIA_API_KEY'),
+      apiKey: readEnv('GEMMA_API_KEY'),
       apiBase: (readEnv('GEMMA_API_BASE') || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, ''),
     };
   }
@@ -130,6 +130,10 @@ export function getAiProviderEndpoint(provider: AiProvider) {
     apiKey: readEnv('NVIDIA_API_KEY'),
     apiBase: (readEnv('NVIDIA_API_BASE') || 'https://integrate.api.nvidia.com/v1').replace(/\/$/, ''),
   };
+}
+
+export function hasAiProviderApiKey(provider: AiProvider) {
+  return Boolean(getAiProviderEndpoint(provider).apiKey);
 }
 
 export function getGemmaApiMode(): GemmaApiMode {

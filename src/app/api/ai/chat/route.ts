@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { sanitizeUserMessage, logAiAuditEvent } from '@/lib/ai-safety';
 import { buildFinancialSnapshotFromWorkspace } from '@/lib/financial-snapshot';
-import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode, type AiProvider } from '@/lib/llm-routing';
+import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode, hasAiProviderApiKey, type AiProvider } from '@/lib/llm-routing';
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
@@ -580,7 +580,15 @@ async function createMergedAdvisorCompletion(params: {
 }) {
   const { locale, messages, primaryProvider, secondaryProvider } = params;
   const primaryDraft = await createAdvisorCompletion(primaryProvider, messages);
-  const secondaryDraft = await createAdvisorCompletion(secondaryProvider, messages);
+  let secondaryDraft: string;
+
+  try {
+    secondaryDraft = await createAdvisorCompletion(secondaryProvider, messages);
+  } catch (error) {
+    console.error('[ai/chat] secondary advisor provider failed during merge, returning primary draft', error);
+    return primaryDraft;
+  }
+
   const latestUserPrompt =
     [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
 
@@ -725,8 +733,16 @@ export async function POST(request: NextRequest) {
     const decision = getAiRouteDecision('advisor', authResult.userId!);
     let response: string;
     let responseProvider = decision.primaryProvider;
+    const primaryConfigured = hasAiProviderApiKey(decision.primaryProvider);
+    const secondaryConfigured = decision.secondaryProvider
+      ? hasAiProviderApiKey(decision.secondaryProvider)
+      : false;
     try {
-      if (decision.strategy === 'fallback' && decision.secondaryProvider) {
+      if (!primaryConfigured && decision.secondaryProvider && secondaryConfigured) {
+        console.warn('[ai/chat] primary advisor provider is not configured, using secondary provider');
+        response = await createAdvisorCompletion(decision.secondaryProvider, apiMessages);
+        responseProvider = decision.secondaryProvider;
+      } else if (decision.strategy === 'fallback' && decision.secondaryProvider) {
         try {
           response = await createAdvisorCompletion(decision.primaryProvider, apiMessages);
         } catch (primaryError) {
@@ -735,12 +751,17 @@ export async function POST(request: NextRequest) {
           responseProvider = decision.secondaryProvider;
         }
       } else if (decision.strategy === 'merge' && decision.secondaryProvider) {
-        response = await createMergedAdvisorCompletion({
-          locale: locale === 'ar' ? 'ar' : 'en',
-          messages: apiMessages,
-          primaryProvider: decision.primaryProvider,
-          secondaryProvider: decision.secondaryProvider,
-        });
+        if (!secondaryConfigured) {
+          console.warn('[ai/chat] merge strategy requested without a configured secondary provider, using primary provider only');
+          response = await createAdvisorCompletion(decision.primaryProvider, apiMessages);
+        } else {
+          response = await createMergedAdvisorCompletion({
+            locale: locale === 'ar' ? 'ar' : 'en',
+            messages: apiMessages,
+            primaryProvider: decision.primaryProvider,
+            secondaryProvider: decision.secondaryProvider,
+          });
+        }
       } else {
         response = await createAdvisorCompletion(decision.primaryProvider, apiMessages);
       }

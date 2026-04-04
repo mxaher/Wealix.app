@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode, type AiProvider } from '@/lib/llm-routing';
+import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode, hasAiProviderApiKey, type AiProvider } from '@/lib/llm-routing';
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { requirePaidTier } from '@/lib/server-auth';
 import type {
@@ -952,7 +952,15 @@ async function createMergedPortfolioAnalysis(params: {
 }) {
   const { locale, systemPrompt, userPrompt, primaryProvider, secondaryProvider } = params;
   const primaryDraft = await createPortfolioAnalysisCompletion(primaryProvider, systemPrompt, userPrompt);
-  const secondaryDraft = await createPortfolioAnalysisCompletion(secondaryProvider, systemPrompt, userPrompt);
+  let secondaryDraft: string;
+
+  try {
+    secondaryDraft = await createPortfolioAnalysisCompletion(secondaryProvider, systemPrompt, userPrompt);
+  } catch (error) {
+    console.error('[portfolio/analyze] secondary provider failed during merge, returning primary draft', error);
+    return primaryDraft;
+  }
+
   const mergePrompt = [
     locale === 'ar'
       ? 'لديك مسودتان لتحليل نفس المحفظة. ادمجهما في مخرجات JSON واحدة أقوى، وأكثر تحفظاً، وأكثر اتساقاً.'
@@ -1031,8 +1039,16 @@ export async function POST(request: NextRequest) {
     try {
       let content = '';
       let responseProvider = decision.primaryProvider;
+      const primaryConfigured = hasAiProviderApiKey(decision.primaryProvider);
+      const secondaryConfigured = decision.secondaryProvider
+        ? hasAiProviderApiKey(decision.secondaryProvider)
+        : false;
 
-      if (decision.strategy === 'fallback' && decision.secondaryProvider) {
+      if (!primaryConfigured && decision.secondaryProvider && secondaryConfigured) {
+        console.warn('[portfolio/analyze] primary provider is not configured, using secondary provider');
+        content = await createPortfolioAnalysisCompletion(decision.secondaryProvider, systemPrompt, userPrompt);
+        responseProvider = decision.secondaryProvider;
+      } else if (decision.strategy === 'fallback' && decision.secondaryProvider) {
         try {
           content = await createPortfolioAnalysisCompletion(decision.primaryProvider, systemPrompt, userPrompt);
         } catch (primaryError) {
@@ -1041,13 +1057,18 @@ export async function POST(request: NextRequest) {
           responseProvider = decision.secondaryProvider;
         }
       } else if (decision.strategy === 'merge' && decision.secondaryProvider) {
-        content = await createMergedPortfolioAnalysis({
-          locale,
-          systemPrompt,
-          userPrompt,
-          primaryProvider: decision.primaryProvider,
-          secondaryProvider: decision.secondaryProvider,
-        });
+        if (!secondaryConfigured) {
+          console.warn('[portfolio/analyze] merge strategy requested without a configured secondary provider, using primary provider only');
+          content = await createPortfolioAnalysisCompletion(decision.primaryProvider, systemPrompt, userPrompt);
+        } else {
+          content = await createMergedPortfolioAnalysis({
+            locale,
+            systemPrompt,
+            userPrompt,
+            primaryProvider: decision.primaryProvider,
+            secondaryProvider: decision.secondaryProvider,
+          });
+        }
       } else {
         content = await createPortfolioAnalysisCompletion(decision.primaryProvider, systemPrompt, userPrompt);
       }

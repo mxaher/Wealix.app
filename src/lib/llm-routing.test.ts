@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode } from '@/lib/llm-routing';
+import { getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode, hasAiProviderApiKey } from '@/lib/llm-routing';
 
 const originalEnv = { ...process.env };
 
@@ -55,5 +55,17 @@ describe('llm routing', () => {
       apiBase: 'https://example.com/v1',
     });
     expect(getGemmaApiMode()).toBe('openai-compatible');
+  });
+
+  test('does not reuse the NVIDIA key for Gemma requests', () => {
+    process.env.NVIDIA_API_KEY = 'nvidia-key';
+    delete process.env.GEMMA_API_KEY;
+
+    expect(getAiProviderEndpoint('gemma')).toEqual({
+      apiKey: '',
+      apiBase: 'https://generativelanguage.googleapis.com/v1beta',
+    });
+    expect(hasAiProviderApiKey('gemma')).toBe(false);
+    expect(hasAiProviderApiKey('nvidia')).toBe(true);
   });
 });
