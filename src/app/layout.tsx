@@ -92,12 +92,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/favicon.svg?v=20260404b",
+        url: "/favicon.svg?v=20260404c",
         type: "image/svg+xml",
         sizes: "any",
       },
     ],
-    shortcut: "/favicon.svg?v=20260404b",
+    shortcut: "/favicon.svg?v=20260404c",
     apple: "/wealix-apple-icon.svg?v=20260403a",
   },
   alternates: {
