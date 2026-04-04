@@ -33,7 +33,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div
       className={cn(
-        'min-h-screen overflow-x-clip bg-background',
+        'min-h-screen bg-background',
         isArabic && 'font-[family-name:var(--font-arabic)]'
       )}
       dir={isArabic ? 'rtl' : 'ltr'}
@@ -41,11 +41,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       {/* Desktop Sidebar */}
       <Sidebar />
 
-      {/* Main Content Area */}
+      {/* Main Content Area — overflow-x-clip here, not on the root, so fixed children (Sidebar, BottomNav) aren't trapped on iOS Safari */}
       <div
         style={{ marginInlineStart: sidebarOffset }}
         className={cn(
-          'min-w-0 max-w-full transition-[margin] duration-200',
+          'min-w-0 max-w-full overflow-x-clip transition-[margin] duration-200',
           'md:transition-none',
         )}
       >
