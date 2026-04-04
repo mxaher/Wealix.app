@@ -5,6 +5,7 @@ import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRo
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
+import { extractNvidiaAdvisorText } from './provider-response';
 
 // Financial advisor system prompt
 const FINANCIAL_ADVISOR_SYSTEM_PROMPT = `You are Wael, the AI Financial Advisor embedded inside Wealix.
@@ -147,13 +148,16 @@ type ChatMessage = {
 type NvidiaChatResponse = {
   choices?: Array<{
     message?: {
-      content?: string;
+      content?: string | Array<{ type?: string; text?: string }>;
+      reasoning_content?: string;
     };
   }>;
   error?: {
     message?: string;
   };
 };
+
+const DEFAULT_PROVIDER_TIMEOUT_MS = 25_000;
 
 type GeminiGenerateContentResponse = {
   candidates?: Array<{
@@ -502,32 +506,39 @@ async function createAdvisorCompletion(provider: AiProvider, messages: ChatMessa
     const conversation = firstMessage?.role === 'system' ? restMessages : messages;
     const modelPath = model.startsWith('models/') ? model : `models/${model}`;
 
-    const response = await fetch(`${apiBase}/${modelPath}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: conversation.map((message) => ({
-          role: message.role === 'assistant' ? 'model' : 'user',
-          parts: [{
-            text: message.role === 'user'
-              ? buildGemmaNativeUserTurn({
-                  systemPrompt: systemInstruction,
-                  userPrompt: message.content,
-                })
-              : message.content,
-          }],
-        })),
-        generationConfig: {
-          temperature: 0.25,
-          topP: 0.9,
-          maxOutputTokens: 1600,
+    let response: Response;
+    try {
+      response = await fetch(`${apiBase}/${modelPath}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
-      }),
-      cache: 'no-store',
-    });
+        body: JSON.stringify({
+          contents: conversation.map((message) => ({
+            role: message.role === 'assistant' ? 'model' : 'user',
+            parts: [{
+              text: message.role === 'user'
+                ? buildGemmaNativeUserTurn({
+                    systemPrompt: systemInstruction,
+                    userPrompt: message.content,
+                  })
+                : message.content,
+            }],
+          })),
+          generationConfig: {
+            temperature: 0.25,
+            topP: 0.9,
+            maxOutputTokens: 1600,
+          },
+        }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(DEFAULT_PROVIDER_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown Gemma request failure.';
+      throw new Error(/aborted|timeout/i.test(message) ? 'Gemma API request timed out' : `Gemma API request failed: ${message}`);
+    }
 
     const json = await response.json().catch(() => null) as GeminiGenerateContentResponse | null;
     if (!response.ok) {
@@ -545,30 +556,37 @@ async function createAdvisorCompletion(provider: AiProvider, messages: ChatMessa
     return content;
   }
 
-  const response = await fetch(`${apiBase}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.25,
-      top_p: 0.9,
-      max_tokens: 1600,
-    }),
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.25,
+        top_p: 0.9,
+        max_tokens: 1600,
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(DEFAULT_PROVIDER_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `Unknown ${provider.toUpperCase()} request failure.`;
+    throw new Error(/aborted|timeout/i.test(message) ? `${provider.toUpperCase()} API request timed out` : `${provider.toUpperCase()} API request failed: ${message}`);
+  }
 
   const json = await response.json().catch(() => null) as NvidiaChatResponse | null;
   if (!response.ok) {
     throw new Error(json?.error?.message || `${provider.toUpperCase()} API request failed with status ${response.status}`);
   }
 
-  const content = json?.choices?.[0]?.message?.content?.trim();
+  const content = extractNvidiaAdvisorText(json);
   if (!content) {
-    throw new Error('The advisor returned an empty response.');
+    throw new Error(`The ${provider} advisor returned an empty response.`);
   }
 
   return content;
