@@ -117,6 +117,20 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    if (parsed.data.appMode !== 'live') {
+      console.warn('[user-data] blocked demo workspace write', {
+        clerkUserId: authResult.userId,
+        appMode: parsed.data.appMode,
+      });
+      return NextResponse.json(
+        {
+          error: 'Demo mode data cannot be persisted to the live workspace.',
+          code: 'DEMO_WRITE_BLOCKED',
+        },
+        { status: 409, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const result = await saveRemoteWorkspace(authResult.userId, parsed.data as RemoteUserWorkspace, knownUpdatedAt);
 
     if (knownUpdatedAt && result.updatedAt && knownUpdatedAt !== result.updatedAt) {

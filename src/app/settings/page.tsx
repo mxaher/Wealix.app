@@ -218,8 +218,8 @@ function SettingsPageContent() {
         ? (isArabic ? 'تم تفعيل الوضع التجريبي' : 'Demo mode enabled')
         : (isArabic ? 'تم تفعيل الوضع المباشر' : 'Live mode enabled'),
       description: mode === 'demo'
-        ? (isArabic ? 'تمت استعادة بيانات العرض التجريبي الحالية.' : 'The sample demo dataset has been restored.')
-        : (isArabic ? 'تم تنظيف بيانات العرض التجريبي والتطبيق جاهزاً لبياناتك الحقيقية.' : 'Sample demo data was cleared and the app is ready for real entries.'),
+        ? (isArabic ? 'تم عزل بياناتك الحقيقية والانتقال إلى مساحة العرض التجريبي بأمان.' : 'Your live workspace is preserved and the app switched to an isolated demo sandbox.')
+        : (isArabic ? 'تمت استعادة بياناتك الحقيقية بأمان.' : 'Your live workspace has been restored safely.'),
     });
   };
 

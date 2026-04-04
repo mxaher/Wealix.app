@@ -86,6 +86,14 @@ export async function saveRemoteWorkspace(
   workspace: RemoteUserWorkspace,
   knownUpdatedAt?: string | null
 ): Promise<RemoteWorkspaceRecord> {
+  if (workspace.appMode !== 'live') {
+    console.warn('[user-data] blocked non-live workspace persistence attempt', {
+      clerkUserId,
+      appMode: workspace.appMode,
+    });
+    throw new Error('Refusing to persist non-live workspace data.');
+  }
+
   const db = getD1Database();
 
   if (!db) {

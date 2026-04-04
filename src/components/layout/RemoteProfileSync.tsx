@@ -2,12 +2,19 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { useAppStore, type RemoteWorkspaceSnapshot } from '@/store/useAppStore';
+import {
+  getPersistableWorkspaceSnapshot,
+  useAppStore,
+  type RemoteWorkspaceSnapshot,
+} from '@/store/useAppStore';
 
 export function RemoteProfileSync() {
   const { isLoaded, isSignedIn, user } = useUser();
   const hydrateRemoteWorkspace = useAppStore((state) => state.hydrateRemoteWorkspace);
+  const stashRemoteWorkspace = useAppStore((state) => state.stashRemoteWorkspace);
   const appMode = useAppStore((state) => state.appMode);
+  const profiles = useAppStore((state) => state.profiles);
+  const activeProfileId = useAppStore((state) => state.activeProfileId);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const notificationFeed = useAppStore((state) => state.notificationFeed);
   const incomeEntries = useAppStore((state) => state.incomeEntries);
@@ -20,8 +27,10 @@ export function RemoteProfileSync() {
   const liabilities = useAppStore((state) => state.liabilities);
   const budgetLimits = useAppStore((state) => state.budgetLimits);
 
-  const remoteWorkspace = useMemo<RemoteWorkspaceSnapshot>(() => ({
+  const remoteWorkspace = useMemo<RemoteWorkspaceSnapshot>(() => getPersistableWorkspaceSnapshot({
     appMode,
+    activeProfileId,
+    profiles,
     notificationPreferences,
     notificationFeed,
     incomeEntries,
@@ -34,7 +43,9 @@ export function RemoteProfileSync() {
     liabilities,
     budgetLimits,
   }), [
+    activeProfileId,
     appMode,
+    profiles,
     notificationPreferences,
     notificationFeed,
     incomeEntries,
@@ -103,7 +114,7 @@ export function RemoteProfileSync() {
           return;
         }
 
-        if (workspace) {
+        if (workspace && appMode === 'live') {
           applyingRemoteRef.current = true;
           hydrateRemoteWorkspace(workspace);
           lastSavedSnapshotRef.current = JSON.stringify(workspace);
@@ -111,6 +122,14 @@ export function RemoteProfileSync() {
           window.setTimeout(() => {
             applyingRemoteRef.current = false;
           }, 0);
+        } else if (workspace) {
+          stashRemoteWorkspace(workspace);
+          lastSavedSnapshotRef.current = JSON.stringify(workspace);
+          remoteUpdatedAtRef.current = updatedAt;
+          console.info('[remote-sync] refreshed live workspace while demo mode is active', {
+            userId: user.id,
+            syncScope: `${user.id}:live`,
+          });
         } else {
           lastSavedSnapshotRef.current = serializedWorkspace;
           remoteUpdatedAtRef.current = updatedAt;
@@ -151,7 +170,7 @@ export function RemoteProfileSync() {
       document.removeEventListener('visibilitychange', refreshWorkspace);
       window.clearInterval(intervalId);
     };
-  }, [hydrateRemoteWorkspace, isLoaded, isSignedIn, serializedWorkspace, user]);
+  }, [appMode, hydrateRemoteWorkspace, isLoaded, isSignedIn, serializedWorkspace, stashRemoteWorkspace, user]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !user) {
@@ -217,7 +236,7 @@ export function RemoteProfileSync() {
         saveTimerRef.current = null;
       }
     };
-  }, [isLoaded, isSignedIn, remoteWorkspace, serializedWorkspace, user]);
+  }, [appMode, isLoaded, isSignedIn, remoteWorkspace, serializedWorkspace, user]);
 
   return null;
 }

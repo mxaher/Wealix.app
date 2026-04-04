@@ -237,6 +237,36 @@ export interface RemoteWorkspaceSnapshot {
   budgetLimits: BudgetLimit[];
 }
 
+function workspaceFieldsToSnapshot(source: {
+  appMode: AppMode;
+  notificationPreferences: NotificationPreferences;
+  notificationFeed: NotificationItem[];
+  incomeEntries: IncomeEntry[];
+  expenseEntries: ExpenseEntry[];
+  receiptScans: ReceiptScanResult[];
+  portfolioHoldings: PortfolioHolding[];
+  portfolioAnalysisHistory: PortfolioAnalysisRecord[];
+  investmentDecisionHistory: InvestmentDecisionRecord[];
+  assets: AssetEntry[];
+  liabilities: LiabilityEntry[];
+  budgetLimits: BudgetLimit[];
+}): RemoteWorkspaceSnapshot {
+  return {
+    appMode: source.appMode,
+    notificationPreferences: source.notificationPreferences,
+    notificationFeed: source.notificationFeed,
+    incomeEntries: source.incomeEntries,
+    expenseEntries: source.expenseEntries,
+    receiptScans: source.receiptScans,
+    portfolioHoldings: source.portfolioHoldings,
+    portfolioAnalysisHistory: source.portfolioAnalysisHistory,
+    investmentDecisionHistory: source.investmentDecisionHistory,
+    assets: source.assets,
+    liabilities: source.liabilities,
+    budgetLimits: source.budgetLimits,
+  };
+}
+
 function normalizeHoldingKey(holding: Pick<PortfolioHolding, 'ticker' | 'exchange'>) {
   const baseTicker = holding.exchange === 'TASI'
     ? holding.ticker.trim().toUpperCase().replace(/\.SR$/i, '')
@@ -711,6 +741,27 @@ function createProfileSnapshot(
   };
 }
 
+function findProfileById(profiles: LocalProfile[], profileId: string) {
+  return profiles.find((profile) => profile.id === profileId);
+}
+
+function profileToRemoteWorkspace(profile: LocalProfile): RemoteWorkspaceSnapshot {
+  return workspaceFieldsToSnapshot({
+    appMode: 'live',
+    notificationPreferences: profile.notificationPreferences,
+    notificationFeed: profile.notificationFeed,
+    incomeEntries: profile.incomeEntries,
+    expenseEntries: profile.expenseEntries,
+    receiptScans: profile.receiptScans,
+    portfolioHoldings: profile.portfolioHoldings,
+    portfolioAnalysisHistory: profile.portfolioAnalysisHistory,
+    investmentDecisionHistory: profile.investmentDecisionHistory,
+    assets: profile.assets,
+    liabilities: profile.liabilities,
+    budgetLimits: profile.budgetLimits,
+  });
+}
+
 function snapshotActiveProfile(state: AppState): LocalProfile {
   const existing = state.profiles.find((profile) => profile.id === state.activeProfileId);
   return {
@@ -745,7 +796,11 @@ function upsertProfile(profiles: LocalProfile[], nextProfile: LocalProfile) {
 
 function syncActiveProfileState(state: AppState, partial: Partial<AppState>) {
   const nextState = { ...state, ...partial } as AppState;
-  const nextProfile = snapshotActiveProfile(nextState);
+  const preservePersistedLiveProfile =
+    nextState.appMode === 'demo' && nextState.activeProfileId !== initialGuestProfile.id;
+  const nextProfile = preservePersistedLiveProfile
+    ? findProfileById(state.profiles, nextState.activeProfileId) ?? snapshotActiveProfile(state)
+    : snapshotActiveProfile(nextState);
   return {
     ...partial,
     profiles: upsertProfile(state.profiles, nextProfile),
@@ -826,6 +881,7 @@ interface AppState {
   budgetLimits: BudgetLimit[];
   setBudgetLimits: (limits: BudgetLimit[]) => void;
   hydrateRemoteWorkspace: (workspace: RemoteWorkspaceSnapshot) => void;
+  stashRemoteWorkspace: (workspace: RemoteWorkspaceSnapshot) => void;
   clearAllData: () => void;
   setSubscriptionTier: (tier: SubscriptionTier) => void;
   
@@ -880,14 +936,21 @@ export const useAppStore = create<AppState>()(
       setTheme: (theme) => set({ theme }),
       appMode: initialGuestProfile.appMode,
       setAppMode: (mode) => set((state) => {
-        const seeded = mode === 'demo' ? buildDemoState() : buildLiveState();
-        const user =
-          mode === 'demo'
-            ? {
-                ...(state.user ?? defaultUser),
-                subscriptionTier: state.user?.subscriptionTier ?? 'none',
-              }
-            : state.user
+        if (state.appMode === mode) {
+          return {};
+        }
+
+        const activeProfile = findProfileById(state.profiles, state.activeProfileId);
+
+        if (mode === 'demo') {
+          console.info('[mode-switch] live -> demo', {
+            profileId: state.activeProfileId,
+            hasPersistedLiveProfile: Boolean(activeProfile),
+          });
+
+          return syncActiveProfileState(state, {
+            ...buildDemoState(),
+            user: state.user
               ? {
                   ...(state.user ?? defaultUser),
                   id: state.activeProfileId,
@@ -896,12 +959,56 @@ export const useAppStore = create<AppState>()(
                   avatarUrl: state.user?.avatarUrl ?? null,
                   subscriptionTier: state.user?.subscriptionTier ?? 'none',
                 }
-              : null;
+              : null,
+            notificationPreferences: activeProfile?.notificationPreferences ?? state.notificationPreferences,
+            sidebarCollapsed: false,
+            activeDashboardTab: 'overview',
+            selectedExchange: 'all',
+            shariahFilterEnabled: false,
+            selectedMonth: new Date().toISOString().slice(0, 7),
+            activeChatSession: null,
+            attachPortfolioContext: false,
+            isLoading: false,
+          });
+        }
+
+        const restoredState = activeProfile
+          ? {
+              ...profileToState(activeProfile),
+              user: activeProfile.user
+                ? {
+                    ...activeProfile.user,
+                    id: state.activeProfileId,
+                    name: state.user?.name ?? activeProfile.user.name ?? '',
+                    email: state.user?.email ?? activeProfile.user.email,
+                    avatarUrl: state.user?.avatarUrl ?? activeProfile.user.avatarUrl ?? null,
+                    subscriptionTier: state.user?.subscriptionTier ?? activeProfile.user.subscriptionTier ?? 'none',
+                  }
+                : state.user,
+            }
+          : {
+              ...buildLiveState(),
+              user: state.user
+                ? {
+                    ...(state.user ?? defaultUser),
+                    id: state.activeProfileId,
+                    name: state.user?.name ?? '',
+                    email: state.user?.email ?? '',
+                    avatarUrl: state.user?.avatarUrl ?? null,
+                    subscriptionTier: state.user?.subscriptionTier ?? 'none',
+                  }
+                : null,
+            };
+
+        console.info('[mode-switch] demo -> live', {
+          profileId: state.activeProfileId,
+          restoredFromPersistedProfile: Boolean(activeProfile),
+          restoredIncomeEntries: restoredState.incomeEntries.length,
+          restoredExpenseEntries: restoredState.expenseEntries.length,
+        });
 
         return syncActiveProfileState(state, {
-          ...seeded,
-          user,
-          notificationPreferences: defaultNotificationPreferences,
+          ...restoredState,
           sidebarCollapsed: false,
           activeDashboardTab: 'overview',
           selectedExchange: 'all',
@@ -1117,6 +1224,49 @@ export const useAppStore = create<AppState>()(
           budgetLimits: sanitizedWorkspace.budgetLimits,
         });
       }),
+      stashRemoteWorkspace: (workspace) => set((state) => {
+        if (state.activeProfileId === initialGuestProfile.id) {
+          return {};
+        }
+
+        const sanitizedWorkspace = sanitizeRemoteWorkspace({
+          ...workspace,
+          appMode: 'live',
+        });
+        const existingProfile = findProfileById(state.profiles, state.activeProfileId);
+        const nextProfile: LocalProfile = {
+          ...(existingProfile ?? createProfileSnapshot(
+            state.activeProfileId,
+            state.user?.name?.trim() || 'User',
+            state.user?.email || '',
+            buildLiveState(),
+            {
+              user: state.user,
+              notificationPreferences: sanitizedWorkspace.notificationPreferences,
+            }
+          )),
+          label: state.user?.name?.trim() || existingProfile?.label || 'User',
+          email: state.user?.email || existingProfile?.email || '',
+          avatarUrl: state.user?.avatarUrl ?? existingProfile?.avatarUrl ?? null,
+          appMode: 'live',
+          user: state.user ?? existingProfile?.user ?? null,
+          notificationPreferences: sanitizedWorkspace.notificationPreferences,
+          notificationFeed: sanitizedWorkspace.notificationFeed,
+          incomeEntries: sanitizedWorkspace.incomeEntries,
+          expenseEntries: sanitizedWorkspace.expenseEntries,
+          receiptScans: sanitizedWorkspace.receiptScans,
+          portfolioHoldings: mergePortfolioHoldingEntries(sanitizedWorkspace.portfolioHoldings),
+          portfolioAnalysisHistory: normalizePortfolioAnalysisHistory(sanitizedWorkspace.portfolioAnalysisHistory),
+          investmentDecisionHistory: normalizeInvestmentDecisionHistory(sanitizedWorkspace.investmentDecisionHistory),
+          assets: sanitizedWorkspace.assets,
+          liabilities: sanitizedWorkspace.liabilities,
+          budgetLimits: sanitizedWorkspace.budgetLimits,
+        };
+
+        return {
+          profiles: upsertProfile(state.profiles, nextProfile),
+        };
+      }),
       setSubscriptionTier: (tier) => set((state) =>
         syncActiveProfileState(state, {
           user: {
@@ -1250,6 +1400,46 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+export function getPersistableWorkspaceSnapshot(state: Pick<
+  AppState,
+  | 'appMode'
+  | 'activeProfileId'
+  | 'profiles'
+  | 'notificationPreferences'
+  | 'notificationFeed'
+  | 'incomeEntries'
+  | 'expenseEntries'
+  | 'receiptScans'
+  | 'portfolioHoldings'
+  | 'portfolioAnalysisHistory'
+  | 'investmentDecisionHistory'
+  | 'assets'
+  | 'liabilities'
+  | 'budgetLimits'
+>): RemoteWorkspaceSnapshot {
+  if (state.appMode === 'demo') {
+    const activeProfile = findProfileById(state.profiles, state.activeProfileId);
+    if (activeProfile) {
+      return profileToRemoteWorkspace(activeProfile);
+    }
+  }
+
+  return workspaceFieldsToSnapshot({
+    appMode: state.appMode === 'demo' ? 'live' : state.appMode,
+    notificationPreferences: state.notificationPreferences,
+    notificationFeed: state.notificationFeed,
+    incomeEntries: state.incomeEntries,
+    expenseEntries: state.expenseEntries,
+    receiptScans: state.receiptScans,
+    portfolioHoldings: state.portfolioHoldings,
+    portfolioAnalysisHistory: state.portfolioAnalysisHistory,
+    investmentDecisionHistory: state.investmentDecisionHistory,
+    assets: state.assets,
+    liabilities: state.liabilities,
+    budgetLimits: state.budgetLimits,
+  });
+}
 
 // Feature gating based on subscription
 export const useSubscription = () => {

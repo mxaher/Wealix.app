@@ -508,6 +508,16 @@ type GeminiGenerateContentResponse = {
   };
 };
 
+function buildGemmaNativePortfolioPrompt(systemPrompt: string, userPrompt: string) {
+  return [
+    'Instructions:',
+    systemPrompt,
+    '',
+    'User request:',
+    userPrompt,
+  ].join('\n');
+}
+
 async function createPortfolioAnalysisCompletion(provider: AiProvider, systemPrompt: string, userPrompt: string) {
   const { apiKey, apiBase } = getAiProviderEndpoint(provider);
   const model = getAiProviderModel('portfolio', provider);
@@ -525,11 +535,10 @@ async function createPortfolioAnalysisCompletion(provider: AiProvider, systemPro
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [
           {
             role: 'user',
-            parts: [{ text: userPrompt }],
+            parts: [{ text: buildGemmaNativePortfolioPrompt(systemPrompt, userPrompt) }],
           },
         ],
         generationConfig: {

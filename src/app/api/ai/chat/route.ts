@@ -107,6 +107,22 @@ type GeminiGenerateContentResponse = {
   };
 };
 
+function buildGemmaNativeUserTurn(params: {
+  systemPrompt?: string;
+  userPrompt: string;
+}) {
+  const { systemPrompt, userPrompt } = params;
+  return systemPrompt
+    ? [
+        'Instructions:',
+        systemPrompt,
+        '',
+        'User request:',
+        userPrompt,
+      ].join('\n')
+    : userPrompt;
+}
+
 type AdvisorUserContext = {
   snapshotDate?: string;
   currency?: string;
@@ -341,12 +357,16 @@ async function createAdvisorCompletion(provider: AiProvider, messages: ChatMessa
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        system_instruction: systemInstruction
-          ? { parts: [{ text: systemInstruction }] }
-          : undefined,
         contents: conversation.map((message) => ({
           role: message.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: message.content }],
+          parts: [{
+            text: message.role === 'user'
+              ? buildGemmaNativeUserTurn({
+                  systemPrompt: systemInstruction,
+                  userPrompt: message.content,
+                })
+              : message.content,
+          }],
         })),
         generationConfig: {
           temperature: 0.25,
