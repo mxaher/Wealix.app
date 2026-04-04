@@ -86,6 +86,7 @@ export function Sidebar() {
         initial={false}
         animate={{ width: sidebarCollapsed ? 84 : 280 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
+        dir={isArabic ? 'rtl' : 'ltr'}
         className={cn(
           'sidebar hidden h-screen flex-col border-sidebar-border bg-sidebar/96 backdrop-blur-sm md:flex',
           isArabic ? 'border-l' : 'border-r',
@@ -171,7 +172,7 @@ export function Sidebar() {
         <div className="border-t border-sidebar-border p-3">
           {!sidebarCollapsed && (
             <div className="mb-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-              <div className={cn('flex items-center gap-3', isArabic && 'flex-row-reverse text-right')}>
+              <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <ShieldCheck className="h-4 w-4" />
                 </div>
