@@ -1,5 +1,5 @@
-import { getPublicAppEnv } from '@/lib/env';
-import type { Alert, CompanyMetric, CompanyState, DecisionLog } from './types';
+import { runAgentModel } from './ai-client';
+import type { Alert, CompanyMetric, CompanyState, DecisionLog, SubAgentBriefing } from './types';
 
 type ReasoningResult = {
   reasoning: string;
@@ -13,33 +13,18 @@ export class ReasoningEngine {
     recentDecisions: DecisionLog[];
     activeAlerts: Alert[];
     metrics: CompanyMetric[];
+    briefings: SubAgentBriefing[];
     userQuery?: string;
   }): Promise<ReasoningResult> {
-    const response = await fetch(`${getPublicAppEnv().NEXT_PUBLIC_APP_URL}/api/internal/ai/agents`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-agent-secret': process.env.AGENTS_SECRET_KEY || '',
+    const parsed = await runAgentModel<Partial<ReasoningResult>>({
+      prompt: buildReasoningPrompt(input),
+      fallback: {
+        reasoning: 'CEO fallback reasoning triggered because the structured executive model response was unavailable.',
+        decisions: input.briefings.flatMap((briefing) => briefing.recommendations.slice(0, 1)),
+        nextActions: input.briefings.flatMap((briefing) => briefing.recommendations.slice(0, 1)).slice(0, 5),
       },
-      body: JSON.stringify({
-        response_format: 'json',
-        prompt: buildReasoningPrompt(input),
-      }),
-      cache: 'no-store',
     });
 
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`CEO reasoning request failed: ${response.status} ${body}`);
-    }
-
-    const payload = await response.json().catch(() => null) as { content?: string } | null;
-    const content = payload?.content;
-    if (!content) {
-      throw new Error('CEO reasoning response was empty.');
-    }
-
-    const parsed = JSON.parse(content) as Partial<ReasoningResult>;
     return {
       reasoning: parsed.reasoning || 'No reasoning returned.',
       decisions: Array.isArray(parsed.decisions) ? parsed.decisions.filter(Boolean) : [],
@@ -53,6 +38,7 @@ function buildReasoningPrompt(input: {
   recentDecisions: DecisionLog[];
   activeAlerts: Alert[];
   metrics: CompanyMetric[];
+  briefings: SubAgentBriefing[];
   userQuery?: string;
 }) {
   return `
@@ -85,6 +71,11 @@ ${input.activeAlerts.length ? input.activeAlerts.map((alert) => `- [${alert.seve
 
 Metrics:
 ${input.metrics.length ? input.metrics.map((metric) => `- ${metric.name}: ${metric.value} (${metric.trend})`).join('\n') : 'No metrics supplied.'}
+
+Sub-agent briefings:
+${input.briefings.length
+    ? input.briefings.map((briefing) => `- ${briefing.role.toUpperCase()}: ${briefing.headline}\n  Summary: ${briefing.summary}\n  Findings: ${briefing.findings.join('; ')}\n  Recommendations: ${briefing.recommendations.join('; ')}`).join('\n')
+    : 'No sub-agent briefings available.'}
 
 Recent decisions:
 ${input.recentDecisions.length ? input.recentDecisions.slice(0, 5).map((decision) => `- ${decision.timestamp.toISOString()}: ${decision.decision}`).join('\n') : 'No recent decisions.'}

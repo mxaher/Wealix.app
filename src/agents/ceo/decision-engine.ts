@@ -1,8 +1,13 @@
 import { v4 as uuid } from 'uuid';
-import type { AgentRole, AgentTask, CompanyState, Alert, DecisionPriority } from './types';
+import type { AgentRole, AgentTask, CompanyState, Alert, DecisionPriority, SubAgentBriefing } from './types';
 
 export class DecisionEngine {
-  createTasks(decisions: string[], companyState: CompanyState, activeAlerts: Alert[]): AgentTask[] {
+  createTasks(
+    decisions: string[],
+    companyState: CompanyState,
+    activeAlerts: Alert[],
+    briefings: SubAgentBriefing[]
+  ): AgentTask[] {
     const tasks: AgentTask[] = [];
 
     for (const alert of activeAlerts.filter((item) => item.severity === 'critical')) {
@@ -26,13 +31,14 @@ export class DecisionEngine {
           totalUsers: companyState.totalUsers,
           monthlyRevenue: companyState.monthlyRevenue,
           activeSubscriptions: companyState.activeSubscriptions,
+          sourceBriefing: this.findSupportingBriefing(decision, briefings),
         },
         priority: this.inferPriority(decision, companyState),
         status: 'pending',
       });
     }
 
-    return tasks;
+    return dedupeTasks(tasks);
   }
 
   private inferTargetAgent(decision: string): AgentRole {
@@ -59,4 +65,31 @@ export class DecisionEngine {
     }
     return 'low';
   }
+
+  private findSupportingBriefing(decision: string, briefings: SubAgentBriefing[]) {
+    const targetRole = this.inferTargetAgent(decision);
+    const briefing = briefings.find((item) => item.role === targetRole);
+    if (!briefing) {
+      return null;
+    }
+
+    return {
+      role: briefing.role,
+      headline: briefing.headline,
+      recommendations: briefing.recommendations,
+      findings: briefing.findings,
+    };
+  }
+}
+
+function dedupeTasks(tasks: AgentTask[]) {
+  const seen = new Set<string>();
+  return tasks.filter((task) => {
+    const key = `${task.assignedTo}:${task.instruction.trim().toLowerCase()}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
