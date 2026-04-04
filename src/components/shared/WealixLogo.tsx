@@ -12,7 +12,7 @@ interface WealixLogoProps {
 
 export function WealixLogo({ className, imageClassName, textClassName, compact = false }: WealixLogoProps) {
   return (
-    <span dir="ltr" className={cn('inline-flex items-center gap-2', className)}>
+    <span className={cn('inline-flex items-center gap-2', className)}>
       <span
         className={cn(
           'relative block shrink-0 overflow-hidden',

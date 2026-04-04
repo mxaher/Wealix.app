@@ -28,8 +28,8 @@ export function MarketsPageClient({ markets }: Props) {
         </h1>
         <p className="text-lg text-muted-foreground mb-10">
           {isArabic
-            ? 'تم بناء Wealix للمستثمرين في جميع أنحاء منطقة الشرق الأوسط وشمال أفريقيا والعالم. ابحث عن سوقك لترى كيف ندعمه.'
-            : 'Wealix is built for investors across the MENA region and globally. Find your market to see how we support it.'}
+            ? 'Wealix مبني للمستثمرين في جميع أنحاء العالم — من الأسواق الإقليمية إلى البورصات الدولية الكبرى. اختر سوقك لترى كيف ندعمه.'
+            : 'Wealix is built for investors worldwide — from regional exchanges to major international markets. Find your market to see how we support it.'}
         </p>
         <div className="grid gap-4">
           {markets.map((m) => (

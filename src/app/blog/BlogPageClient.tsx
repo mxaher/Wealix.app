@@ -20,7 +20,7 @@ export function BlogPageClient({ posts }: Props) {
           href="/app"
           className="text-sm text-muted-foreground hover:text-primary mb-8 inline-flex items-center gap-2"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className={`h-4 w-4 ${isArabic ? 'rotate-180' : ''}`} />
           {isArabic ? 'العودة إلى الرئيسية' : 'Back to Home'}
         </Link>
         <h1 className="text-4xl font-bold text-foreground mb-4">
@@ -28,8 +28,8 @@ export function BlogPageClient({ posts }: Props) {
         </h1>
         <p className="text-lg text-muted-foreground mb-12">
           {isArabic
-            ? 'أدلة عملية وموضوعية حول التمويل الشخصي وإدارة المحفظة وتخطيط FIRE والاستثمار بالذكاء الاصطناعي — مكتوبة للمستثمرين في السعودية ومنطقة الشرق الأوسط وشمال أفريقيا.'
-            : 'Practical, opinionated guides on personal finance, portfolio management, FIRE planning, and AI-powered investing — written for investors in Saudi Arabia and the MENA region.'}
+            ? 'أدلة عملية وموضوعية حول التمويل الشخصي وإدارة المحفظة وتخطيط FIRE والاستثمار بالذكاء الاصطناعي — مكتوبة للمستثمرين في جميع أنحاء العالم.'
+            : 'Practical, opinionated guides on personal finance, portfolio management, FIRE planning, and AI-powered investing — written for investors worldwide.'}
         </p>
         <div className="grid gap-8">
           {posts.map((post) => (
@@ -58,7 +58,7 @@ export function BlogPageClient({ posts }: Props) {
                 href={`/blog/${post.slug}`}
                 className="inline-flex items-center gap-1 mt-4 text-sm font-medium text-primary hover:underline"
               >
-                {isArabic ? 'اقرأ المقال ←' : 'Read article →'}
+                {isArabic ? '← اقرأ المقال' : 'Read article →'}
               </Link>
             </article>
           ))}

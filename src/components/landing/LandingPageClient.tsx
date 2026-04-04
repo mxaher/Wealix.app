@@ -62,12 +62,12 @@ const routedLinks = {
   en: [
     { href: '/blog', label: 'Blog', icon: BookOpen },
     { href: '/vs/mint', label: 'Comparisons', icon: GitCompare },
-    { href: '/markets/saudi-arabia', label: 'Markets', icon: TrendingUp },
+    { href: '/markets', label: 'Markets', icon: TrendingUp },
   ],
   ar: [
     { href: '/blog', label: 'المدونة', icon: BookOpen },
     { href: '/vs/mint', label: 'مقارنات', icon: GitCompare },
-    { href: '/markets/saudi-arabia', label: 'الأسواق', icon: TrendingUp },
+    { href: '/markets', label: 'الأسواق', icon: TrendingUp },
   ],
 } as const;
 
@@ -249,7 +249,7 @@ export function LandingPageClient() {
       {/* ------------------------------------------------------------------ */}
       <nav className="glass fixed inset-x-0 top-0 z-50 border-b border-border/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" dir="ltr">
+          <Link href="/">
             <WealixLogo />
           </Link>
 
