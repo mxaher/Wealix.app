@@ -17,6 +17,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const isMobile = useAppStore((state) => state.isMobile);
   const setIsMobile = useAppStore((state) => state.setIsMobile);
   const isArabic = locale === 'ar';
+  const sidebarOffset = isMobile ? 0 : sidebarCollapsed ? 84 : 280;
 
   // Handle responsive behavior
   useEffect(() => {
@@ -32,7 +33,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div
       className={cn(
-        'min-h-screen bg-background',
+        'min-h-screen overflow-x-clip bg-background',
         isArabic && 'font-[family-name:var(--font-arabic)]'
       )}
       dir={isArabic ? 'rtl' : 'ltr'}
@@ -42,19 +43,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       {/* Main Content Area */}
       <div
+        style={{ marginInlineStart: sidebarOffset }}
         className={cn(
-          'transition-all duration-200',
+          'min-w-0 max-w-full transition-[margin] duration-200',
           'md:transition-none',
-          !isMobile && (
-            sidebarCollapsed
-              ? isArabic ? 'md:mr-[84px]' : 'md:ml-[84px]'
-              : isArabic ? 'md:mr-[280px]' : 'md:ml-[280px]'
-          )
         )}
       >
         <Header />
 
-        <main className="p-4 pb-24 md:p-6 md:pb-6 xl:p-8">
+        <main className="min-w-0 max-w-full overflow-x-hidden p-4 pb-24 md:p-6 md:pb-6 xl:p-8">
           {children}
         </main>
       </div>

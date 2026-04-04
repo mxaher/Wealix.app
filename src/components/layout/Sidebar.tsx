@@ -87,12 +87,16 @@ export function Sidebar() {
         animate={{ width: sidebarCollapsed ? 84 : 280 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'sidebar hidden md:flex flex-col h-screen border-r border-sidebar-border bg-sidebar/96 backdrop-blur-sm',
+          'sidebar hidden h-screen flex-col border-sidebar-border bg-sidebar/96 backdrop-blur-sm md:flex',
+          isArabic ? 'border-l' : 'border-r',
           'fixed bottom-0 top-0 z-40',
           isArabic ? 'right-0' : 'left-0'
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+        <div className={cn(
+          'flex h-16 items-center justify-between border-b border-sidebar-border px-4',
+          isArabic && !sidebarCollapsed && 'flex-row-reverse'
+        )}>
           <Link href={startPageHref} dir="ltr" className="overflow-hidden">
             <WealixLogo compact={sidebarCollapsed} textClassName={sidebarCollapsed ? 'sr-only' : ''} />
           </Link>
@@ -104,11 +108,14 @@ export function Sidebar() {
         </div>
 
         <ScrollArea className="flex-1 py-4">
-          <nav className="space-y-5 px-3">
+          <nav className={cn('space-y-5 px-3', isArabic && !sidebarCollapsed && 'text-right')}>
             {navSections.map((section) => (
               <div key={section.title.en} className="space-y-1">
                 {!sidebarCollapsed && (
-                  <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <div className={cn(
+                    'px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground',
+                    isArabic && 'text-right'
+                  )}>
                     {isArabic ? section.title.ar : section.title.en}
                   </div>
                 )}
@@ -123,6 +130,7 @@ export function Sidebar() {
                       className={cn(
                         'sidebar-item',
                         isActive && 'active',
+                        isArabic && !sidebarCollapsed && 'flex-row-reverse text-right',
                         sidebarCollapsed && 'justify-center px-2'
                       )}
                     >
@@ -138,7 +146,7 @@ export function Sidebar() {
                         </motion.span>
                       )}
                       {!sidebarCollapsed && item.pro && (
-                        <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-primary uppercase">
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-primary uppercase [margin-inline-start:auto]">
                           Pro
                         </span>
                       )}
@@ -166,7 +174,7 @@ export function Sidebar() {
         <div className="border-t border-sidebar-border p-3">
           {!sidebarCollapsed && (
             <div className="mb-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-              <div className="flex items-center gap-3">
+              <div className={cn('flex items-center gap-3', isArabic && 'flex-row-reverse text-right')}>
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <ShieldCheck className="h-4 w-4" />
                 </div>

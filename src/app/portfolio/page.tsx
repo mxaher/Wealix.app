@@ -778,7 +778,7 @@ export default function PortfolioPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="min-w-0 max-w-full space-y-6">
         {!isSignedIn && (
           <Card className="border-dashed">
             <CardContent className="p-4 text-sm text-muted-foreground">
@@ -1059,7 +1059,7 @@ export default function PortfolioPage() {
             : 'When you run Portfolio Analysis or Decision Check, we will notify you in the header notification bell as soon as the result is ready.'}
         </p>
 
-        <Tabs defaultValue="holdings" className="space-y-6">
+        <Tabs defaultValue="holdings" className="min-w-0 max-w-full space-y-6">
           <div className="overflow-x-auto">
             <TabsList className="inline-flex h-auto min-w-full flex-nowrap items-stretch gap-2 rounded-2xl border border-border/70 bg-card p-2 shadow-sm sm:grid sm:w-full sm:grid-cols-2">
               <TabsTrigger
@@ -1080,8 +1080,8 @@ export default function PortfolioPage() {
           <TabsContent value="holdings" className="mt-0">
             <div className="space-y-6">
               <Card>
-                <CardContent className="p-0">
-                <ScrollArea className="h-[520px]">
+                <CardContent className="min-w-0 p-0">
+                <ScrollArea className="h-[520px] w-full">
                   <Table>
                     <TableHeader>
                       <TableRow>
