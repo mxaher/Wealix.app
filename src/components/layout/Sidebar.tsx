@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
@@ -65,7 +66,7 @@ const navSections = [
 export function Sidebar() {
   const pathname = usePathname();
   const { locale, sidebarCollapsed, toggleSidebar, startPage } = useAppStore();
-  const { tier, trialActive } = useSubscription();
+  const { tier, trialActive, isPro } = useSubscription();
   const isArabic = locale === 'ar';
   const startPageHref = getStartPageHref(startPage);
   const subscriptionLabel = trialActive
@@ -125,6 +126,7 @@ export function Sidebar() {
                 {section.items.map((item) => {
                   const isActive = pathname === item.href;
                   const Icon = item.icon;
+                  const isLocked = item.pro && !isPro;
 
                   const navItem = (
                     <Link
@@ -133,6 +135,7 @@ export function Sidebar() {
                       className={cn(
                         'sidebar-item',
                         isActive && 'active',
+                        isLocked && 'opacity-60',
                         isArabic && !sidebarCollapsed && 'flex-row-reverse text-right',
                         sidebarCollapsed && 'justify-center px-2'
                       )}
@@ -149,9 +152,16 @@ export function Sidebar() {
                         </motion.span>
                       )}
                       {!sidebarCollapsed && item.pro && (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-primary uppercase [margin-inline-start:auto]">
-                          Pro
-                        </span>
+                        isLocked ? (
+                          <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground [margin-inline-start:auto]" />
+                        ) : (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-primary uppercase [margin-inline-start:auto]">
+                            Pro
+                          </span>
+                        )
+                      )}
+                      {sidebarCollapsed && isLocked && (
+                        <Lock className="absolute bottom-1 end-1 h-3 w-3 text-muted-foreground" />
                       )}
                     </Link>
                   );

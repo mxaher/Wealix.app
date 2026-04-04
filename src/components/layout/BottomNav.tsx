@@ -10,9 +10,10 @@ import {
   Receipt,
   Bot,
   Menu,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppStore } from '@/store/useAppStore';
+import { useAppStore, useSubscription } from '@/store/useAppStore';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -40,7 +41,7 @@ const allNavItems = [
   { href: '/fire', label: { en: 'FIRE Tracker', ar: 'متعقب FIRE' }, icon: Flame },
   { href: '/retirement', label: { en: 'Retirement', ar: 'التقاعد' }, icon: PiggyBank },
   { href: '/budget', label: { en: 'Budget', ar: 'الميزانية' }, icon: Wallet },
-  { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot },
+  { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
   { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
   { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
 ];
@@ -48,6 +49,7 @@ const allNavItems = [
 export function BottomNav() {
   const pathname = usePathname();
   const { locale, startPage } = useAppStore();
+  const { isPro } = useSubscription();
   const isArabic = locale === 'ar';
   const startPageHref = getStartPageHref(startPage);
 
@@ -100,22 +102,27 @@ export function BottomNav() {
                     {allNavItems.map((item) => {
                       const isActive = pathname === item.href;
                       const Icon = item.icon;
+                      const isLocked = item.pro && !isPro;
 
                       return (
                         <Link
                           key={item.href}
                           href={item.href}
                           className={cn(
-                            'flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors',
+                            'relative flex flex-col items-center justify-center gap-2 p-4 rounded-xl transition-colors',
                             isActive
                               ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted hover:bg-muted/80'
+                              : 'bg-muted hover:bg-muted/80',
+                            isLocked && 'opacity-60'
                           )}
                         >
                           <Icon className="w-6 h-6" />
                           <span className="text-xs font-medium text-center">
                             {isArabic ? item.label.ar : item.label.en}
                           </span>
+                          {isLocked && (
+                            <Lock className="absolute top-2 end-2 h-3 w-3 text-muted-foreground" />
+                          )}
                         </Link>
                       );
                     })}
