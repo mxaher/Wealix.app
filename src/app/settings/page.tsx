@@ -227,7 +227,17 @@ function SettingsPageContent() {
   };
 
   const handleNotificationChange = (
-    key: 'email' | 'push' | 'priceAlerts' | 'budgetAlerts' | 'weeklyDigest',
+    key:
+      | 'email'
+      | 'push'
+      | 'sms'
+      | 'whatsapp'
+      | 'priceAlerts'
+      | 'budgetAlerts'
+      | 'planningUpdates'
+      | 'statusChanges'
+      | 'reminders'
+      | 'weeklyDigest',
     value: boolean
   ) => { updateNotificationPreferences({ [key]: value }); };
 
@@ -477,8 +487,13 @@ function SettingsPageContent() {
                 {([
                   { key: 'email' as const, en: 'Email Notifications', ar: 'إشعارات البريد الإلكتروني', descEn: 'Receive updates via email', descAr: 'تلقي التحديثات عبر البريد' },
                   { key: 'push' as const, en: 'Push Notifications', ar: 'الإشعارات الفورية', descEn: 'In-app alerts for important events', descAr: 'تنبيهات داخل التطبيق للأحداث المهمة' },
+                  { key: 'sms' as const, en: 'SMS Notifications', ar: 'إشعارات الرسائل النصية', descEn: 'Deliver reminders and alerts over SMS via sent.dm', descAr: 'إرسال التذكيرات والتنبيهات عبر الرسائل النصية من خلال sent.dm' },
+                  { key: 'whatsapp' as const, en: 'WhatsApp Notifications', ar: 'إشعارات واتساب', descEn: 'Send planning updates and reminders in WhatsApp', descAr: 'إرسال تحديثات التخطيط والتذكيرات عبر واتساب' },
                   { key: 'priceAlerts' as const, en: 'Price Alerts', ar: 'تنبيهات الأسعار', descEn: 'Notifications when price targets are hit', descAr: 'إشعارات عند وصول السعر للهدف' },
                   { key: 'budgetAlerts' as const, en: 'Budget Alerts', ar: 'تنبيهات الميزانية', descEn: 'Notifications when budget limits are approaching', descAr: 'إشعارات عند اقتراب الميزانية من الحد' },
+                  { key: 'planningUpdates' as const, en: 'Planning Updates', ar: 'تحديثات التخطيط', descEn: 'Daily digest and planning status updates', descAr: 'الموجز اليومي وتغييرات حالة التخطيط' },
+                  { key: 'statusChanges' as const, en: 'Status Changes', ar: 'تغييرات الحالة', descEn: 'Important changes to obligations or execution state', descAr: 'التغييرات المهمة في الالتزامات أو حالة التنفيذ' },
+                  { key: 'reminders' as const, en: 'Reminders', ar: 'التذكيرات', descEn: 'Due soon reminders for bills and actions', descAr: 'تذكيرات الاستحقاقات والإجراءات القريبة' },
                   { key: 'weeklyDigest' as const, en: 'Weekly Digest', ar: 'الملخص الأسبوعي', descEn: 'Weekly summary of your financial performance', descAr: 'ملخص أسبوعي لأدائك المالي' },
                 ] as const).map((item, i, arr) => (
                   <div key={item.key}>
@@ -496,6 +511,51 @@ function SettingsPageContent() {
                     {i < arr.length - 1 && <Separator className="mt-4" />}
                   </div>
                 ))}
+                <Separator />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? 'رقم الجوال للرسائل' : 'SMS phone number'}</Label>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      dir="ltr"
+                      value={notificationPreferences.phoneNumber}
+                      onChange={(event) => updateNotificationPreferences({ phoneNumber: event.target.value })}
+                      disabled={!isSignedIn}
+                      placeholder="+9665XXXXXXXX"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? 'رقم واتساب' : 'WhatsApp number'}</Label>
+                    <input
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      dir="ltr"
+                      value={notificationPreferences.whatsappNumber}
+                      onChange={(event) => updateNotificationPreferences({ whatsappNumber: event.target.value })}
+                      disabled={!isSignedIn}
+                      placeholder="+9665XXXXXXXX"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? 'القناة المفضلة' : 'Preferred delivery channel'}</Label>
+                  <Select
+                    value={notificationPreferences.preferredChannel}
+                    onValueChange={(value) =>
+                      updateNotificationPreferences({ preferredChannel: value as 'push' | 'email' | 'sms' | 'whatsapp' })
+                    }
+                    disabled={!isSignedIn}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="push">{isArabic ? 'داخل التطبيق' : 'In-app push'}</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="sms">SMS</SelectItem>
+                      <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

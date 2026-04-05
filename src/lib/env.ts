@@ -8,8 +8,17 @@ const publicClerkEnvSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1, 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required'),
 });
 
+const sentDmEnvSchema = z.object({
+  SENTDM_API_KEY: z.string().min(1, 'SENTDM_API_KEY is required'),
+  SENTDM_BASE_URL: z.string().url().default('https://api.sent.dm'),
+  SENTDM_SMS_FROM: z.string().min(1, 'SENTDM_SMS_FROM is required'),
+  SENTDM_WHATSAPP_FROM: z.string().min(1, 'SENTDM_WHATSAPP_FROM is required'),
+  SENTDM_WEBHOOK_SIGNING_SECRET: z.string().min(1, 'SENTDM_WEBHOOK_SIGNING_SECRET is required'),
+});
+
 let cachedPublicAppEnv: z.infer<typeof publicAppEnvSchema> | null = null;
 let cachedPublicClerkEnv: z.infer<typeof publicClerkEnvSchema> | null = null;
+let cachedSentDmEnv: z.infer<typeof sentDmEnvSchema> | null = null;
 
 export function getPublicAppEnv() {
   if (cachedPublicAppEnv) {
@@ -33,6 +42,22 @@ export function getPublicClerkEnv() {
   });
 
   return cachedPublicClerkEnv;
+}
+
+export function getSentDmEnv() {
+  if (cachedSentDmEnv) {
+    return cachedSentDmEnv;
+  }
+
+  cachedSentDmEnv = sentDmEnvSchema.parse({
+    SENTDM_API_KEY: process.env.SENTDM_API_KEY,
+    SENTDM_BASE_URL: process.env.SENTDM_BASE_URL || 'https://api.sent.dm',
+    SENTDM_SMS_FROM: process.env.SENTDM_SMS_FROM,
+    SENTDM_WHATSAPP_FROM: process.env.SENTDM_WHATSAPP_FROM,
+    SENTDM_WEBHOOK_SIGNING_SECRET: process.env.SENTDM_WEBHOOK_SIGNING_SECRET,
+  });
+
+  return cachedSentDmEnv;
 }
 
 export function getRequiredEnv(name: string) {

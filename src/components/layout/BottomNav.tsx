@@ -41,8 +41,7 @@ const allNavItems = [
   { href: '/portfolio', label: { en: 'Portfolio', ar: 'المحفظة' }, icon: Briefcase },
   { href: '/fire', label: { en: 'FIRE Tracker', ar: 'متعقب FIRE' }, icon: Flame },
   { href: '/retirement', label: { en: 'Retirement', ar: 'التقاعد' }, icon: PiggyBank },
-  { href: '/budget', label: { en: 'Budget', ar: 'الميزانية' }, icon: Wallet },
-  { href: '/planning', label: { en: 'Planning', ar: 'التخطيط' }, icon: CalendarRange },
+  { href: '/budget-planning', label: { en: 'Budget & Planning', ar: 'الموازنة والتخطيط' }, icon: CalendarRange },
   { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
   { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
   { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
@@ -102,7 +101,7 @@ export function BottomNav() {
                 <ScrollArea className="h-[calc(60vh-6rem)]">
                   <div className="grid grid-cols-3 gap-4">
                     {allNavItems.map((item) => {
-                      const isActive = pathname === item.href;
+                      const isActive = pathname === item.href || (item.href === '/budget-planning' && (pathname === '/budget' || pathname === '/planning'));
                       const Icon = item.icon;
                       const isLocked = item.pro && !isPro;
 

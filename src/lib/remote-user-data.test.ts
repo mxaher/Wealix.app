@@ -10,9 +10,17 @@ describe('saveRemoteWorkspace', () => {
         notificationPreferences: {
           email: true,
           push: true,
+          sms: false,
+          whatsapp: false,
           priceAlerts: true,
           budgetAlerts: true,
+          planningUpdates: true,
+          statusChanges: true,
+          reminders: true,
           weeklyDigest: false,
+          preferredChannel: 'push',
+          phoneNumber: '',
+          whatsappNumber: '',
         },
         notificationFeed: [],
         incomeEntries: [],
@@ -24,6 +32,7 @@ describe('saveRemoteWorkspace', () => {
         assets: [],
         liabilities: [],
         budgetLimits: [],
+        recurringObligations: [],
       })
     ).rejects.toThrow('Refusing to persist non-live workspace data.');
   });

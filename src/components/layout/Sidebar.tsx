@@ -36,8 +36,7 @@ const navSections = [
     items: [
       { href: '/dashboard', label: { en: 'Dashboard', ar: 'لوحة التحكم' }, icon: LayoutDashboard },
       { href: '/net-worth', label: { en: 'Net Worth', ar: 'صافي الثروة' }, icon: ChartNoAxesCombined },
-      { href: '/budget', label: { en: 'Budget', ar: 'الميزانية' }, icon: Landmark },
-      { href: '/planning', label: { en: 'Planning', ar: 'التخطيط' }, icon: CalendarRange },
+      { href: '/budget-planning', label: { en: 'Budget & Planning', ar: 'الموازنة والتخطيط' }, icon: CalendarRange },
       { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
     ],
   },
@@ -126,7 +125,7 @@ export function Sidebar() {
                   </div>
                 )}
                 {section.items.map((item) => {
-                  const isActive = pathname === item.href;
+                  const isActive = pathname === item.href || (item.href === '/budget-planning' && (pathname === '/budget' || pathname === '/planning'));
                   const Icon = item.icon;
                   const isLocked = item.pro && !isPro;
 
