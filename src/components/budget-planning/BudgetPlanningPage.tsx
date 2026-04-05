@@ -250,7 +250,14 @@ export function BudgetPlanningPage({
       }),
     [budgetLimits, expenseEntries, incomeEntries, locale, notificationPreferences, upcomingObligations, user?.id]
   );
+  const hasAiSnapshot = Boolean(initialSnapshot);
   const dailySnapshot = initialSnapshot ?? fallbackSnapshot;
+  const completionChannels = [
+    isArabic ? 'داخل التطبيق' : 'In-app',
+    ...(notificationPreferences.whatsapp && notificationPreferences.planningUpdates
+      ? ['WhatsApp']
+      : []),
+  ];
 
   const forecastChartData = forecast12.map((period) => ({
     month: period.label.split(' ')[0],
@@ -349,6 +356,9 @@ export function BudgetPlanningPage({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{isArabic ? 'تجربة موحدة' : 'Unified Experience'}</Badge>
                 <Badge variant="outline">{isArabic ? 'موجز يومي ثابت' : 'Static Daily Digest'}</Badge>
+                {!hasAiSnapshot && (
+                  <Badge variant="secondary">{isArabic ? 'التحليل قيد المعالجة' : 'AI analysis in progress'}</Badge>
+                )}
               </div>
               <h1 className="text-3xl font-bold">
                 {isArabic ? 'الموازنة والتخطيط' : 'Budget & Planning'}
@@ -501,32 +511,60 @@ export function BudgetPlanningPage({
                 <CardHeader className={isArabic ? 'text-right' : ''}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <CardTitle>{dailySnapshot.daily_headline.title}</CardTitle>
-                      <CardDescription className="mt-2">{dailySnapshot.daily_headline.subtitle}</CardDescription>
+                      <CardTitle>
+                        {hasAiSnapshot
+                          ? dailySnapshot.daily_headline.title
+                          : (isArabic ? 'التحليل اليومي الذكي قيد الإعداد' : 'Your AI daily analysis is being prepared')}
+                      </CardTitle>
+                      <CardDescription className="mt-2">
+                        {hasAiSnapshot
+                          ? dailySnapshot.daily_headline.subtitle
+                          : isArabic
+                            ? `نعالج بيانات الموازنة والالتزامات الآن. سننبهك داخل التطبيق${notificationPreferences.whatsapp && notificationPreferences.planningUpdates ? ' وعبر واتساب' : ''} فور اكتمال التحليل.`
+                            : `We are processing your budget and planning data now. We’ll notify you in-app${notificationPreferences.whatsapp && notificationPreferences.planningUpdates ? ' and on WhatsApp' : ''} as soon as the analysis is ready.`}
+                      </CardDescription>
                     </div>
-                    <Badge variant={dailySnapshot.daily_headline.sentiment === 'alert' ? 'destructive' : 'outline'}>
-                      {dailySnapshot.daily_headline.sentiment}
+                    <Badge variant={!hasAiSnapshot ? 'secondary' : dailySnapshot.daily_headline.sentiment === 'alert' ? 'destructive' : 'outline'}>
+                      {!hasAiSnapshot ? (isArabic ? 'جاري التشغيل' : 'Running') : dailySnapshot.daily_headline.sentiment}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className={`grid gap-4 md:grid-cols-3 ${isArabic ? 'text-right' : ''}`}>
                   <div dir={isArabic ? 'rtl' : 'ltr'} className="rounded-2xl border bg-background/70 p-4">
-                    <p className="text-sm text-muted-foreground">{isArabic ? 'حالة الميزانية' : 'Budget Status'}</p>
-                    <p className="mt-2 text-xl font-semibold">
-                      {dailySnapshot.budget_status.overall_budget_health === 'on_track'
-                        ? (isArabic ? 'ضمن المسار' : 'On track')
-                        : dailySnapshot.budget_status.overall_budget_health === 'at_risk'
-                          ? (isArabic ? 'تحتاج متابعة' : 'Needs attention')
-                          : (isArabic ? 'متجاوزة' : 'Breached')}
-                    </p>
+                    {hasAiSnapshot ? (
+                      <>
+                        <p className="text-sm text-muted-foreground">{isArabic ? 'حالة الميزانية' : 'Budget Status'}</p>
+                        <p className="mt-2 text-xl font-semibold">
+                          {dailySnapshot.budget_status.overall_budget_health === 'on_track'
+                            ? (isArabic ? 'ضمن المسار' : 'On track')
+                            : dailySnapshot.budget_status.overall_budget_health === 'at_risk'
+                              ? (isArabic ? 'تحتاج متابعة' : 'Needs attention')
+                              : (isArabic ? 'متجاوزة' : 'Breached')}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">{isArabic ? 'حالة التحليل' : 'Analysis Status'}</p>
+                        <div className="mt-2 flex items-center gap-2 text-xl font-semibold">
+                          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                          <span>{isArabic ? 'جاري التحضير' : 'Processing'}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div dir={isArabic ? 'rtl' : 'ltr'} className="rounded-2xl border bg-background/70 p-4">
                     <p className="text-sm text-muted-foreground">{isArabic ? 'أيام متبقية' : 'Days Remaining'}</p>
                     <p className="mt-2 text-xl font-semibold">{dailySnapshot.budget_status.days_remaining}</p>
                   </div>
                   <div dir={isArabic ? 'rtl' : 'ltr'} className="rounded-2xl border bg-background/70 p-4">
-                    <p className="text-sm text-muted-foreground">{isArabic ? 'قناة الإشعار الأساسية' : 'Primary Channel'}</p>
-                    <p className="mt-2 text-xl font-semibold">{notificationChannelSummary}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {hasAiSnapshot
+                        ? (isArabic ? 'قناة الإشعار الأساسية' : 'Primary Channel')
+                        : (isArabic ? 'سيصلك عبر' : 'You will be notified via')}
+                    </p>
+                    <p className="mt-2 text-xl font-semibold">
+                      {hasAiSnapshot ? notificationChannelSummary : completionChannels.join(' + ')}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -541,7 +579,13 @@ export function BudgetPlanningPage({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className={`space-y-3 ${isArabic ? 'text-right' : ''}`}>
-                  {dailySnapshot.tips.length === 0 ? (
+                  {!hasAiSnapshot ? (
+                    <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                      {isArabic
+                        ? 'سيظهر هنا ملخص الأولويات بمجرد انتهاء التحليل الذكي لهذا اليوم.'
+                        : 'Your top priorities will appear here as soon as today’s AI analysis finishes.'}
+                    </div>
+                  ) : dailySnapshot.tips.length === 0 ? (
                     <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
                       {isArabic ? 'سيظهر هنا الموجز اليومي عند توفر بيانات أكثر.' : 'The daily digest will show richer guidance here as more data becomes available.'}
                     </div>
@@ -574,7 +618,13 @@ export function BudgetPlanningPage({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className={`space-y-3 ${isArabic ? 'text-right' : ''}`}>
-                  {dailySnapshot.notifications.length === 0 ? (
+                  {!hasAiSnapshot ? (
+                    <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                      {isArabic
+                        ? `عند اكتمال التحليل سنضيف التنبيه داخل التطبيق${notificationPreferences.whatsapp && notificationPreferences.planningUpdates ? ' ونرسل تحديث واتساب' : ''} إذا احتاج اليوم إلى إجراء.`
+                        : `When the analysis completes, we’ll add any needed in-app alert${notificationPreferences.whatsapp && notificationPreferences.planningUpdates ? ' and send a WhatsApp update' : ''} if today needs action.`}
+                    </div>
+                  ) : dailySnapshot.notifications.length === 0 ? (
                     <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
                       {isArabic ? 'لا توجد إجراءات عاجلة خلال 72 ساعة.' : 'No urgent actions in the next 72 hours.'}
                     </div>

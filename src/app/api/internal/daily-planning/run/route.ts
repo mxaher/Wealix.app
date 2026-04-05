@@ -3,6 +3,7 @@ import { runNvidiaDailyPlanningForUser } from '@/lib/ai/daily-planning-runner';
 import { loadDailyPlanningSnapshotByDate, listLiveWorkspacesForDailyPlanning, saveDailyPlanningSnapshot } from '@/lib/daily-planning-storage';
 import { loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { requireInternalRouteSecret } from '@/lib/internal-route-auth';
+import { notifyDailyPlanningReady } from '@/lib/daily-planning-notifications';
 
 function previousDate(snapshotDate: string) {
   const date = new Date(`${snapshotDate}T00:00:00.000Z`);
@@ -28,11 +29,12 @@ export async function POST(request: NextRequest) {
 
   if (body?.runForAllUsers) {
     const workspaces = await listLiveWorkspacesForDailyPlanning();
-    const results: Array<{ userId: string; snapshotDate: string; runId: string }> = [];
+    const results: Array<{ userId: string; snapshotDate: string; runId: string; notified: boolean }> = [];
     const previousSnapshotDate = previousDate(targetDate);
 
     for (const item of workspaces) {
       const previous = await loadDailyPlanningSnapshotByDate(item.userId, previousSnapshotDate);
+      const existingForTargetDate = await loadDailyPlanningSnapshotByDate(item.userId, targetDate);
       const snapshot = await runNvidiaDailyPlanningForUser({
         userId: item.userId,
         workspace: item.workspace,
@@ -42,7 +44,24 @@ export async function POST(request: NextRequest) {
         ...snapshot,
         snapshot_date: targetDate,
       });
-      results.push({ userId: item.userId, snapshotDate: targetDate, runId: snapshot.run_id });
+
+      if (!existingForTargetDate) {
+        await notifyDailyPlanningReady({
+          userId: item.userId,
+          workspace: item.workspace,
+          snapshot: {
+            ...snapshot,
+            snapshot_date: targetDate,
+          },
+        });
+      }
+
+      results.push({
+        userId: item.userId,
+        snapshotDate: targetDate,
+        runId: snapshot.run_id,
+        notified: !existingForTargetDate,
+      });
     }
 
     return NextResponse.json({ ok: true, count: results.length, results });
@@ -59,6 +78,7 @@ export async function POST(request: NextRequest) {
   }
 
   const previous = await loadDailyPlanningSnapshotByDate(userId, previousDate(targetDate));
+  const existingForTargetDate = await loadDailyPlanningSnapshotByDate(userId, targetDate);
   const snapshot = await runNvidiaDailyPlanningForUser({
     userId,
     workspace: remote.workspace,
@@ -70,10 +90,22 @@ export async function POST(request: NextRequest) {
     snapshot_date: targetDate,
   });
 
+  if (!existingForTargetDate) {
+    await notifyDailyPlanningReady({
+      userId,
+      workspace: remote.workspace,
+      snapshot: {
+        ...snapshot,
+        snapshot_date: targetDate,
+      },
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     userId,
     snapshotDate: targetDate,
     runId: snapshot.run_id,
+    notified: !existingForTargetDate,
   });
 }
