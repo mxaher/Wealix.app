@@ -11,6 +11,7 @@ import {
   Bot,
   Menu,
   Lock,
+  BookOpenText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, useSubscription } from '@/store/useAppStore';
@@ -43,6 +44,7 @@ const allNavItems = [
   { href: '/retirement', label: { en: 'Retirement', ar: 'التقاعد' }, icon: PiggyBank },
   { href: '/budget-planning', label: { en: 'Budget & Planning', ar: 'الموازنة والتخطيط' }, icon: CalendarRange },
   { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
+  { href: '/help', label: { en: 'Documentation', ar: 'التوثيق' }, icon: BookOpenText },
   { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
   { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
 ];

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Moon, Sun, Globe, Settings, PanelLeft } from 'lucide-react';
+import { Bell, Moon, Sun, Globe, Settings, PanelLeft, BookOpenText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Show, UserButton } from '@clerk/nextjs';
@@ -59,6 +59,17 @@ export function Header() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-xl"
+          asChild
+        >
+          <Link href="/help" title={isArabic ? 'التوثيق' : 'Documentation'}>
+            <BookOpenText className="w-4 h-4" />
+          </Link>
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"

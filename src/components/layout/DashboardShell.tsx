@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
+import { ReemAgent } from '@/components/help';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -57,6 +58,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </div>
 
       <BottomNav />
+      <ReemAgent />
     </div>
   );
 }

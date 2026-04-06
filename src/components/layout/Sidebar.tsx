@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Lock,
   CalendarRange,
+  BookOpenText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
@@ -59,6 +60,7 @@ const navSections = [
     title: { en: 'Tools', ar: 'الأدوات' },
     items: [
       { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
+      { href: '/help', label: { en: 'Documentation', ar: 'التوثيق' }, icon: BookOpenText },
       { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
     ],
   },
