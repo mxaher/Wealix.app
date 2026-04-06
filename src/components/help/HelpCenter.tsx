@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { BookOpenText, Bot, ChevronDown, LifeBuoy, Search, ShieldCheck, Wrench } from 'lucide-react';
-import { helpSections } from '@/lib/help/content';
+import { getLocalizedText, helpSections } from '@/lib/help/content';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,10 +60,14 @@ export function HelpCenter() {
         ...section,
         topics: section.topics.filter((topic) => {
           return (
-            topic.title.toLowerCase().includes(normalized) ||
-            topic.summary.toLowerCase().includes(normalized) ||
-            topic.content.some((paragraph) => paragraph.toLowerCase().includes(normalized)) ||
-            topic.keywords.some((keyword) => keyword.toLowerCase().includes(normalized))
+            topic.title.en.toLowerCase().includes(normalized) ||
+            topic.title.ar.toLowerCase().includes(normalized) ||
+            topic.summary.en.toLowerCase().includes(normalized) ||
+            topic.summary.ar.toLowerCase().includes(normalized) ||
+            topic.content.en.some((paragraph) => paragraph.toLowerCase().includes(normalized)) ||
+            topic.content.ar.some((paragraph) => paragraph.toLowerCase().includes(normalized)) ||
+            topic.keywords.en.some((keyword) => keyword.toLowerCase().includes(normalized)) ||
+            topic.keywords.ar.some((keyword) => keyword.toLowerCase().includes(normalized))
           );
         }),
       }))
@@ -71,18 +75,18 @@ export function HelpCenter() {
   }, [query]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
       <section className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-card">
         <div className="grid gap-6 px-6 py-8 lg:grid-cols-[1.3fr_0.7fr] lg:px-8">
           <div className="space-y-4">
-            <Badge variant="secondary" className="rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.14em]">
+            <Badge variant="secondary" className={cn('rounded-full px-3 py-1 text-[11px] tracking-[0.14em]', !isArabic && 'uppercase')}>
               {isArabic ? 'مركز المساعدة' : 'Help Center'}
             </Badge>
             <div className="space-y-3">
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+              <h1 className={cn('text-3xl font-semibold tracking-tight text-foreground', isArabic && 'text-right')}>
                 {isArabic ? 'دليل Wealix داخل التطبيق' : 'Wealix In-App Documentation'}
               </h1>
-              <p className="max-w-3xl text-sm leading-7 text-muted-foreground md:text-base">
+              <p className={cn('max-w-3xl text-sm leading-7 text-muted-foreground md:text-base', isArabic && 'text-right')}>
                 {isArabic
                   ? 'ابحث في التوثيق، راجع الأسئلة المتكررة، واستخدم ريم لفهم أي جزء من التطبيق بسرعة.'
                   : 'Search the product documentation, review common workflows, and use Reem when you want page-aware guidance without breaking your flow.'}
@@ -90,21 +94,21 @@ export function HelpCenter() {
             </div>
 
             <div className="relative max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className={cn('pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground', isArabic ? 'right-3' : 'left-3')} />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={isArabic ? 'ابحث في المواضيع والمصطلحات' : 'Search topics, workflows, and terms'}
-                className="h-12 rounded-2xl border-border bg-background pl-10"
+                className={cn('h-12 rounded-2xl border-border bg-background', isArabic ? 'pr-10 text-right' : 'pl-10')}
               />
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="grid gap-3 grid-cols-1">
             {headerCards.map((item) => (
               <Card key={item.id} className="border-border/80 bg-background/80">
-                <CardHeader className="space-y-3 pb-3">
-                  <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', item.tone)}>
+                <CardHeader className={cn('space-y-3 pb-3', isArabic && 'text-right')}>
+                  <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl', item.tone, isArabic && 'mr-auto')}>
                     <item.icon className="h-5 w-5" />
                   </div>
                   <div>
@@ -122,7 +126,7 @@ export function HelpCenter() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2">
         {[
           {
             icon: ShieldCheck,
@@ -138,10 +142,24 @@ export function HelpCenter() {
               ? 'كل قسم في هذا الدليل يشرح ماذا يفعل الجزء وكيف تستخدمه فعلياً.'
               : 'Each section is written to explain both what a feature does and how to use it in practice.',
           },
+          {
+            icon: BookOpenText,
+            title: isArabic ? 'بحث عربي وإنجليزي' : 'Arabic and English search',
+            body: isArabic
+              ? 'يمكنك البحث بالعربية أو الإنجليزية داخل نفس الدليل والوصول إلى نفس المواضيع.'
+              : 'You can search the same documentation in either Arabic or English and reach the same topics.',
+          },
+          {
+            icon: LifeBuoy,
+            title: isArabic ? 'ريم للملاحة والشرح' : 'Reem for navigation help',
+            body: isArabic
+              ? 'استخدم ريم لفهم الصفحات والميزات، واستخدم وائل لأسئلة الاستثمار والتحليل المالي.'
+              : 'Use Reem for product guidance and navigation, then switch to Wael for investment and financial analysis.',
+          },
         ].map((item) => (
           <Card key={item.title} className="border-border/80">
-            <CardHeader className="pb-3">
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-foreground">
+            <CardHeader className={cn('pb-3', isArabic && 'text-right')}>
+              <div className={cn('mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-foreground', isArabic && 'mr-auto')}>
                 <item.icon className="h-5 w-5" />
               </div>
               <CardTitle className="text-base">{item.title}</CardTitle>
@@ -155,22 +173,22 @@ export function HelpCenter() {
         {filteredSections.length > 0 ? (
           filteredSections.map((section) => (
             <Card key={section.id} className="overflow-hidden border-border/80">
-              <CardHeader className="border-b border-border/60 bg-muted/30 pb-4">
-                <CardTitle className="text-xl">{section.title}</CardTitle>
-                <CardDescription className="text-sm leading-6">{section.description}</CardDescription>
+              <CardHeader className={cn('border-b border-border/60 bg-muted/30 pb-4', isArabic && 'text-right')}>
+                <CardTitle className="text-xl">{getLocalizedText(section.title, locale)}</CardTitle>
+                <CardDescription className="text-sm leading-6">{getLocalizedText(section.description, locale)}</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Accordion type="multiple" className="w-full">
                   {section.topics.map((topic) => (
                     <AccordionItem key={topic.id} value={topic.id} className="border-border/60 px-6">
-                      <AccordionTrigger className="py-5 text-left hover:no-underline">
-                        <div className="space-y-1 text-left">
-                          <p className="text-base font-medium text-foreground">{topic.title}</p>
-                          <p className="text-sm font-normal leading-6 text-muted-foreground">{topic.summary}</p>
+                      <AccordionTrigger className={cn('py-5 hover:no-underline', isArabic && 'text-right')}>
+                        <div className={cn('space-y-1 text-left', isArabic && 'text-right')}>
+                          <p className="text-base font-medium text-foreground">{getLocalizedText(topic.title, locale)}</p>
+                          <p className="text-sm font-normal leading-6 text-muted-foreground">{getLocalizedText(topic.summary, locale)}</p>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="space-y-3 pb-5 text-sm leading-7 text-muted-foreground">
-                        {topic.content.map((paragraph, index) => (
+                      <AccordionContent className={cn('space-y-3 pb-5 text-sm leading-7 text-muted-foreground', isArabic && 'text-right')}>
+                        {topic.content[locale].map((paragraph, index) => (
                           <p key={`${topic.id}-${index}`}>{paragraph}</p>
                         ))}
                       </AccordionContent>
