@@ -22,6 +22,7 @@ import {
   type FinancialPersona,
 } from '@/lib/financial-brain-v3';
 import type { ExpenseEntry, OneTimeExpense, SavingsAccount } from '@/store/useAppStore';
+import type { RecurringObligation } from '@/store/useAppStore';
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));
@@ -139,6 +140,7 @@ export function buildFinancialPersonaFromWorkspace(userId: string, workspace: Re
 export function buildFinancialPersonaFromClientContext(userId: string, context: ClientFinancialContext & {
   oneTimeExpenses?: OneTimeExpense[];
   savingsAccounts?: SavingsAccount[];
+  recurringObligations?: RecurringObligation[];
 }, wealixContext: WealixAIContext): FinancialPersona {
   const snapshot = buildFinancialSnapshotFromClientContext(context);
   const fireGoal = snapshot.activeGoals.find((goal) => goal.id === 'fire-goal');
