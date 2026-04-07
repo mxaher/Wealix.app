@@ -414,7 +414,7 @@ function buildContext(input: ContextBuildInput): WealixAIContext {
   const wantsRatio = monthlyIncome > 0 ? (expenseBreakdown.wants / monthlyIncome) * 100 : 0;
   const savingsAndObligationsRatio = monthlyIncome > 0 ? (Math.max(monthlySurplus, 0) / monthlyIncome) * 100 : 0;
   const budgets = buildBudgetStatus(expenseEntries, budgetLimits);
-  const obligations = snapshot.obligations.pending.map((item) => ({
+  const obligations: WealixAIContext['obligations'] = snapshot.obligations.pending.map((item) => ({
     id: item.id,
     title: item.title,
     amount: item.amount,
@@ -432,7 +432,7 @@ function buildContext(input: ContextBuildInput): WealixAIContext {
     fundingGap: item.fundingGap,
     coverageRatio: item.coverageRatio,
   }));
-  const forecast = snapshot.forecast.monthlyRows.map((row) => ({
+  const forecast: WealixForecastMonth[] = snapshot.forecast.monthlyRows.map((row) => ({
     month: row.month,
     label: row.label,
     openingBalance: row.openingBalance,
@@ -472,7 +472,7 @@ function buildContext(input: ContextBuildInput): WealixAIContext {
     ...(input.incomeEntries.length > 0 ? [] : ['income_entries']),
     ...(input.expenseEntries.length > 0 ? [] : ['expense_entries']),
     ...(budgetLimits.length > 0 ? [] : ['budget_limits']),
-    ...(recurringObligations.length > 0 ? [] : ['recurring_obligations']),
+    ...(input.recurringObligations.length > 0 ? [] : ['recurring_obligations']),
     ...(input.oneTimeExpenses.length > 0 ? [] : ['one_time_expenses']),
     ...(input.savingsAccounts.length > 0 ? [] : ['savings_accounts']),
     ...(snapshot.holdings.length > 0 ? [] : ['portfolio_holdings']),
