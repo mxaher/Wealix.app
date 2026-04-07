@@ -330,7 +330,7 @@ export default function AdvisorPage() {
   return (
     <DashboardShell>
       <FeatureGate feature="ai.advisor">
-        <div className="flex h-[calc(100vh-8rem)] min-w-0 gap-4 overflow-hidden">
+        <div className="flex h-[calc(100vh-8rem)] min-w-0 min-h-0 gap-4 overflow-hidden">
           {/* Sidebar - Session List */}
           <Card className="hidden md:flex w-64 flex-col">
             <CardHeader className="border-b p-4">
@@ -373,7 +373,7 @@ export default function AdvisorPage() {
           </Card>
 
           {/* Main Chat Area */}
-          <Card className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Card className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
             {/* Header */}
             <CardHeader className="border-b p-4">
               <div className="flex items-center justify-between">
@@ -420,7 +420,8 @@ export default function AdvisorPage() {
             </CardHeader>
 
             {/* Messages */}
-            <ScrollArea className="min-w-0 flex-1 p-4">
+            <ScrollArea className="min-w-0 min-h-0 flex-1">
+              <div className="p-4">
               {activeSession?.messages.length === 0 && !isLoading ? (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center mb-4">
@@ -478,10 +479,10 @@ export default function AdvisorPage() {
                         </Avatar>
                         <div className={`min-w-0 flex-1 ${message.role === 'user' || assistantDirection === 'rtl' ? 'text-right' : ''}`}>
                           <div
-                            className={`inline-block max-w-[85%] min-w-0 overflow-hidden rounded-lg p-3 align-top ${
+                            className={`inline-block max-w-[85%] min-w-0 rounded-lg p-3 align-top ${
                               message.role === 'user'
                                 ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted'
+                                : 'max-h-[65vh] overflow-y-auto overscroll-contain bg-muted pr-2'
                             }`}
                             dir={message.role === 'assistant' ? assistantDirection : undefined}
                           >
@@ -515,7 +516,7 @@ export default function AdvisorPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className={`min-w-0 flex-1 ${getAssistantMessageDirection(streamingContent) === 'rtl' ? 'text-right' : ''}`}>
-                        <div className="inline-block max-w-[85%] min-w-0 overflow-hidden rounded-lg bg-muted p-3 align-top">
+                        <div className="inline-block max-w-[85%] min-w-0 max-h-[65vh] overflow-y-auto overscroll-contain rounded-lg bg-muted p-3 pr-2 align-top">
                           <div
                             className="prose prose-sm max-w-none break-words leading-7 text-foreground dark:prose-invert [&_*]:break-words [&_code]:whitespace-pre-wrap [&_h1]:mb-3 [&_h1]:mt-0 [&_h2]:mb-2 [&_h2]:mt-4 [&_h3]:mb-2 [&_h3]:mt-4 [&_li]:my-1 [&_ol]:my-3 [&_ol]:ps-5 [&_p]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:my-3 [&_ul]:list-disc [&_ul]:ps-5"
                             dir={getAssistantMessageDirection(streamingContent)}
@@ -551,6 +552,7 @@ export default function AdvisorPage() {
                   <div ref={messagesEndRef} />
                 </div>
               )}
+              </div>
             </ScrollArea>
 
             {/* Input */}
