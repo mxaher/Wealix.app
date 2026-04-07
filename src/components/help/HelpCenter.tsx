@@ -77,19 +77,19 @@ export function HelpCenter() {
   return (
     <div className="space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
       <section className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-card">
-        <div className="grid gap-6 px-6 py-8 lg:grid-cols-[1.3fr_0.7fr] lg:px-8">
-          <div className="space-y-4">
+        <div className="grid items-start gap-6 px-6 py-8 lg:grid-cols-[1.3fr_0.7fr] lg:px-8">
+          <div className="space-y-4 self-start">
             <Badge variant="secondary" className={cn('rounded-full px-3 py-1 text-[11px] tracking-[0.14em]', !isArabic && 'uppercase')}>
-              {isArabic ? 'مركز المساعدة' : 'Help Center'}
+              {isArabic ? 'مركز المعرفة' : 'Knowledge Base'}
             </Badge>
             <div className="space-y-3">
               <h1 className={cn('text-3xl font-semibold tracking-tight text-foreground', isArabic && 'text-right')}>
-                {isArabic ? 'دليل Wealix داخل التطبيق' : 'Wealix In-App Documentation'}
+                {isArabic ? 'مركز المعرفة داخل Wealix' : 'Wealix Knowledge Base'}
               </h1>
               <p className={cn('max-w-3xl text-sm leading-7 text-muted-foreground md:text-base', isArabic && 'text-right')}>
                 {isArabic
-                  ? 'ابحث في التوثيق، راجع الأسئلة المتكررة، واستخدم ريم لفهم أي جزء من التطبيق بسرعة.'
-                  : 'Search the product documentation, review common workflows, and use Reem when you want page-aware guidance without breaking your flow.'}
+                  ? 'ابحث في مركز المعرفة، راجع الأسئلة المتكررة، واستخدم ريم لفهم أي جزء من التطبيق بسرعة.'
+                  : 'Search the knowledge base, review common workflows, and use Reem when you want page-aware guidance without breaking your flow.'}
               </p>
             </div>
 

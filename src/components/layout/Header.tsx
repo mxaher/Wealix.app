@@ -65,7 +65,7 @@ export function Header() {
           className="rounded-xl"
           asChild
         >
-          <Link href="/help" title={isArabic ? 'التوثيق' : 'Documentation'}>
+          <Link href="/help" title={isArabic ? 'مركز المعرفة' : 'Knowledge Base'}>
             <BookOpenText className="w-4 h-4" />
           </Link>
         </Button>
