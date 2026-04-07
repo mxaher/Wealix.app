@@ -18,9 +18,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DashboardShell } from '@/components/layout';
 import { StatCard, DashboardSkeleton } from '@/components/shared';
 import { useAppStore, formatCurrency } from '@/store/useAppStore';
-import { buildWealixAIContextFromClientContext } from '@/lib/wealix-ai-context';
-import { buildDashboardInsightLines, buildFinancialPersonaFromClientContext } from '@/lib/financial-brain-surface';
-import { getUpcomingOccurrences, buildForecastSummary } from '@/lib/recurring-obligations';
+import { getFireMetrics, getMonthlyExpenses, getMonthlyIncome, getNetMonthlySurplus, getNetWorth } from '@/lib/financial-snapshot';
+import { useFinancialSnapshot } from '@/hooks/useFinancialSnapshot';
 import {
  XAxis,
  YAxis,
@@ -95,15 +94,9 @@ export default function DashboardPage() {
  const {
  locale,
  appMode,
- incomeEntries,
  expenseEntries,
- portfolioHoldings,
- assets,
- liabilities,
- recurringObligations,
- oneTimeExpenses,
- savingsAccounts,
  } = useAppStore();
+ const { snapshot } = useFinancialSnapshot();
  const isArabic = locale === 'ar';
  const [isLoading, setIsLoading] = useState(true);
 
@@ -113,20 +106,15 @@ export default function DashboardPage() {
  }, []);
 
  const isDemoMode = appMode === 'demo';
- const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
- const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
- const livePortfolioValue = portfolioHoldings.reduce(
- (sum, item) => sum + item.shares * item.currentPrice,
- 0,
- );
- const liveAssetsValue = assets.reduce((sum, item) => sum + item.value, 0);
- const liveLiabilitiesValue = liabilities.reduce((sum, item) => sum + item.balance, 0);
- const liveTotalAssets = liveAssetsValue + livePortfolioValue;
- const totalNetWorth = isDemoMode ? 587500 : Math.max(liveTotalAssets - liveLiabilitiesValue, 0);
- const portfolioValue = isDemoMode ? 452000 : livePortfolioValue;
+ const monthlyIncome = getMonthlyIncome(snapshot);
+ const monthlyExpenses = getMonthlyExpenses(snapshot);
+ const monthlySurplus = getNetMonthlySurplus(snapshot);
+ const fireMetrics = getFireMetrics(snapshot);
+ const totalNetWorth = isDemoMode ? 587500 : getNetWorth(snapshot);
+ const portfolioValue = isDemoMode ? 452000 : snapshot.portfolio.totalInvestments;
  const todayGainPercent = isDemoMode ? 0.67 : 0;
- const fireProgress = isDemoMode ? 40.8 : 0;
- const holdings = isDemoMode ? mockHoldings : portfolioHoldings.map((holding) => ({
+ const fireProgress = isDemoMode ? 40.8 : fireMetrics.progressPct;
+ const holdings = isDemoMode ? mockHoldings : snapshot.holdings.map((holding) => ({
  ...holding,
  change: holding.avgCost > 0 ? ((holding.currentPrice - holding.avgCost) / holding.avgCost) * 100 : 0,
  }));
@@ -147,7 +135,7 @@ export default function DashboardPage() {
  const marketData = isDemoMode ? mockMarketData : [];
  const netWorthChartData = isDemoMode
  ? mockNetWorthData
- : liveTotalAssets > 0 || liveLiabilitiesValue > 0
+ : snapshot.totalAssets > 0 || snapshot.totalLiabilities > 0
  ? [
  {
  month: isArabic ? 'الآن' : 'Now',
@@ -170,71 +158,47 @@ export default function DashboardPage() {
  }));
 
  const hasLiveData =
- totalIncome > 0 ||
- totalExpenses > 0 ||
+ monthlyIncome > 0 ||
+ monthlyExpenses > 0 ||
  portfolioValue > 0 ||
- liveAssetsValue > 0 ||
- liveLiabilitiesValue > 0 ||
+ snapshot.totalAssets > 0 ||
+ snapshot.totalLiabilities > 0 ||
  holdings.length > 0;
 
  const budgetUsage = isDemoMode
  ? 67
- : totalIncome > 0
- ? Math.min(100, Math.round((totalExpenses / totalIncome) * 100))
+ : monthlyIncome > 0
+ ? Math.min(100, Math.round((monthlyExpenses / monthlyIncome) * 100))
  : 0;
-
- const monthlyIncomeNormalized = incomeEntries.reduce((sum, e) => {
- if (!e.isRecurring) return sum;
- switch (e.frequency) {
- case 'weekly': return sum + e.amount * 52 / 12;
- case 'quarterly': return sum + e.amount / 3;
- case 'yearly': return sum + e.amount / 12;
- default: return sum + e.amount;
+ const upcomingObligations = snapshot.obligations.pending.slice(0, 4);
+ const forecastSummary3 = {
+ totalObligations: snapshot.forecast.monthlyRows.slice(0, 3).reduce((sum, period) => sum + period.obligationPayments, 0),
+ projectedSurplus: snapshot.forecast.monthlyRows.slice(0, 3).reduce((sum, period) => sum + (period.income - period.recurringExpenses - period.obligationPayments - period.oneTimeExpenses + period.maturityInflows), 0),
+ periods: snapshot.forecast.monthlyRows.slice(0, 3),
+ };
+ const aiInsightSentences = (() => {
+ if (isDemoMode) {
+ return [
+ isArabic ? 'الدخل والمصروفات والمحفظة تتجمع هنا في قراءة واحدة واضحة.' : 'Income, expenses, and portfolio are rolled into one clear operating view.',
+ isArabic ? 'تقدم FIRE يتحدث مباشرة مع نفس بيانات صافي الثروة والادخار.' : 'FIRE progress is speaking directly to the same net-worth and savings data.',
+ isArabic ? 'راقب الالتزامات القادمة والسيولة قبل أي قرار استثماري جديد.' : 'Watch near-term obligations and liquidity before any new investment move.',
+ isArabic ? 'كلما أضفت بيانات حقيقية، تصبح هذه القراءة أكثر دقة.' : 'As you add real data, this operating brief becomes more precise.',
+ ];
  }
- }, 0);
 
- const activeObligations = recurringObligations ?? [];
-
- const upcomingObligations = useMemo(
- () => getUpcomingOccurrences(activeObligations, 30).slice(0, 4),
- [activeObligations]
- );
-
- const forecastSummary3 = useMemo(
- () => buildForecastSummary(activeObligations, 3, monthlyIncomeNormalized),
- [activeObligations, monthlyIncomeNormalized]
- );
- const wealixContext = useMemo(
- () => buildWealixAIContextFromClientContext('dashboard', {
- currency: 'SAR',
- holdings: portfolioHoldings,
- assets,
- liabilities,
- incomeEntries,
- expenseEntries,
- recurringObligations: activeObligations,
- oneTimeExpenses,
- savingsAccounts,
- }),
- [portfolioHoldings, assets, liabilities, incomeEntries, expenseEntries, activeObligations, oneTimeExpenses, savingsAccounts]
- );
- const financialBrainPersona = useMemo(
- () => buildFinancialPersonaFromClientContext('dashboard', {
- currency: 'SAR',
- holdings: portfolioHoldings,
- assets,
- liabilities,
- incomeEntries,
- expenseEntries,
- oneTimeExpenses,
- savingsAccounts,
- recurringObligations: activeObligations,
- }, wealixContext),
- [portfolioHoldings, assets, liabilities, incomeEntries, expenseEntries, oneTimeExpenses, savingsAccounts, activeObligations, wealixContext]
- );
- const aiInsightSentences = useMemo(() => {
- return buildDashboardInsightLines(financialBrainPersona, wealixContext);
- }, [financialBrainPersona, wealixContext]);
+ const obligationAlert = snapshot.obligations.pending.find((item) => item.fundingGap > 0) ?? snapshot.obligations.nextDue;
+ const firstForecastStress = snapshot.forecast.firstAtRiskMonth;
+ return [
+ `${isArabic ? 'الدخل الشهري الموحّد' : 'Canonical monthly income'} ${formatCurrency(monthlyIncome, 'SAR', locale)} ${isArabic ? 'مقابل مصروفات' : 'against expenses of'} ${formatCurrency(monthlyExpenses, 'SAR', locale)}.`,
+ obligationAlert
+ ? `${isArabic ? 'أقرب التزام' : 'Nearest obligation'} ${obligationAlert.title} ${isArabic ? 'بقيمة' : 'for'} ${formatCurrency(obligationAlert.amount, 'SAR', locale)} ${isArabic ? 'ويتبقى له' : 'is due in'} ${obligationAlert.daysUntilDue} ${isArabic ? 'يوماً' : 'days'}.`
+ : (isArabic ? 'لا توجد فجوات التزام حرجة حالياً.' : 'There are no critical obligation gaps right now.'),
+ `${isArabic ? 'صافي الثروة' : 'Net worth'} ${formatCurrency(totalNetWorth, 'SAR', locale)} ${isArabic ? 'وصافي الثروة السائلة' : 'and liquid net worth'} ${formatCurrency(snapshot.netWorth.liquidNetWorth, 'SAR', locale)}.`,
+ firstForecastStress
+ ? `${isArabic ? 'أول شهر ضغط في التوقع' : 'First forecast stress month'} ${firstForecastStress.label} ${isArabic ? 'برصيد إغلاق' : 'with a closing balance of'} ${formatCurrency(firstForecastStress.closingBalance, 'SAR', locale)}.`
+ : `${isArabic ? 'مسار FIRE الحالي' : 'Current FIRE path'} ${fireMetrics.yearsToFire === null ? (isArabic ? 'يحتاج رفع الادخار' : 'needs higher savings') : `${fireMetrics.yearsToFire} ${isArabic ? 'سنة تقريباً' : 'years out'}`}.`,
+ ];
+ })();
 
  if (isLoading) {
  return (
@@ -542,7 +506,7 @@ export default function DashboardPage() {
  ) : (
  <div className="space-y-2">
  {upcomingObligations.map((occ) => (
- <div key={`${occ.obligationId}-${occ.dueDate}`} className="flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2.5">
+ <div key={`${occ.id}-${occ.dueDate}`} className="flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2.5">
  <div>
  <p className="font-medium text-sm">{occ.title}</p>
  <p className="text-xs text-muted-foreground">
@@ -602,7 +566,7 @@ export default function DashboardPage() {
  <div key={period.month} className="flex items-center justify-between rounded-xl border px-3 py-2">
  <span className="text-sm font-medium">{period.label}</span>
  <span className="text-sm text-rose-500 font-medium">
- {period.totalAmount > 0 ? `-${formatCurrency(period.totalAmount, 'SAR', locale)}` : '—'}
+ {period.obligationPayments > 0 ? `-${formatCurrency(period.obligationPayments, 'SAR', locale)}` : '—'}
  </span>
  </div>
  ))}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -11,7 +11,7 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react';
-import { useAppStore } from '@/store/useAppStore';
+import { getPersistableWorkspaceSnapshot, useAppStore } from '@/store/useAppStore';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,12 +95,7 @@ function getDimensionClass(status: DecisionDimension['status']) {
 export function InvestmentDecisionCheck() {
   const {
     locale,
-    portfolioHoldings,
-    assets,
-    liabilities,
-    incomeEntries,
-    expenseEntries,
-    budgetLimits,
+    financialStateVersion,
     addInvestmentDecisionRecord,
   } = useAppStore();
   const isArabic = locale === 'ar';
@@ -109,20 +104,6 @@ export function InvestmentDecisionCheck() {
   const [price, setPrice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<DecisionResponse | null>(null);
-
-  const clientContext = useMemo(() => ({
-    snapshotDate: new Date().toISOString(),
-    currency: 'SAR',
-    holdings: portfolioHoldings,
-    assets,
-    liabilities,
-    incomeEntries,
-    expenseEntries,
-    budgetLimits: budgetLimits.map((limit) => ({
-      category: limit.category,
-      limit: limit.limit,
-    })),
-  }), [assets, budgetLimits, expenseEntries, incomeEntries, liabilities, portfolioHoldings]);
 
   const runDecision = async () => {
     const numericPrice = Number(price);
@@ -149,10 +130,14 @@ export function InvestmentDecisionCheck() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          investmentName: investmentName.trim(),
-          price: numericPrice,
+          ticker: investmentName.trim(),
+          action: 'BUY',
+          amount: numericPrice,
           locale,
-          clientContext,
+          clientContext: {
+            version: financialStateVersion,
+            workspace: getPersistableWorkspaceSnapshot(useAppStore.getState()),
+          },
         }),
       });
       const data = await response.json();

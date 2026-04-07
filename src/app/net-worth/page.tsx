@@ -71,6 +71,7 @@ import {
   type AssetCategory,
   type LiabilityCategory,
 } from '@/store/useAppStore';
+import { useFinancialSnapshot } from '@/hooks/useFinancialSnapshot';
 import { toast } from '@/hooks/use-toast';
 import { createOpaqueId } from '@/lib/ids';
 
@@ -103,11 +104,11 @@ export default function NetWorthPage() {
   const appMode = useAppStore((state) => state.appMode);
   const assets = useAppStore((state) => state.assets);
   const liabilities = useAppStore((state) => state.liabilities);
-  const portfolioHoldings = useAppStore((state) => state.portfolioHoldings);
   const addAsset = useAppStore((state) => state.addAsset);
   const deleteAsset = useAppStore((state) => state.deleteAsset);
   const addLiability = useAppStore((state) => state.addLiability);
   const deleteLiability = useAppStore((state) => state.deleteLiability);
+  const { snapshot } = useFinancialSnapshot();
   const isArabic = locale === 'ar';
   const { isSignedIn } = useUser();
 
@@ -116,36 +117,44 @@ export default function NetWorthPage() {
   const [newAsset, setNewAsset] = useState({ name: '', category: 'cash', value: '' });
   const [newLiability, setNewLiability] = useState({ name: '', category: 'loan', balance: '' });
 
-  const portfolioInvestmentsValue = appMode === 'demo'
-    ? 0
-    : portfolioHoldings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
-  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0) + portfolioInvestmentsValue;
-  const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
-  const netWorth = totalAssets - totalLiabilities;
+  const portfolioInvestmentsValue = appMode === 'demo' ? 0 : snapshot.portfolio.totalInvestments;
+  const totalAssets = appMode === 'demo' ? 1170000 : snapshot.totalAssets;
+  const totalLiabilities = appMode === 'demo' ? 585500 : snapshot.totalLiabilities;
+  const netWorth = appMode === 'demo' ? 584500 : snapshot.netWorth.net;
 
   const displayAssets = useMemo(() => {
-    if (portfolioInvestmentsValue <= 0) {
-      return assets;
-    }
-
-    return [
-      {
-        id: 'portfolio-investments',
-        name: isArabic ? 'المحفظة الاستثمارية الحالية' : 'Current Portfolio Holdings',
-        category: 'investment' as const,
-        value: portfolioInvestmentsValue,
+    const lockedSavingsAssets = snapshot.savings.savingsAccounts
+      .filter((account) => !account.isLiquid)
+      .map((account) => ({
+        id: `locked-${account.id}`,
+        name: `${account.name}${isArabic ? ' (ادخار مقفل)' : ' (Locked savings)'}`,
+        category: 'cash' as const,
+        value: account.currentBalance,
         currency: 'SAR',
-      },
-      ...assets,
-    ];
-  }, [assets, isArabic, portfolioInvestmentsValue]);
+      }));
+
+    const syntheticAssets = portfolioInvestmentsValue <= 0
+      ? lockedSavingsAssets
+      : [
+          {
+            id: 'portfolio-investments',
+            name: isArabic ? 'المحفظة الاستثمارية الحالية' : 'Current Portfolio Holdings',
+            category: 'investment' as const,
+            value: portfolioInvestmentsValue,
+            currency: 'SAR',
+          },
+          ...lockedSavingsAssets,
+        ];
+
+    return [...syntheticAssets, ...assets];
+  }, [assets, isArabic, portfolioInvestmentsValue, snapshot.savings.savingsAccounts]);
 
   const historyData = useMemo(() => {
     if (appMode === 'demo') {
       return mockHistory;
     }
 
-    if (assets.length === 0 && liabilities.length === 0 && portfolioInvestmentsValue === 0) {
+    if (assets.length === 0 && liabilities.length === 0 && portfolioInvestmentsValue === 0 && snapshot.savings.savingsAccounts.length === 0) {
       return [];
     }
 
@@ -157,7 +166,7 @@ export default function NetWorthPage() {
         netWorth,
       },
     ];
-  }, [appMode, assets.length, liabilities.length, isArabic, portfolioInvestmentsValue, totalAssets, totalLiabilities, netWorth]);
+  }, [appMode, assets.length, liabilities.length, isArabic, portfolioInvestmentsValue, snapshot.savings.savingsAccounts.length, totalAssets, totalLiabilities, netWorth]);
 
   const ratio = totalLiabilities > 0 ? totalAssets / totalLiabilities : totalAssets > 0 ? totalAssets : 0;
   const ratioProgress = totalAssets > 0 ? Math.min(100, (totalLiabilities / totalAssets) * 100) : 0;
@@ -368,7 +377,7 @@ export default function NetWorthPage() {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -376,8 +385,34 @@ export default function NetWorthPage() {
                   <TrendingUp className="w-6 h-6 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{isArabic ? 'إجمالي الأصول' : 'Total Assets'}</p>
-                  <p className="text-2xl font-bold text-emerald-500">{formatCurrency(totalAssets, 'SAR', locale)}</p>
+                  <p className="text-sm text-muted-foreground">{isArabic ? 'الأصول السائلة' : 'Liquid assets'}</p>
+                  <p className="text-2xl font-bold text-emerald-500">{formatCurrency(snapshot.netWorth.liquid, 'SAR', locale)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-sky-500/20 bg-gradient-to-br from-sky-500/10 to-sky-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-full bg-sky-500/20 p-3">
+                  <Landmark className="w-6 h-6 text-sky-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{isArabic ? 'الادخار المقفل / عوائد' : 'Locked savings / Awaeed'}</p>
+                  <p className="text-2xl font-bold text-sky-500">{formatCurrency(snapshot.netWorth.locked, 'SAR', locale)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-violet-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-full bg-violet-500/20 p-3">
+                  <Briefcase className="w-6 h-6 text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{isArabic ? 'الاستثمارات' : 'Investments'}</p>
+                  <p className="text-2xl font-bold text-violet-500">{formatCurrency(snapshot.netWorth.investments, 'SAR', locale)}</p>
                 </div>
               </div>
             </CardContent>
@@ -389,8 +424,8 @@ export default function NetWorthPage() {
                   <TrendingDown className="w-6 h-6 text-rose-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{isArabic ? 'إجمالي الالتزامات' : 'Total Liabilities'}</p>
-                  <p className="text-2xl font-bold text-rose-500">{formatCurrency(totalLiabilities, 'SAR', locale)}</p>
+                  <p className="text-sm text-muted-foreground">{isArabic ? 'الالتزامات' : 'Obligations'}</p>
+                  <p className="text-2xl font-bold text-rose-500">{formatCurrency(snapshot.netWorth.obligations, 'SAR', locale)}</p>
                 </div>
               </div>
             </CardContent>
@@ -403,7 +438,20 @@ export default function NetWorthPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{isArabic ? 'صافي الثروة' : 'Net Worth'}</p>
-                  <p className="text-2xl font-bold text-gold">{formatCurrency(netWorth, 'SAR', locale)}</p>
+                  <p className="text-2xl font-bold text-gold">{formatCurrency(snapshot.netWorth.net, 'SAR', locale)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-full bg-amber-500/20 p-3">
+                  <Wallet className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{isArabic ? 'صافي الثروة السائلة' : 'Liquid net worth'}</p>
+                  <p className="text-2xl font-bold text-amber-500">{formatCurrency(snapshot.netWorth.liquidNetWorth, 'SAR', locale)}</p>
                 </div>
               </div>
             </CardContent>

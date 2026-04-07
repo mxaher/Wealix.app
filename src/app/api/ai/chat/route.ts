@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { sanitizeUserMessage, logAiAuditEvent } from '@/lib/ai-safety';
-import { buildFinancialSnapshotFromWorkspace } from '@/lib/financial-snapshot';
+import { buildFinancialSnapshotFromWorkspace, hasCompleteFinancialContext } from '@/lib/financial-snapshot';
 import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRouteDecision, getGemmaApiMode, hasAiProviderApiKey, type AiProvider } from '@/lib/llm-routing';
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
-import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
+import { isRemotePersistenceConfigured, loadRemoteWorkspace, type RemoteUserWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
 import { buildDeterministicAdvisorResponse, buildFinancialPersonaFromWorkspace } from '@/lib/financial-brain-surface';
 import { buildCompactWealixAIContext, buildWealixAIContext } from '@/lib/wealix-ai-context';
@@ -256,12 +256,14 @@ function capConversationHistory<T>(messages: T[]) {
   return messages.slice(-20);
 }
 
-async function loadAdvisorUserContext(userId: string): Promise<AdvisorUserContext | null> {
-  if (!isRemotePersistenceConfigured()) {
-    return null;
+async function loadAdvisorUserContext(userId: string, workspaceOverride?: RemoteUserWorkspace | null): Promise<AdvisorUserContext | null> {
+  let workspace = workspaceOverride ?? null;
+
+  if (!workspace && isRemotePersistenceConfigured()) {
+    const remote = await loadRemoteWorkspace(userId);
+    workspace = remote.workspace;
   }
 
-  const { workspace } = await loadRemoteWorkspace(userId);
   if (!workspace) {
     return null;
   }
@@ -273,7 +275,7 @@ async function loadAdvisorUserContext(userId: string): Promise<AdvisorUserContex
   return {
     snapshotDate: snapshot.snapshotDate,
     currency: snapshot.currency,
-    netWorth: snapshot.netWorth,
+    netWorth: snapshot.netWorth.net,
     portfolioValue: snapshot.portfolioValue,
     monthlyIncome: snapshot.monthlyIncome,
     monthlyExpenses: snapshot.monthlyExpenses,
@@ -691,7 +693,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, locale = 'ar' } = body;
+    const { messages, locale = 'ar', clientContext } = body;
+    const clientWorkspace = hasCompleteFinancialContext(clientContext?.workspace)
+      ? clientContext.workspace as RemoteUserWorkspace
+      : null;
 
     if (!isValidMessageArray(messages)) {
       return new Response(
@@ -704,11 +709,13 @@ export async function POST(request: NextRequest) {
     let unifiedContextText: string | undefined;
     let deterministicResponse: string | null = null;
     try {
-      userContext = (await loadAdvisorUserContext(authResult.userId!)) ?? undefined;
-      if (isRemotePersistenceConfigured()) {
-        const remote = await loadRemoteWorkspace(authResult.userId!);
-        if (remote.workspace) {
-          const liveWealixContext = buildWealixAIContext(authResult.userId!, remote.workspace);
+      userContext = (await loadAdvisorUserContext(authResult.userId!, clientWorkspace)) ?? undefined;
+      const resolvedWorkspace = clientWorkspace ?? (isRemotePersistenceConfigured()
+        ? (await loadRemoteWorkspace(authResult.userId!)).workspace
+        : null);
+
+      if (resolvedWorkspace) {
+          const liveWealixContext = buildWealixAIContext(authResult.userId!, resolvedWorkspace);
           unifiedContextText = buildCompactWealixAIContext(
             liveWealixContext,
             locale === 'ar' ? 'ar' : 'en'
@@ -716,9 +723,8 @@ export async function POST(request: NextRequest) {
           const latestMessage = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
           deterministicResponse = buildDeterministicAdvisorResponse({
             message: latestMessage,
-            persona: buildFinancialPersonaFromWorkspace(authResult.userId!, remote.workspace, liveWealixContext),
+            persona: buildFinancialPersonaFromWorkspace(authResult.userId!, resolvedWorkspace, liveWealixContext),
           });
-        }
       }
     } catch (error) {
       console.error('[ai/chat] failed to load persisted advisor context', error);

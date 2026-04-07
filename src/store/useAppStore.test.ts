@@ -27,6 +27,8 @@ function resetStore() {
     notificationFeed: [],
     profiles: [],
     activeProfileId: 'guest',
+    financialStateVersion: 0,
+    financialStateUpdatedAt: '2026-04-07T00:00:00.000Z',
     incomeEntries: [],
     expenseEntries: [],
     receiptScans: [],
@@ -169,5 +171,67 @@ describe('useAppStore mode isolation', () => {
 
     expect(useAppStore.getState().incomeEntries.map((entry) => entry.id)).toEqual(['income-remote']);
     expect(useAppStore.getState().startPage).toBe('portfolio');
+  });
+
+  test('bumps financial snapshot version for each mutation type', () => {
+    const store = useAppStore.getState();
+
+    expect(store.financialStateVersion).toBe(0);
+
+    store.addIncomeEntry(buildIncomeEntry('income-version', 'Versioned Salary'));
+    expect(useAppStore.getState().financialStateVersion).toBe(1);
+
+    store.addExpenseEntry(buildExpenseEntry('expense-version', 'Dinner'));
+    expect(useAppStore.getState().financialStateVersion).toBe(2);
+
+    store.addAsset({
+      id: 'asset-version',
+      name: 'Cash reserve',
+      category: 'cash',
+      value: 5000,
+      currency: 'SAR',
+    });
+    expect(useAppStore.getState().financialStateVersion).toBe(3);
+
+    store.addRecurringObligation({
+      id: 'ob-version',
+      title: 'School fees',
+      category: 'Education',
+      amount: 4000,
+      currency: 'SAR',
+      dueDay: 15,
+      startDate: '2026-05-01',
+      frequency: 'monthly',
+      status: 'upcoming',
+    });
+    expect(useAppStore.getState().financialStateVersion).toBe(4);
+
+    store.addOneTimeExpense({
+      id: 'one-version',
+      title: 'Iqama renewal',
+      amount: 2000,
+      currency: 'SAR',
+      dueDate: '2026-06-10',
+      category: 'Other',
+      priority: 'high',
+      status: 'planned',
+    });
+    expect(useAppStore.getState().financialStateVersion).toBe(5);
+
+    store.addSavingsAccount({
+      id: 'save-version',
+      name: 'Awaeed',
+      type: 'awaeed',
+      provider: 'Bank',
+      principal: 10000,
+      currentBalance: 10100,
+      annualProfitRate: 4,
+      termMonths: 12,
+      openedAt: '2026-01-01',
+      maturityDate: '2027-01-01',
+      profitPayoutMethod: 'at_maturity',
+      status: 'active',
+    });
+    expect(useAppStore.getState().financialStateVersion).toBe(6);
   });
 });

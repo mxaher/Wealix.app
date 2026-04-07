@@ -1,6 +1,5 @@
 import type { RemoteUserWorkspace } from '@/lib/remote-user-data';
 import { buildFinancialSnapshotFromClientContext, buildFinancialSnapshotFromWorkspace, type ClientFinancialContext, type FinancialSnapshot } from '@/lib/financial-snapshot';
-import { buildForecast, getUpcomingOccurrences, type UpcomingOccurrence } from '@/lib/recurring-obligations';
 import type { BudgetLimit, ExpenseCategory, ExpenseEntry, IncomeEntry, OneTimeExpense, RecurringObligation, SavingsAccount } from '@/store/useAppStore';
 
 type AlertSeverity = 'info' | 'warning' | 'critical';
@@ -187,100 +186,6 @@ function buildBudgetStatus(expenseEntries: ExpenseEntry[], budgetLimits: BudgetL
       variance: roundMoney(variance),
       status,
     } as const;
-  });
-}
-
-function monthsUntil(dateString: string) {
-  const now = new Date();
-  const due = new Date(dateString);
-  return Math.max(0, (due.getFullYear() - now.getFullYear()) * 12 + (due.getMonth() - now.getMonth()));
-}
-
-function buildObligationFundingView(params: {
-  upcomingOccurrences: UpcomingOccurrence[];
-  liquidReserves: number;
-  monthlySurplus: number;
-}): WealixAIContext['obligations'] {
-  const { upcomingOccurrences, liquidReserves, monthlySurplus } = params;
-  const sorted = [...upcomingOccurrences].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  let reservedEarlier = 0;
-
-  return sorted.map((item) => {
-    const monthsRemaining = monthsUntil(item.dueDate);
-    const availableFunding = Math.max(0, liquidReserves + (monthlySurplus * monthsRemaining) - reservedEarlier);
-    const fundingGap = Math.max(0, item.amount - availableFunding);
-    const coverageRatio = item.amount > 0 ? availableFunding / item.amount : 1;
-    reservedEarlier += item.amount;
-
-    return {
-      id: item.obligationId,
-      title: item.title,
-      amount: roundMoney(item.amount),
-      dueDate: item.dueDate,
-      daysUntilDue: item.daysUntilDue,
-      urgency: item.daysUntilDue <= 30
-        ? 'IMMEDIATE'
-        : item.daysUntilDue <= 90
-          ? 'HIGH'
-          : item.daysUntilDue <= 180
-            ? 'MEDIUM'
-            : 'LOW',
-      status: item.status ?? 'upcoming',
-      availableFunding: roundMoney(availableFunding),
-      fundingGap: roundMoney(fundingGap),
-      coverageRatio: Number(coverageRatio.toFixed(2)),
-    };
-  });
-}
-
-function buildMonthlyForecast(params: {
-  liquidReserves: number;
-  monthlyIncome: number;
-  monthlyExpenses: number;
-  recurringObligations: RecurringObligation[];
-  oneTimeExpenses: OneTimeExpense[];
-  savingsAccounts: SavingsAccount[];
-}) {
-  const monthlyObligations = buildForecast(params.recurringObligations, 12);
-  let openingBalance = params.liquidReserves;
-
-  return monthlyObligations.map((period) => {
-    const obligationPayments = period.totalAmount;
-    const oneTimeExpenses = params.oneTimeExpenses
-      .filter((item) => item.status !== 'paid' && item.dueDate.slice(0, 7) === period.month)
-      .reduce((sum, item) => sum + item.amount, 0);
-    const maturityInflows = params.savingsAccounts
-      .filter((item) => item.status === 'active' && item.maturityDate.slice(0, 7) === period.month)
-      .reduce((sum, item) => {
-        const profit = item.profitPayoutMethod === 'at_maturity'
-          ? item.principal * (item.annualProfitRate / 100) * (item.termMonths / 12)
-          : 0;
-        return sum + item.principal + profit;
-      }, 0);
-    const closingBalance = openingBalance + params.monthlyIncome - params.monthlyExpenses - obligationPayments - oneTimeExpenses + maturityInflows;
-    const status: MonthStatus = closingBalance < 0
-      ? 'CRITICAL'
-      : closingBalance < params.monthlyExpenses
-        ? 'AT_RISK'
-        : closingBalance < params.monthlyExpenses * 3
-          ? 'SURPLUS_LOW'
-          : obligationPayments > 0
-            ? 'OBLIGATION_DUE'
-            : 'ON_TRACK';
-
-    const forecastMonth: WealixForecastMonth = {
-      month: period.month,
-      label: period.label,
-      openingBalance: roundMoney(openingBalance),
-      income: roundMoney(params.monthlyIncome),
-      recurringExpenses: roundMoney(params.monthlyExpenses + oneTimeExpenses - maturityInflows),
-      obligationPayments: roundMoney(obligationPayments),
-      closingBalance: roundMoney(closingBalance),
-      status,
-    };
-
-    openingBalance = closingBalance;
-    return forecastMonth;
   });
 }
 
@@ -496,33 +401,47 @@ function buildTopPriorityActions(alerts: WealixAIAlert[], largestExpenseCategory
 }
 
 function buildContext(input: ContextBuildInput): WealixAIContext {
-  const { snapshot, expenseEntries, budgetLimits, recurringObligations } = input;
-  const monthlyIncome = roundMoney(snapshot.monthlyIncome);
-  const monthlyExpenses = roundMoney(snapshot.monthlyExpenses);
-  const monthlySurplus = roundMoney(monthlyIncome - monthlyExpenses);
+  const { snapshot, expenseEntries, budgetLimits } = input;
+  const monthlyIncome = roundMoney(snapshot.income.monthlyNormalized);
+  const monthlyExpenses = roundMoney(snapshot.expenses.monthlyNormalized);
+  const monthlySurplus = roundMoney(snapshot.monthlySavings);
   const annualIncome = roundMoney((monthlyIncome * 12));
   const expenseToIncomeRatio = monthlyIncome > 0 ? (monthlyExpenses / monthlyIncome) * 100 : 0;
   const debtToIncomeRatio = annualIncome > 0 ? (snapshot.totalLiabilities / annualIncome) * 100 : 0;
-  const liquidNetWorth = roundMoney(snapshot.liquidReserves);
+  const liquidNetWorth = roundMoney(snapshot.netWorth.liquidNetWorth);
   const expenseBreakdown = categoryBreakdown(expenseEntries);
   const needsRatio = monthlyIncome > 0 ? (expenseBreakdown.needs / monthlyIncome) * 100 : 0;
   const wantsRatio = monthlyIncome > 0 ? (expenseBreakdown.wants / monthlyIncome) * 100 : 0;
   const savingsAndObligationsRatio = monthlyIncome > 0 ? (Math.max(monthlySurplus, 0) / monthlyIncome) * 100 : 0;
   const budgets = buildBudgetStatus(expenseEntries, budgetLimits);
-  const upcomingOccurrences = getUpcomingOccurrences(recurringObligations, 365);
-  const obligations = buildObligationFundingView({
-    upcomingOccurrences,
-    liquidReserves: snapshot.liquidReserves,
-    monthlySurplus,
-  });
-  const forecast = buildMonthlyForecast({
-    liquidReserves: snapshot.liquidReserves,
-    monthlyIncome,
-    monthlyExpenses,
-    recurringObligations,
-    oneTimeExpenses: input.oneTimeExpenses,
-    savingsAccounts: input.savingsAccounts,
-  });
+  const obligations = snapshot.obligations.pending.map((item) => ({
+    id: item.id,
+    title: item.title,
+    amount: item.amount,
+    dueDate: item.dueDate,
+    daysUntilDue: item.daysUntilDue,
+    urgency: item.daysUntilDue <= 30
+      ? 'IMMEDIATE'
+      : item.daysUntilDue <= 90
+        ? 'HIGH'
+        : item.daysUntilDue <= 180
+          ? 'MEDIUM'
+          : 'LOW',
+    status: item.status ?? 'upcoming',
+    availableFunding: item.availableFunding,
+    fundingGap: item.fundingGap,
+    coverageRatio: item.coverageRatio,
+  }));
+  const forecast = snapshot.forecast.monthlyRows.map((row) => ({
+    month: row.month,
+    label: row.label,
+    openingBalance: row.openingBalance,
+    income: row.income,
+    recurringExpenses: row.recurringExpenses + row.oneTimeExpenses - row.maturityInflows,
+    obligationPayments: row.obligationPayments,
+    closingBalance: row.closingBalance,
+    status: row.status === 'SURPLUS_LOW' ? 'SURPLUS_LOW' : row.status,
+  }));
   const firstAtRiskMonth = forecast.find((item) => item.status === 'CRITICAL' || item.status === 'AT_RISK') ?? null;
   const topSectorWeightPct = snapshot.sectorExposure[0]?.weightPct ?? 0;
   const portfolioToLiquidRatio = liquidNetWorth > 0 ? snapshot.portfolioValue / liquidNetWorth : snapshot.portfolioValue > 0 ? 999 : 0;
@@ -591,7 +510,7 @@ function buildContext(input: ContextBuildInput): WealixAIContext {
     debtToIncomeRatio: Number(debtToIncomeRatio.toFixed(1)),
     liquidNetWorth,
     netWorthGross: snapshot.totalAssets,
-    netWorthNet: snapshot.netWorth,
+    netWorthNet: snapshot.netWorth.net,
     needsRatio: Number(needsRatio.toFixed(1)),
     wantsRatio: Number(wantsRatio.toFixed(1)),
     savingsAndObligationsRatio: Number(savingsAndObligationsRatio.toFixed(1)),

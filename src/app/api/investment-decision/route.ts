@@ -5,32 +5,23 @@ import {
   buildFinancialSnapshotFromClientContext,
   buildFinancialSnapshotFromWorkspace,
   type ClientFinancialContext,
+  getDecisionCheckContext,
+  hasCompleteFinancialContext,
 } from '@/lib/financial-snapshot';
 import { generateInvestmentDecision } from '@/lib/investment-decision-service';
 import { logInvestmentDecision } from '@/lib/investment-decision-log';
-import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
+import { isRemotePersistenceConfigured, loadRemoteWorkspace, type RemoteUserWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
 import { buildWealixAIContext, buildWealixAIContextFromClientContext } from '@/lib/wealix-ai-context';
 
 const requestSchema = z.object({
-  investmentName: z.string().min(2).max(120),
-  price: z.number().positive(),
+  ticker: z.string().min(1).max(120),
+  action: z.enum(['BUY', 'SELL', 'HOLD']).default('BUY'),
+  amount: z.number().positive().optional(),
   locale: z.enum(['ar', 'en']).default('en'),
   clientContext: z.object({
-    snapshotDate: z.string().optional(),
-    currency: z.string().optional(),
-    holdings: z.array(z.unknown()).optional(),
-    assets: z.array(z.unknown()).optional(),
-    liabilities: z.array(z.unknown()).optional(),
-    incomeEntries: z.array(z.unknown()).optional(),
-    expenseEntries: z.array(z.unknown()).optional(),
-    oneTimeExpenses: z.array(z.unknown()).optional(),
-    savingsAccounts: z.array(z.unknown()).optional(),
-    budgetLimits: z.array(z.object({
-      category: z.string(),
-      limit: z.number(),
-    })).optional(),
-    recurringObligations: z.array(z.unknown()).optional(),
+    version: z.union([z.number(), z.string()]).optional(),
+    workspace: z.record(z.string(), z.unknown()).optional(),
   }).optional(),
 });
 
@@ -69,8 +60,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { investmentName, price, locale, clientContext } = parsed.data;
-    const typedClientContext = (clientContext ?? {}) as ClientFinancialContext;
+    const { ticker, action, amount, locale, clientContext } = parsed.data;
+    const typedClientContext = (clientContext?.workspace ?? {}) as ClientFinancialContext;
 
     const dailyLimit = await enforceRateLimit(`investment-decision:daily:${authResult.userId}`, DAILY_LIMIT, DAY_MS);
     if (!dailyLimit.allowed) {
@@ -96,42 +87,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let snapshot;
-    let wealixContext;
+    const completeClientWorkspace = hasCompleteFinancialContext(typedClientContext)
+      ? typedClientContext as ClientFinancialContext
+      : null;
+    let resolvedWorkspace: RemoteUserWorkspace | null = null;
+
     if (authResult.userId && isRemotePersistenceConfigured()) {
       const remote = await loadRemoteWorkspace(authResult.userId);
       if (remote.workspace) {
-        snapshot = buildFinancialSnapshotFromWorkspace(remote.workspace);
-        wealixContext = buildWealixAIContext(authResult.userId, remote.workspace);
-      } else {
-        snapshot = buildFinancialSnapshotFromClientContext(typedClientContext);
-        wealixContext = buildWealixAIContextFromClientContext(authResult.userId, typedClientContext);
+        resolvedWorkspace = completeClientWorkspace
+          ? { ...remote.workspace, ...(completeClientWorkspace as unknown as RemoteUserWorkspace) }
+          : remote.workspace;
       }
-    } else {
-      snapshot = buildFinancialSnapshotFromClientContext(typedClientContext);
-      wealixContext = buildWealixAIContextFromClientContext(authResult.userId ?? 'guest', typedClientContext);
     }
 
+    const snapshot = resolvedWorkspace
+      ? buildFinancialSnapshotFromWorkspace(resolvedWorkspace)
+      : buildFinancialSnapshotFromClientContext(completeClientWorkspace ?? typedClientContext);
+    const wealixContext = resolvedWorkspace
+      ? buildWealixAIContext(authResult.userId!, resolvedWorkspace)
+      : buildWealixAIContextFromClientContext(authResult.userId ?? 'guest', completeClientWorkspace ?? typedClientContext);
+    const decisionContext = getDecisionCheckContext(snapshot);
+
     const decision = await generateInvestmentDecision({
-      name: investmentName,
-      price,
+      name: ticker,
+      price: amount ?? 0,
       locale,
     }, snapshot, wealixContext);
 
     await logInvestmentDecision({
       clerkUserId: authResult.userId!,
-      investmentName,
+      investmentName: ticker,
       investmentType: decision.assetClass,
-      price,
-      payloadJson: JSON.stringify({ investmentName, price, snapshot }),
+      price: amount ?? 0,
+      payloadJson: JSON.stringify({ ticker, action, amount: amount ?? 0, decisionContext }),
       decisionJson: JSON.stringify(decision),
     });
 
     return NextResponse.json(
       {
-        investmentName,
-        price,
+        investmentName: ticker,
+        price: amount ?? 0,
         snapshot,
+        decisionContext,
         decision,
       },
       {

@@ -137,7 +137,7 @@ function formatMonth(locale: 'ar' | 'en', monthsToAdd: number) {
 function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnapshot, wealixContext?: WealixAIContext) {
   const assetClass = classifyInvestment(input.name);
   const price = input.price;
-  const netWorthImpactPct = snapshot.netWorth > 0 ? (price / snapshot.netWorth) * 100 : 100;
+  const netWorthImpactPct = snapshot.netWorth.net > 0 ? (price / snapshot.netWorth.net) * 100 : 100;
   const liquidImpactPct = snapshot.liquidReserves > 0 ? (price / snapshot.liquidReserves) * 100 : 100;
   const liquidAfter = snapshot.liquidReserves - price;
   const sectorTop = snapshot.sectorExposure[0];
@@ -389,7 +389,7 @@ function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: Financi
   const savingsRate = wealixContext?.savingsRate ?? snapshot.savingsRate;
   const suggestedAmount = roundMoney(Math.max(0, Math.min(
     input.price,
-    snapshot.netWorth * 0.08,
+    snapshot.netWorth.net * 0.08,
     snapshot.liquidReserves * (assetClass === 'crypto' ? 0.05 : 0.15)
   )));
 
@@ -445,7 +445,7 @@ function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: Financi
     summary: summaryMap[verdict],
     suggestedAllocation: {
       amount: suggestedAmount,
-      percentOfNetWorth: snapshot.netWorth > 0 ? Number(((suggestedAmount / snapshot.netWorth) * 100).toFixed(2)) : 0,
+      percentOfNetWorth: snapshot.netWorth.net > 0 ? Number(((suggestedAmount / snapshot.netWorth.net) * 100).toFixed(2)) : 0,
       percentOfLiquidReserves: snapshot.liquidReserves > 0 ? Number(((suggestedAmount / snapshot.liquidReserves) * 100).toFixed(2)) : 0,
     },
     revisitPlan: {

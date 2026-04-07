@@ -128,7 +128,7 @@ export function buildFinancialPersonaFromWorkspace(userId: string, workspace: Re
     },
     fire: {
       fireNumber: fireGoal?.targetAmount ?? 0,
-      currentInvestableAssets: fireGoal?.currentAmount ?? snapshot.netWorth,
+      currentInvestableAssets: fireGoal?.currentAmount ?? snapshot.netWorth.net,
       progressPct: fireGoal?.progressPct ?? 0,
       estimatedYearsToFire: snapshot.monthlySavings > 0 && (fireGoal?.targetAmount ?? 0) > (fireGoal?.currentAmount ?? 0)
         ? Math.ceil(((fireGoal?.targetAmount ?? 0) - (fireGoal?.currentAmount ?? 0)) / Math.max(snapshot.monthlySavings * 12, 1))
@@ -196,7 +196,7 @@ export function buildFinancialPersonaFromClientContext(userId: string, context: 
     },
     fire: {
       fireNumber: fireGoal?.targetAmount ?? 0,
-      currentInvestableAssets: fireGoal?.currentAmount ?? snapshot.netWorth,
+      currentInvestableAssets: fireGoal?.currentAmount ?? snapshot.netWorth.net,
       progressPct: fireGoal?.progressPct ?? 0,
       estimatedYearsToFire: snapshot.monthlySavings > 0 && (fireGoal?.targetAmount ?? 0) > (fireGoal?.currentAmount ?? 0)
         ? Math.ceil(((fireGoal?.targetAmount ?? 0) - (fireGoal?.currentAmount ?? 0)) / Math.max(snapshot.monthlySavings * 12, 1))

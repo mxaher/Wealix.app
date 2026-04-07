@@ -45,7 +45,7 @@ import {
 import { DashboardShell } from '@/components/layout';
 import { FeatureGate } from '@/components/shared';
 import { InvestmentDecisionCheck } from '@/components/investment/InvestmentDecisionCheck';
-import { useAppStore } from '@/store/useAppStore';
+import { getPersistableWorkspaceSnapshot, useAppStore } from '@/store/useAppStore';
 import ReactMarkdown from 'react-markdown';
 import { createOpaqueId } from '@/lib/ids';
 
@@ -87,6 +87,7 @@ export default function AdvisorPage() {
   const {
     locale,
   } = useAppStore();
+  const financialStateVersion = useAppStore((state) => state.financialStateVersion);
   const isArabic = locale === 'ar';
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -214,6 +215,10 @@ export default function AdvisorPage() {
         body: JSON.stringify({
           messages,
           locale,
+          clientContext: {
+            version: financialStateVersion,
+            workspace: getPersistableWorkspaceSnapshot(useAppStore.getState()),
+          },
         }),
       });
 

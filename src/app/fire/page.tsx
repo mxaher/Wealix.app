@@ -30,6 +30,7 @@ import {
 import { DashboardShell } from '@/components/layout';
 import { StatCard, FeatureGate, formatCurrency } from '@/components/shared';
 import { useAppStore } from '@/store/useAppStore';
+import { useFinancialSnapshot } from '@/hooks/useFinancialSnapshot';
 import {
   LineChart,
   Line,
@@ -69,12 +70,10 @@ function calculateYearsToFire(
 }
 
 type FireFieldKey =
-  | 'annualExpenses'
   | 'withdrawalRate'
   | 'expectedReturn'
   | 'inflationRate'
-  | 'currentNetWorth'
-  | 'annualSavings';
+  ;
 
 type FireErrors = Partial<Record<FireFieldKey, string>>;
 
@@ -98,32 +97,27 @@ function calculateProjectedGrowth(
 
 export default function FirePage() {
   const { locale } = useAppStore();
+  const { snapshot } = useFinancialSnapshot();
   const isArabic = locale === 'ar';
-  
-  // State for FIRE inputs
-  const [annualExpenses, setAnnualExpenses] = useState(102000);
+
   const [withdrawalRate, setWithdrawalRate] = useState(4);
   const [expectedReturn, setExpectedReturn] = useState(7);
   const [inflationRate, setInflationRate] = useState(3);
-  const [currentNetWorth, setCurrentNetWorth] = useState(360000);
-  const [annualSavings, setAnnualSavings] = useState(78000);
   const [fireType, setFireType] = useState<'lean' | 'regular' | 'fat'>('regular');
   const [errors, setErrors] = useState<FireErrors>({});
-  
-  // Additional savings slider
   const [additionalSavings, setAdditionalSavings] = useState(0);
+  const annualExpenses = snapshot.fire.annualExpenses;
+  const currentNetWorth = snapshot.netWorth.net;
+  const annualSavings = snapshot.fire.annualSavings;
 
-  // Calculate FIRE metrics
   const fireNumber = useMemo(() => calculateFireNumber(annualExpenses, withdrawalRate), [annualExpenses, withdrawalRate]);
   const yearsToFire = useMemo(() => calculateYearsToFire(currentNetWorth, fireNumber, annualSavings + additionalSavings, expectedReturn), [currentNetWorth, fireNumber, annualSavings, additionalSavings, expectedReturn]);
   const progress = useMemo(() => Math.min((currentNetWorth / fireNumber) * 100, 100), [currentNetWorth, fireNumber]);
-  const projectionData = useMemo(() => calculateProjectedGrowth(currentNetWorth, annualSavings + additionalSavings, expectedReturn, Math.max(yearsToFire + 5, 20)), [currentNetWorth, annualSavings, additionalSavings, expectedReturn, yearsToFire]);
+  const projectionData = useMemo(() => calculateProjectedGrowth(currentNetWorth, annualSavings + additionalSavings, expectedReturn, Math.max((yearsToFire ?? 20) + 5, 20)), [currentNetWorth, annualSavings, additionalSavings, expectedReturn, yearsToFire]);
 
-  // Calculate years saved by additional savings
   const yearsWithOriginalSavings = calculateYearsToFire(currentNetWorth, fireNumber, annualSavings, expectedReturn);
-  const yearsSaved = yearsWithOriginalSavings - yearsToFire;
+  const yearsSaved = (yearsWithOriginalSavings ?? yearsToFire ?? 0) - (yearsToFire ?? 0);
 
-  // Scenario calculations
   const scenarios = useMemo(() => {
     const conservative = {
       expectedReturn: 5,
@@ -143,9 +137,9 @@ export default function FirePage() {
     return { conservative, baseCase, optimistic };
   }, [currentNetWorth, fireNumber, annualSavings, yearsToFire]);
 
-  // FIRE type adjustments
   const fireTypeMultipliers = { lean: 0.7, regular: 1, fat: 1.5 };
   const adjustedFireNumber = fireNumber * fireTypeMultipliers[fireType];
+  const fireYearLabel = yearsToFire === null ? (isArabic ? 'يتطلب رفع الادخار' : 'Needs higher savings') : String(new Date().getFullYear() + yearsToFire);
 
   const validateField = (field: FireFieldKey, value: number): string | undefined => {
     if (!Number.isFinite(value) || value <= 0) {
@@ -324,14 +318,10 @@ export default function FirePage() {
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
                     <Label>{isArabic ? 'المصروفات السنوية' : 'Annual Expenses'}</Label>
-                    <Input
-                      className={inputClassName}
-                      type="number"
-                      value={annualExpenses}
-                      onBlur={(e) => updateField('annualExpenses', parseFloat(e.target.value) || 0, setAnnualExpenses)}
-                      onChange={(e) => updateField('annualExpenses', parseFloat(e.target.value) || 0, setAnnualExpenses)}
-                    />
-                    {errors.annualExpenses && <p className="text-sm text-destructive">{errors.annualExpenses}</p>}
+                    <Input className={inputClassName} type="number" value={annualExpenses} readOnly />
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? 'مشتقة مباشرة من المصروفات الشهرية الموحّدة في Wealix.' : 'Derived directly from the canonical monthly expense snapshot.'}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'معدل السحب (%)' : 'Withdrawal Rate (%)'}</Label>
@@ -371,25 +361,17 @@ export default function FirePage() {
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'صافي الثروة الحالي' : 'Current Net Worth'}</Label>
-                    <Input
-                      className={inputClassName}
-                      type="number"
-                      value={currentNetWorth}
-                      onBlur={(e) => updateField('currentNetWorth', parseFloat(e.target.value) || 0, setCurrentNetWorth)}
-                      onChange={(e) => updateField('currentNetWorth', parseFloat(e.target.value) || 0, setCurrentNetWorth)}
-                    />
-                    {errors.currentNetWorth && <p className="text-sm text-destructive">{errors.currentNetWorth}</p>}
+                    <Input className={inputClassName} type="number" value={currentNetWorth} readOnly />
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? 'هذا الرقم يأتي من نفس صافي الثروة المشترك مع لوحة التحكم وصافي الثروة وWael.' : 'This value comes from the same shared net-worth snapshot used by Dashboard, Net Worth, and Wael.'}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? 'المدخرات السنوية' : 'Annual Savings'}</Label>
-                    <Input
-                      className={inputClassName}
-                      type="number"
-                      value={annualSavings}
-                      onBlur={(e) => updateField('annualSavings', parseFloat(e.target.value) || 0, setAnnualSavings)}
-                      onChange={(e) => updateField('annualSavings', parseFloat(e.target.value) || 0, setAnnualSavings)}
-                    />
-                    {errors.annualSavings && <p className="text-sm text-destructive">{errors.annualSavings}</p>}
+                    <Input className={inputClassName} type="number" value={annualSavings} readOnly />
+                    <p className="text-xs text-muted-foreground">
+                      {isArabic ? 'تعتمد على الفائض السنوي الحقيقي من نفس اللقطة المالية الموحّدة.' : 'Based on your real annualized surplus from the shared financial snapshot.'}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -420,7 +402,7 @@ export default function FirePage() {
                   <div className="mt-4 p-4 bg-gold/10 rounded-lg">
                     <p className="text-sm">
                       <span className="font-medium">{isArabic ? 'تاريخ FIRE المتوقع:' : 'Estimated FIRE Date:'}</span>{' '}
-                      {new Date().getFullYear() + yearsToFire}
+                      {fireYearLabel}
                     </p>
                   </div>
                 </CardContent>
@@ -482,7 +464,7 @@ export default function FirePage() {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">{isArabic ? 'تاريخ FIRE الجديد' : 'New FIRE Date'}</p>
-                          <p className="text-2xl font-bold text-gold">{new Date().getFullYear() + yearsToFire}</p>
+                          <p className="text-2xl font-bold text-gold">{fireYearLabel}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -515,9 +497,9 @@ export default function FirePage() {
                     <CardDescription>5% return, 4% inflation</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold">{scenarios.conservative.yearsToFire} {isArabic ? 'سنة' : 'years'}</p>
+                    <p className="text-3xl font-bold">{scenarios.conservative.yearsToFire ?? '—'} {scenarios.conservative.yearsToFire === null ? '' : (isArabic ? 'سنة' : 'years')}</p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      {isArabic ? 'تاريخ FIRE:' : 'FIRE Date:'} {new Date().getFullYear() + scenarios.conservative.yearsToFire}
+                      {isArabic ? 'تاريخ FIRE:' : 'FIRE Date:'} {scenarios.conservative.yearsToFire === null ? '—' : new Date().getFullYear() + scenarios.conservative.yearsToFire}
                     </p>
                   </CardContent>
                 </Card>
@@ -532,9 +514,9 @@ export default function FirePage() {
                     <CardDescription>7% return, 3% inflation</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold">{scenarios.baseCase.yearsToFire} {isArabic ? 'سنة' : 'years'}</p>
+                    <p className="text-3xl font-bold">{scenarios.baseCase.yearsToFire ?? '—'} {scenarios.baseCase.yearsToFire === null ? '' : (isArabic ? 'سنة' : 'years')}</p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      {isArabic ? 'تاريخ FIRE:' : 'FIRE Date:'} {new Date().getFullYear() + scenarios.baseCase.yearsToFire}
+                      {isArabic ? 'تاريخ FIRE:' : 'FIRE Date:'} {scenarios.baseCase.yearsToFire === null ? '—' : new Date().getFullYear() + scenarios.baseCase.yearsToFire}
                     </p>
                   </CardContent>
                 </Card>
@@ -549,9 +531,9 @@ export default function FirePage() {
                     <CardDescription>9% return, 2% inflation</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-bold">{scenarios.optimistic.yearsToFire} {isArabic ? 'سنة' : 'years'}</p>
+                    <p className="text-3xl font-bold">{scenarios.optimistic.yearsToFire ?? '—'} {scenarios.optimistic.yearsToFire === null ? '' : (isArabic ? 'سنة' : 'years')}</p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      {isArabic ? 'تاريخ FIRE:' : 'FIRE Date:'} {new Date().getFullYear() + scenarios.optimistic.yearsToFire}
+                      {isArabic ? 'تاريخ FIRE:' : 'FIRE Date:'} {scenarios.optimistic.yearsToFire === null ? '—' : new Date().getFullYear() + scenarios.optimistic.yearsToFire}
                     </p>
                   </CardContent>
                 </Card>

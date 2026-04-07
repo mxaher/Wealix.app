@@ -183,7 +183,7 @@ function buildUserDailyContext(userId: string, workspace: RemoteUserWorkspace, p
       savings_total: financialSnapshot.liquidReserves,
       investment_portfolio_value: financialSnapshot.portfolioValue,
       total_liabilities: financialSnapshot.totalLiabilities,
-      net_worth: financialSnapshot.netWorth,
+      net_worth: financialSnapshot.netWorth.net,
       emergency_fund_months_coverage: financialSnapshot.emergencyFundMonths,
       last_updated_at: new Date().toISOString(),
     },

@@ -1178,7 +1178,26 @@ function upsertProfile(profiles: LocalProfile[], nextProfile: LocalProfile) {
 }
 
 function syncActiveProfileState(state: AppState, partial: Partial<AppState>) {
-  const nextState = { ...state, ...partial } as AppState;
+  const financialMutationKeys: Array<keyof AppState> = [
+    'incomeEntries',
+    'expenseEntries',
+    'portfolioHoldings',
+    'assets',
+    'liabilities',
+    'budgetLimits',
+    'recurringObligations',
+    'oneTimeExpenses',
+    'savingsAccounts',
+  ];
+  const hasFinancialMutation = financialMutationKeys.some((key) => key in partial);
+  const nextVersion = hasFinancialMutation ? state.financialStateVersion + 1 : state.financialStateVersion;
+  const nextUpdatedAt = hasFinancialMutation ? new Date().toISOString() : state.financialStateUpdatedAt;
+  const nextState = {
+    ...state,
+    ...partial,
+    financialStateVersion: nextVersion,
+    financialStateUpdatedAt: nextUpdatedAt,
+  } as AppState;
   const preservePersistedLiveProfile =
     nextState.appMode === 'demo' && nextState.activeProfileId !== initialGuestProfile.id;
   const nextProfile = preservePersistedLiveProfile
@@ -1186,6 +1205,10 @@ function syncActiveProfileState(state: AppState, partial: Partial<AppState>) {
     : snapshotActiveProfile(nextState);
   return {
     ...partial,
+    ...(hasFinancialMutation ? {
+      financialStateVersion: nextVersion,
+      financialStateUpdatedAt: nextUpdatedAt,
+    } : {}),
     profiles: upsertProfile(state.profiles, nextProfile),
   };
 }
@@ -1241,6 +1264,8 @@ interface AppState {
   activeProfileId: string;
   syncClerkUser: (authUser: AuthenticatedUserPayload) => void;
   clearClerkUser: () => void;
+  financialStateVersion: number;
+  financialStateUpdatedAt: string;
   incomeEntries: IncomeEntry[];
   addIncomeEntry: (entry: IncomeEntry) => void;
   addIncomeEntries: (entries: IncomeEntry[]) => void;
@@ -1512,6 +1537,8 @@ export const useAppStore = create<AppState>()(
           profiles: state.user ? upsertProfile(state.profiles, snapshotActiveProfile(state)) : state.profiles,
           activeProfileId: initialGuestProfile.id,
         })),
+      financialStateVersion: 0,
+      financialStateUpdatedAt: new Date().toISOString(),
       incomeEntries: initialGuestProfile.incomeEntries,
       addIncomeEntry: (entry) => set((state) =>
         syncActiveProfileState(state, {
