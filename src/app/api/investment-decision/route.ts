@@ -10,6 +10,7 @@ import { generateInvestmentDecision } from '@/lib/investment-decision-service';
 import { logInvestmentDecision } from '@/lib/investment-decision-log';
 import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
+import { buildWealixAIContext, buildWealixAIContextFromClientContext } from '@/lib/wealix-ai-context';
 
 const requestSchema = z.object({
   investmentName: z.string().min(2).max(120),
@@ -23,10 +24,13 @@ const requestSchema = z.object({
     liabilities: z.array(z.unknown()).optional(),
     incomeEntries: z.array(z.unknown()).optional(),
     expenseEntries: z.array(z.unknown()).optional(),
+    oneTimeExpenses: z.array(z.unknown()).optional(),
+    savingsAccounts: z.array(z.unknown()).optional(),
     budgetLimits: z.array(z.object({
       category: z.string(),
       limit: z.number(),
     })).optional(),
+    recurringObligations: z.array(z.unknown()).optional(),
   }).optional(),
 });
 
@@ -93,20 +97,26 @@ export async function POST(request: NextRequest) {
     }
 
     let snapshot;
+    let wealixContext;
     if (authResult.userId && isRemotePersistenceConfigured()) {
       const remote = await loadRemoteWorkspace(authResult.userId);
-      snapshot = remote.workspace
-        ? buildFinancialSnapshotFromWorkspace(remote.workspace)
-        : buildFinancialSnapshotFromClientContext(typedClientContext);
+      if (remote.workspace) {
+        snapshot = buildFinancialSnapshotFromWorkspace(remote.workspace);
+        wealixContext = buildWealixAIContext(authResult.userId, remote.workspace);
+      } else {
+        snapshot = buildFinancialSnapshotFromClientContext(typedClientContext);
+        wealixContext = buildWealixAIContextFromClientContext(authResult.userId, typedClientContext);
+      }
     } else {
       snapshot = buildFinancialSnapshotFromClientContext(typedClientContext);
+      wealixContext = buildWealixAIContextFromClientContext(authResult.userId ?? 'guest', typedClientContext);
     }
 
     const decision = await generateInvestmentDecision({
       name: investmentName,
       price,
       locale,
-    }, snapshot);
+    }, snapshot, wealixContext);
 
     await logInvestmentDecision({
       clerkUserId: authResult.userId!,

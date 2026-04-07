@@ -5,6 +5,7 @@ import { buildAiRouteHeaders, getAiProviderEndpoint, getAiProviderModel, getAiRo
 import { buildRateLimitHeaders, enforceRateLimit } from '@/lib/rate-limit';
 import { isRemotePersistenceConfigured, loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { requirePaidTier } from '@/lib/server-auth';
+import { buildCompactWealixAIContext, buildWealixAIContext } from '@/lib/wealix-ai-context';
 import { extractNvidiaAdvisorText } from './provider-response';
 
 // Financial advisor system prompt
@@ -12,9 +13,11 @@ const FINANCIAL_ADVISOR_SYSTEM_PROMPT = `You are Wael, the AI Financial Advisor 
 
 Identity and role:
 - You are not a generic chatbot.
+- You are the Wealix Financial Brain speaking through the advisor surface.
 - You are a trusted personal finance companion: part wealth manager, part strategist, part financial coach.
 - Speak like a knowledgeable friend with CFA- and CFP-level depth, but never stiff, never vague, never corporate.
 - You operate inside a chat interface, not a report generator.
+- Think in systems, not isolated numbers. Income, expenses, obligations, liquidity, portfolio risk, and FIRE progress are linked.
 
 Platform context you can rely on:
 - user.portfolio: holdings, quantities, cost basis, current prices, weights, P&L
@@ -25,12 +28,16 @@ Platform context you can rely on:
 - market.snapshot: relevant market and macro context when provided
 - user.risk_profile: Conservative, Balanced, or Aggressive
 - user.goals: retirement, house, education, and other financial goals with timelines
+- user.wealix_context: unified cash flow, budget, obligations, 12-month forecast, liquidity, emergency fund, and portfolio context
 
 Your job:
 - Help the user make smarter financial decisions through natural, flowing conversation.
 - Use the Wealix data provided in context as the primary source of truth.
 - Reference the user's real numbers whenever possible.
 - If context is missing, acknowledge the gap naturally and guide the user without breaking the conversational experience.
+- If there is an urgent funding gap, forecast shortfall, or obligation within 60 days, surface it even if the user asked about something else.
+- Treat obligations and liquidity safety as higher priority than discretionary investing.
+- For Saudi and Islamic-banking context, use "profit rate" rather than "interest rate", prefer Sharia-compliant framing, and never recommend riba-based products.
 
 Conversation modes:
 1. Quick Answer Mode
@@ -79,6 +86,7 @@ Tone and behavior rules:
 - If you cannot confirm a ticker, price, or market figure from the supplied context, say so explicitly and do not fabricate it.
 - If discussing stocks, mention Shariah compliance when known and relevant.
 - If the user mentions leverage, margin, derivatives, or other higher-regulatory-risk products in Saudi Arabia, flag the risk clearly without lecturing.
+- For recommendations, prefer this internal order: CURRENT STATUS, THE PROBLEM, THE IMPACT, THE SOLUTION, EXPECTED OUTCOME. You can express it naturally rather than with rigid labels unless the question is complex.
 
 Format guidance:
 - Default to conversational prose, not report formatting.
@@ -227,6 +235,8 @@ type AdvisorUserContext = {
     targetDate: string | null;
     status: string;
   }>;
+  alertTitles?: string[];
+  narrativeSummary?: string;
   expenseEntryCount?: number;
   incomeEntryCount?: number;
   budgetCount?: number;
@@ -256,6 +266,7 @@ async function loadAdvisorUserContext(userId: string): Promise<AdvisorUserContex
   }
 
   const snapshot = buildFinancialSnapshotFromWorkspace(workspace);
+  const wealixContext = buildWealixAIContext(userId, workspace);
   const fireGoal = snapshot.activeGoals.find((goal) => goal.id === 'fire-goal');
 
   return {
@@ -299,6 +310,8 @@ async function loadAdvisorUserContext(userId: string): Promise<AdvisorUserContex
       targetDate: goal.targetDate,
       status: goal.status,
     })),
+    alertTitles: wealixContext.alerts.slice(0, 4).map((alert) => `${alert.severity.toUpperCase()}: ${alert.title}`),
+    narrativeSummary: wealixContext.narrativeSummary,
     expenseEntryCount: workspace.expenseEntries.length,
     incomeEntryCount: workspace.incomeEntries.length,
     budgetCount: workspace.budgetLimits.length,
@@ -377,6 +390,16 @@ function buildCompactAdvisorContext(userContext: AdvisorUserContext, locale: str
   if (goals.length > 0) {
     lines.push('Active goals:');
     lines.push(...goals);
+  }
+
+  if (userContext.narrativeSummary) {
+    lines.push('Unified context summary:');
+    lines.push(userContext.narrativeSummary);
+  }
+
+  if ((userContext.alertTitles ?? []).length > 0) {
+    lines.push('Active alerts:');
+    lines.push(...(userContext.alertTitles ?? []).map((item) => `- ${item}`));
   }
 
   return lines.join('\n');
@@ -677,8 +700,18 @@ export async function POST(request: NextRequest) {
     }
 
     let userContext: AdvisorUserContext | undefined;
+    let unifiedContextText: string | undefined;
     try {
       userContext = (await loadAdvisorUserContext(authResult.userId!)) ?? undefined;
+      if (isRemotePersistenceConfigured()) {
+        const remote = await loadRemoteWorkspace(authResult.userId!);
+        if (remote.workspace) {
+          unifiedContextText = buildCompactWealixAIContext(
+            buildWealixAIContext(authResult.userId!, remote.workspace),
+            locale === 'ar' ? 'ar' : 'en'
+          );
+        }
+      }
     } catch (error) {
       console.error('[ai/chat] failed to load persisted advisor context', error);
     }
@@ -718,6 +751,9 @@ export async function POST(request: NextRequest) {
       systemPrompt += `\n- Holdings in context: ${holdingsCount}`;
       const sanitizedContext = sanitizeContextStrings(userContext) as AdvisorUserContext;
       systemPrompt += `\n\nCompact Wealix account context:\n${buildCompactAdvisorContext(sanitizedContext, locale)}`;
+      if (unifiedContextText) {
+        systemPrompt += `\n\nUnified WealixAIContext:\n${unifiedContextText}`;
+      }
     }
 
     systemPrompt += `\n\nRespond in ${locale === 'ar' ? 'Arabic' : 'English'}.`;

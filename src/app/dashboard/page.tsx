@@ -18,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DashboardShell } from '@/components/layout';
 import { StatCard, DashboardSkeleton } from '@/components/shared';
 import { useAppStore, formatCurrency } from '@/store/useAppStore';
+import { buildWealixAIContextFromClientContext } from '@/lib/wealix-ai-context';
 import { getUpcomingOccurrences, buildForecastSummary } from '@/lib/recurring-obligations';
 import {
  XAxis,
@@ -99,6 +100,8 @@ export default function DashboardPage() {
  assets,
  liabilities,
  recurringObligations,
+ oneTimeExpenses,
+ savingsAccounts,
  } = useAppStore();
  const isArabic = locale === 'ar';
  const [isLoading, setIsLoading] = useState(true);
@@ -200,6 +203,39 @@ export default function DashboardPage() {
  () => buildForecastSummary(activeObligations, 3, monthlyIncomeNormalized),
  [activeObligations, monthlyIncomeNormalized]
  );
+ const wealixContext = useMemo(
+ () => buildWealixAIContextFromClientContext('dashboard', {
+ currency: 'SAR',
+ holdings: portfolioHoldings,
+ assets,
+ liabilities,
+ incomeEntries,
+ expenseEntries,
+ recurringObligations: activeObligations,
+ oneTimeExpenses,
+ savingsAccounts,
+ }),
+ [portfolioHoldings, assets, liabilities, incomeEntries, expenseEntries, activeObligations, oneTimeExpenses, savingsAccounts]
+ );
+ const aiInsightSentences = useMemo(() => {
+ const topAlert = wealixContext.alerts[0];
+ const nearestObligation = wealixContext.obligations[0];
+ const firstAtRiskMonth = wealixContext.firstAtRiskMonth;
+ return [
+ topAlert
+ ? topAlert.description
+ : `Monthly surplus is ${formatCurrency(wealixContext.monthlySurplus, 'SAR', locale)} with a ${wealixContext.savingsRate.toFixed(1)}% savings rate.`,
+ nearestObligation
+ ? `${nearestObligation.title} is due on ${nearestObligation.dueDate} for ${formatCurrency(nearestObligation.amount, 'SAR', locale)} with ${nearestObligation.coverageRatio.toFixed(2)}x projected coverage.`
+ : `No obligation is due in the next 90 days.`,
+ wealixContext.largestExpenseCategory
+ ? `${wealixContext.largestExpenseCategory.category} is your biggest expense lever at ${formatCurrency(wealixContext.largestExpenseCategory.amount, 'SAR', locale)}.`
+ : `Your expense mix will sharpen as more transactions are logged.`,
+ firstAtRiskMonth
+ ? `If nothing changes, ${firstAtRiskMonth.label} is the first forecast stress point at ${formatCurrency(firstAtRiskMonth.closingBalance, 'SAR', locale)}.`
+ : `The 12-month forecast stays above the monthly-expense floor with current data.`,
+ ];
+ }, [wealixContext, locale]);
 
  if (isLoading) {
  return (
@@ -306,6 +342,23 @@ export default function DashboardPage() {
  )}
 
  <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+ <Card className="card-hover xl:col-span-3">
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <Sparkles className="h-5 w-5 text-primary" />
+ {isArabic ? 'الملخص الذكي اليومي' : 'AI Insight'}
+ </CardTitle>
+ <CardDescription>{isArabic ? 'أربع جمل مبنية على السياق المالي الموحد' : 'A four-sentence brief built from the unified financial context'}</CardDescription>
+ </CardHeader>
+ <CardContent className="grid gap-3 md:grid-cols-2">
+ {aiInsightSentences.map((sentence, index) => (
+ <div key={index} className="rounded-xl border border-border bg-background/70 p-4 text-sm leading-6 text-foreground">
+ {sentence}
+ </div>
+ ))}
+ </CardContent>
+ </Card>
+
  <Card className="card-hover xl:col-span-2">
  <CardHeader>
  <CardTitle className="flex items-center gap-2">

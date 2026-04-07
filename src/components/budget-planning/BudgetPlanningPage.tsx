@@ -62,13 +62,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { buildDailyPlanningSnapshot, type DailyPlanningSnapshot } from '@/lib/ai/daily-planning';
+import { buildWealixAIContextFromClientContext } from '@/lib/wealix-ai-context';
 import { createOpaqueId } from '@/lib/ids';
 import { buildForecast, buildForecastSummary, getUpcomingOccurrences } from '@/lib/recurring-obligations';
 import {
   formatCurrency,
   type ExpenseEntry,
+  type OneTimeExpense,
   type RecurringFrequency,
   type RecurringObligation,
+  type SavingsAccount,
   useAppStore,
 } from '@/store/useAppStore';
 
@@ -150,6 +153,31 @@ const defaultObligationForm = {
   notes: '',
 };
 
+const defaultOneTimeExpenseForm = {
+  title: '',
+  category: 'other',
+  amount: '',
+  dueDate: new Date().toISOString().slice(0, 10),
+  priority: 'medium' as OneTimeExpense['priority'],
+  fundingSource: '',
+  notes: '',
+};
+
+const defaultSavingsAccountForm = {
+  name: '',
+  type: 'awaeed' as SavingsAccount['type'],
+  provider: 'Al Rajhi',
+  principal: '',
+  currentBalance: '',
+  annualProfitRate: '4.5',
+  termMonths: '6',
+  openedAt: new Date().toISOString().slice(0, 10),
+  maturityDate: new Date(new Date().getFullYear(), new Date().getMonth() + 6, 1).toISOString().slice(0, 10),
+  purposeLabel: '',
+  profitPayoutMethod: 'at_maturity' as SavingsAccount['profitPayoutMethod'],
+  notes: '',
+};
+
 const sectionOrder = ['digest', 'budget', 'obligations', 'forecast'] as const;
 type BudgetPlanningSection = typeof sectionOrder[number];
 
@@ -172,8 +200,13 @@ export function BudgetPlanningPage({
   const locale = useAppStore((state) => state.locale);
   const incomeEntries = useAppStore((state) => state.incomeEntries);
   const expenseEntries = useAppStore((state) => state.expenseEntries);
+  const portfolioHoldings = useAppStore((state) => state.portfolioHoldings);
+  const assets = useAppStore((state) => state.assets);
+  const liabilities = useAppStore((state) => state.liabilities);
   const budgetLimits = useAppStore((state) => state.budgetLimits);
   const recurringObligations = useAppStore((state) => state.recurringObligations) ?? [];
+  const oneTimeExpenses = useAppStore((state) => state.oneTimeExpenses) ?? [];
+  const savingsAccounts = useAppStore((state) => state.savingsAccounts) ?? [];
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const addExpenseEntry = useAppStore((state) => state.addExpenseEntry);
   const deleteExpenseEntry = useAppStore((state) => state.deleteExpenseEntry);
@@ -181,6 +214,10 @@ export function BudgetPlanningPage({
   const addRecurringObligation = useAppStore((state) => state.addRecurringObligation);
   const deleteRecurringObligation = useAppStore((state) => state.deleteRecurringObligation);
   const markObligationPaid = useAppStore((state) => state.markObligationPaid);
+  const addOneTimeExpense = useAppStore((state) => state.addOneTimeExpense);
+  const deleteOneTimeExpense = useAppStore((state) => state.deleteOneTimeExpense);
+  const addSavingsAccount = useAppStore((state) => state.addSavingsAccount);
+  const deleteSavingsAccount = useAppStore((state) => state.deleteSavingsAccount);
   const { isSignedIn, user } = useUser();
   const searchParams = useSearchParams();
   const isArabic = locale === 'ar';
@@ -191,8 +228,12 @@ export function BudgetPlanningPage({
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showAddObligation, setShowAddObligation] = useState(false);
+  const [showAddOneTimeExpense, setShowAddOneTimeExpense] = useState(false);
+  const [showAddSavingsAccount, setShowAddSavingsAccount] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: 'food', description: '', amount: '' });
   const [obligationForm, setObligationForm] = useState(defaultObligationForm);
+  const [oneTimeExpenseForm, setOneTimeExpenseForm] = useState(defaultOneTimeExpenseForm);
+  const [savingsAccountForm, setSavingsAccountForm] = useState(defaultSavingsAccountForm);
 
   const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
@@ -252,6 +293,98 @@ export function BudgetPlanningPage({
     () => budgetLimits.reduce((sum, item) => sum + item.limit, 0),
     [budgetLimits]
   );
+  const wealixContext = useMemo(
+    () => buildWealixAIContextFromClientContext(user?.id ?? 'guest', {
+      currency: 'SAR',
+      holdings: portfolioHoldings,
+      assets,
+      liabilities,
+      incomeEntries,
+      expenseEntries,
+      budgetLimits,
+      recurringObligations,
+      oneTimeExpenses,
+      savingsAccounts,
+    }),
+    [user?.id, portfolioHoldings, assets, liabilities, incomeEntries, expenseEntries, budgetLimits, recurringObligations, oneTimeExpenses, savingsAccounts]
+  );
+  const unfundedOneTimeExpenses = useMemo(
+    () => oneTimeExpenses.filter((item) => item.status !== 'paid'),
+    [oneTimeExpenses]
+  );
+
+  const handleAddOneTimeExpense = () => {
+    if (!isSignedIn) {
+      requireAccount();
+      return;
+    }
+
+    const amount = Number(oneTimeExpenseForm.amount);
+    if (!oneTimeExpenseForm.title.trim() || !Number.isFinite(amount) || amount <= 0) {
+      toast({
+        title: isArabic ? 'بيانات غير مكتملة' : 'Incomplete details',
+        description: isArabic ? 'أدخل الاسم والمبلغ وتاريخ الاستحقاق.' : 'Add a title, amount, and due date.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    addOneTimeExpense({
+      id: createOpaqueId('one-time-expense'),
+      title: oneTimeExpenseForm.title.trim(),
+      amount,
+      currency: 'SAR',
+      dueDate: oneTimeExpenseForm.dueDate,
+      category: oneTimeExpenseForm.category,
+      priority: oneTimeExpenseForm.priority,
+      fundingSource: oneTimeExpenseForm.fundingSource.trim() || null,
+      notes: oneTimeExpenseForm.notes.trim() || null,
+      status: 'planned',
+    });
+    setOneTimeExpenseForm(defaultOneTimeExpenseForm);
+    setShowAddOneTimeExpense(false);
+  };
+
+  const handleAddSavingsAccount = () => {
+    if (!isSignedIn) {
+      requireAccount();
+      return;
+    }
+
+    const principal = Number(savingsAccountForm.principal);
+    const currentBalance = Number(savingsAccountForm.currentBalance || savingsAccountForm.principal);
+    const annualProfitRate = Number(savingsAccountForm.annualProfitRate);
+    const termMonths = Number(savingsAccountForm.termMonths);
+    if (!savingsAccountForm.name.trim() || !Number.isFinite(principal) || principal <= 0 || !Number.isFinite(termMonths) || termMonths < 0) {
+      toast({
+        title: isArabic ? 'بيانات غير مكتملة' : 'Incomplete details',
+        description: isArabic ? 'أدخل اسم الحساب والمبلغ ومدة الربط.' : 'Add the account name, amount, and term.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    addSavingsAccount({
+      id: createOpaqueId('savings-account'),
+      name: savingsAccountForm.name.trim(),
+      type: savingsAccountForm.type,
+      provider: savingsAccountForm.provider.trim() || 'Bank',
+      principal,
+      currentBalance: Number.isFinite(currentBalance) && currentBalance > 0 ? currentBalance : principal,
+      annualProfitRate: Number.isFinite(annualProfitRate) ? annualProfitRate : 0,
+      termMonths,
+      openedAt: savingsAccountForm.openedAt,
+      maturityDate: savingsAccountForm.maturityDate,
+      purposeLabel: savingsAccountForm.purposeLabel.trim() || null,
+      profitPayoutMethod: savingsAccountForm.profitPayoutMethod,
+      status: 'active',
+      autoRenew: false,
+      zakatHandledByInstitution: savingsAccountForm.type === 'awaeed' || savingsAccountForm.type === 'mudarabah',
+      notes: savingsAccountForm.notes.trim() || null,
+    });
+    setSavingsAccountForm(defaultSavingsAccountForm);
+    setShowAddSavingsAccount(false);
+  };
 
   const fallbackSnapshot = useMemo(
     () =>
@@ -502,6 +635,156 @@ export function BudgetPlanningPage({
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              <Dialog open={showAddOneTimeExpense} onOpenChange={setShowAddOneTimeExpense}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2" onClick={(event) => {
+                    if (!isSignedIn) {
+                      event.preventDefault();
+                      requireAccount();
+                    }
+                  }}>
+                    <AlertCircle className="h-4 w-4" />
+                    {isArabic ? 'مصروف لمرة واحدة' : 'One-Time Expense'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{isArabic ? 'إضافة مصروف لمرة واحدة' : 'Add One-Time Expense'}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? 'العنوان' : 'Title'}</Label>
+                      <Input value={oneTimeExpenseForm.title} onChange={(event) => setOneTimeExpenseForm((current) => ({ ...current, title: event.target.value }))} />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'المبلغ' : 'Amount'}</Label>
+                        <Input type="number" value={oneTimeExpenseForm.amount} onChange={(event) => setOneTimeExpenseForm((current) => ({ ...current, amount: event.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'تاريخ الاستحقاق' : 'Due date'}</Label>
+                        <Input type="date" value={oneTimeExpenseForm.dueDate} onChange={(event) => setOneTimeExpenseForm((current) => ({ ...current, dueDate: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'الفئة' : 'Category'}</Label>
+                        <Select value={oneTimeExpenseForm.category} onValueChange={(value) => setOneTimeExpenseForm((current) => ({ ...current, category: value }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(categoryLabels).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>{isArabic ? label.ar : label.en}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'الأولوية' : 'Priority'}</Label>
+                        <Select value={oneTimeExpenseForm.priority} onValueChange={(value) => setOneTimeExpenseForm((current) => ({ ...current, priority: value as OneTimeExpense['priority'] }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="critical">{isArabic ? 'حرج' : 'Critical'}</SelectItem>
+                            <SelectItem value="high">{isArabic ? 'عالٍ' : 'High'}</SelectItem>
+                            <SelectItem value="medium">{isArabic ? 'متوسط' : 'Medium'}</SelectItem>
+                            <SelectItem value="low">{isArabic ? 'منخفض' : 'Low'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? 'مصدر التمويل' : 'Funding source'}</Label>
+                      <Input value={oneTimeExpenseForm.fundingSource} onChange={(event) => setOneTimeExpenseForm((current) => ({ ...current, fundingSource: event.target.value }))} placeholder={isArabic ? 'مثال: الحساب الجاري أو عوائد' : 'Example: current account or Awaeed'} />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddOneTimeExpense(false)}>{isArabic ? 'إلغاء' : 'Cancel'}</Button>
+                    <Button onClick={handleAddOneTimeExpense}>{isArabic ? 'إضافة' : 'Add'}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={showAddSavingsAccount} onOpenChange={setShowAddSavingsAccount}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2" onClick={(event) => {
+                    if (!isSignedIn) {
+                      event.preventDefault();
+                      requireAccount();
+                    }
+                  }}>
+                    <PiggyBank className="h-4 w-4" />
+                    {isArabic ? 'حساب ادخار / عوائد' : 'Savings / Awaeed'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{isArabic ? 'إضافة حساب ادخار أو عوائد' : 'Add Savings or Awaeed Account'}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>{isArabic ? 'اسم الحساب' : 'Account name'}</Label>
+                      <Input value={savingsAccountForm.name} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, name: event.target.value }))} />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'النوع' : 'Type'}</Label>
+                        <Select value={savingsAccountForm.type} onValueChange={(value) => setSavingsAccountForm((current) => ({ ...current, type: value as SavingsAccount['type'] }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="current">{isArabic ? 'جاري' : 'Current'}</SelectItem>
+                            <SelectItem value="awaeed">Awaeed</SelectItem>
+                            <SelectItem value="mudarabah">Mudarabah</SelectItem>
+                            <SelectItem value="hassad">Hassad</SelectItem>
+                            <SelectItem value="standard_savings">{isArabic ? 'ادخار عادي' : 'Standard Savings'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'البنك' : 'Provider'}</Label>
+                        <Input value={savingsAccountForm.provider} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, provider: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'الأصل / المبلغ' : 'Principal'}</Label>
+                        <Input type="number" value={savingsAccountForm.principal} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, principal: event.target.value, currentBalance: current.currentBalance || event.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'الرصيد الحالي' : 'Current balance'}</Label>
+                        <Input type="number" value={savingsAccountForm.currentBalance} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, currentBalance: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'معدل الربح السنوي %' : 'Annual profit rate %'}</Label>
+                        <Input type="number" value={savingsAccountForm.annualProfitRate} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, annualProfitRate: event.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'المدة بالأشهر' : 'Term months'}</Label>
+                        <Input type="number" value={savingsAccountForm.termMonths} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, termMonths: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'تاريخ الفتح' : 'Opened at'}</Label>
+                        <Input type="date" value={savingsAccountForm.openedAt} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, openedAt: event.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? 'تاريخ الاستحقاق' : 'Maturity date'}</Label>
+                        <Input type="date" value={savingsAccountForm.maturityDate} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, maturityDate: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? 'الغرض' : 'Purpose'}</Label>
+                      <Input value={savingsAccountForm.purposeLabel} onChange={(event) => setSavingsAccountForm((current) => ({ ...current, purposeLabel: event.target.value }))} placeholder={isArabic ? 'مثال: تجديد الإقامة' : 'Example: Iqama renewal'} />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowAddSavingsAccount(false)}>{isArabic ? 'إلغاء' : 'Cancel'}</Button>
+                    <Button onClick={handleAddSavingsAccount}>{isArabic ? 'إضافة' : 'Add'}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
@@ -511,6 +794,12 @@ export function BudgetPlanningPage({
           <StatCard title={isArabic ? 'الرصيد المتوقع' : 'Projected Month-End'} value={formatCurrency(dailySnapshot.budget_status.projected_month_end_balance, 'SAR', locale)} icon={TrendingUp} iconColor="text-emerald-500 bg-emerald-500/10" />
           <StatCard title={isArabic ? 'التزامات 30 يوماً' : '30-Day Obligations'} value={formatCurrency(actionableUpcomingObligations.filter((item) => item.daysUntilDue <= 30).reduce((sum, item) => sum + item.amount, 0), 'SAR', locale)} icon={Calendar} iconColor="text-amber-500 bg-amber-500/10" />
           <StatCard title={isArabic ? 'معدل الادخار' : 'Savings Rate'} value={`${savingsRate.toFixed(1)}%`} icon={PiggyBank} iconColor="text-sky-500 bg-sky-500/10" />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card {...cardProps}><CardContent className={`p-5 ${isArabic ? 'text-right' : ''}`}><p className="text-sm text-muted-foreground">{isArabic ? 'مستوى المخاطر' : 'Risk Level'}</p><p className="mt-2 text-xl font-semibold">{wealixContext.riskLevel}</p></CardContent></Card>
+          <Card {...cardProps}><CardContent className={`p-5 ${isArabic ? 'text-right' : ''}`}><p className="text-sm text-muted-foreground">{isArabic ? 'مصروفات لمرة واحدة' : 'One-Time Expenses'}</p><p className="mt-2 text-xl font-semibold">{formatCurrency(unfundedOneTimeExpenses.reduce((sum, item) => sum + item.amount, 0), 'SAR', locale)}</p></CardContent></Card>
+          <Card {...cardProps}><CardContent className={`p-5 ${isArabic ? 'text-right' : ''}`}><p className="text-sm text-muted-foreground">{isArabic ? 'استحقاقات العوائد' : 'Savings Maturities'}</p><p className="mt-2 text-xl font-semibold">{savingsAccounts.filter((item) => item.status === 'active' && item.type !== 'current').length}</p></CardContent></Card>
         </div>
 
         <Tabs defaultValue={initialSection} className="space-y-6">
@@ -863,9 +1152,94 @@ export function BudgetPlanningPage({
                 </CardContent>
               </Card>
             </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Card {...cardProps}>
+                <CardHeader className={isArabic ? 'text-right' : ''}>
+                  <CardTitle>{isArabic ? 'المصروفات لمرة واحدة' : 'One-Time Expenses'}</CardTitle>
+                  <CardDescription>{isArabic ? 'هذه البنود تدخل مباشرة في التوقع الشهري ولا يتم توزيعها على المتوسط.' : 'These expenses are injected into the forecast in their exact due month.'}</CardDescription>
+                </CardHeader>
+                <CardContent className={`space-y-3 ${isArabic ? 'text-right' : ''}`}>
+                  {oneTimeExpenses.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                      {isArabic ? 'أضف رسوم سنوية أو مصروفاً كبيراً لمرة واحدة هنا.' : 'Add annual fees or other one-time obligations here.'}
+                    </div>
+                  ) : (
+                    oneTimeExpenses.map((item) => (
+                      <div key={item.id} dir={isArabic ? 'rtl' : 'ltr'} className="flex items-center gap-3 rounded-2xl border p-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">{item.title}</p>
+                          <p className="text-sm text-muted-foreground">{item.dueDate} • {item.priority}</p>
+                        </div>
+                        <p className="font-semibold">{formatCurrency(item.amount, item.currency, locale)}</p>
+                        <Button variant="ghost" size="icon" disabled={!isSignedIn} onClick={() => deleteOneTimeExpense(item.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card {...cardProps}>
+                <CardHeader className={isArabic ? 'text-right' : ''}>
+                  <CardTitle>{isArabic ? 'الحسابات الادخارية والعوائد' : 'Savings & Awaeed Accounts'}</CardTitle>
+                  <CardDescription>{isArabic ? 'استخدم حسابات الربح عند الاستحقاق للحاجات المرتبطة بموعد محدد.' : 'Use at-maturity profit accounts for time-bound obligations.'}</CardDescription>
+                </CardHeader>
+                <CardContent className={`space-y-3 ${isArabic ? 'text-right' : ''}`}>
+                  {savingsAccounts.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                      {isArabic ? 'أضف الحساب الجاري أو حساب عوائد لربط التمويل بالالتزامات.' : 'Add your current account or Awaeed accounts here.'}
+                    </div>
+                  ) : (
+                    savingsAccounts.map((account) => (
+                      <div key={account.id} dir={isArabic ? 'rtl' : 'ltr'} className="rounded-2xl border p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{account.name}</p>
+                            <p className="text-sm text-muted-foreground">{account.provider} • {account.type}</p>
+                          </div>
+                          <Badge variant="outline">{account.profitPayoutMethod}</Badge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                          <span>{formatCurrency(account.currentBalance, 'SAR', locale)}</span>
+                          <span>•</span>
+                          <span>{account.annualProfitRate}%</span>
+                          <span>•</span>
+                          <span>{account.maturityDate}</span>
+                        </div>
+                        <div className="mt-3 flex justify-end">
+                          <Button variant="ghost" size="icon" disabled={!isSignedIn} onClick={() => deleteSavingsAccount(account.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="forecast" className="space-y-6">
+            <Card {...cardProps}>
+              <CardHeader className={isArabic ? 'text-right' : ''}>
+                <CardTitle>{isArabic ? 'محرك Wealix المالي' : 'Wealix Financial Brain'}</CardTitle>
+                <CardDescription>{wealixContext.narrativeSummary}</CardDescription>
+              </CardHeader>
+              <CardContent className={`space-y-3 ${isArabic ? 'text-right' : ''}`}>
+                {wealixContext.alerts.slice(0, 4).map((alert) => (
+                  <div key={`${alert.category}-${alert.title}`} className="rounded-2xl border p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium">{alert.title}</p>
+                      <Badge variant={alert.severity === 'critical' ? 'destructive' : 'outline'}>{alert.severity}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{alert.description}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 md:grid-cols-3">
               <Card {...cardProps}><CardContent className={`p-5 ${isArabic ? 'text-right' : ''}`}><p className="text-sm text-muted-foreground">{isArabic ? '3 أشهر' : 'Next 3 Months'}</p><p className="mt-2 text-2xl font-bold text-rose-500">-{formatCurrency(summary3.totalObligations, 'SAR', locale)}</p></CardContent></Card>
               <Card {...cardProps}><CardContent className={`p-5 ${isArabic ? 'text-right' : ''}`}><p className="text-sm text-muted-foreground">{isArabic ? '12 شهراً' : 'Next 12 Months'}</p><p className="mt-2 text-2xl font-bold text-rose-500">-{formatCurrency(summary12.totalObligations, 'SAR', locale)}</p></CardContent></Card>

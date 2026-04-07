@@ -5,6 +5,7 @@ import { buildFinancialSnapshotFromWorkspace } from '@/lib/financial-snapshot';
 import type { RemoteUserWorkspace } from '@/lib/remote-user-data';
 import type { NotificationPreferences, RecurringObligation } from '@/store/useAppStore';
 import { getOccurrencesInRange } from '@/lib/recurring-obligations';
+import { buildWealixAIContext } from '@/lib/wealix-ai-context';
 
 type NvidiaChatResponse = {
   choices?: Array<{
@@ -138,6 +139,7 @@ function buildUserDailyContext(userId: string, workspace: RemoteUserWorkspace, p
   const snapshotDate = now.toISOString().slice(0, 10);
   const monthKey = snapshotDate.slice(0, 7);
   const financialSnapshot = buildFinancialSnapshotFromWorkspace(workspace);
+  const wealixContext = buildWealixAIContext(userId, workspace);
   const expensesThisMonth = workspace.expenseEntries.filter((entry) => entry.date.startsWith(monthKey));
   const currentMonthBudget = getMonthExpenseBreakdown(workspace, monthKey);
   const upcoming7 = getUpcomingObligations(workspace.recurringObligations ?? [], 7);
@@ -214,6 +216,7 @@ function buildUserDailyContext(userId: string, workspace: RemoteUserWorkspace, p
     obligations: getUpcomingObligations(workspace.recurringObligations ?? [], 365),
     goals: buildGoalPulse(workspace, financialSnapshot),
     investment_snapshot: buildInvestmentSnapshot(financialSnapshot),
+    wealix_ai_context: wealixContext,
     yesterday_tip_categories: previousSnapshot?.tips.map((tip) => tip.category) ?? [],
     yesterday_headline_title: previousSnapshot?.daily_headline.title ?? '',
   };

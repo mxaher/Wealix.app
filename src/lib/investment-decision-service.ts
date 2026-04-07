@@ -1,4 +1,5 @@
 import type { FinancialSnapshot } from '@/lib/financial-snapshot';
+import type { WealixAIContext } from '@/lib/wealix-ai-context';
 
 export type InvestmentDecisionVerdict =
   | 'proceed_now'
@@ -133,7 +134,7 @@ function formatMonth(locale: 'ar' | 'en', monthsToAdd: number) {
   }).format(date);
 }
 
-function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnapshot) {
+function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnapshot, wealixContext?: WealixAIContext) {
   const assetClass = classifyInvestment(input.name);
   const price = input.price;
   const netWorthImpactPct = snapshot.netWorth > 0 ? (price / snapshot.netWorth) * 100 : 100;
@@ -145,6 +146,9 @@ function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnap
   const comfortableAmount = Math.max(0, snapshot.liquidReserves - snapshot.emergencyFundTarget);
   const fundingGap = Math.max(0, price - comfortableAmount);
   const monthsToAfford = snapshot.monthlySavings > 0 ? Math.ceil(fundingGap / snapshot.monthlySavings) : (fundingGap > 0 ? 12 : 0);
+  const nearestAtRiskObligation = wealixContext?.obligations.find((item) => item.daysUntilDue <= 90 && item.fundingGap > 0);
+  const lowSavingsRate = (wealixContext?.savingsRate ?? snapshot.savingsRate) < 10;
+  const topSectorWeightPct = wealixContext?.financialSnapshot.sectorExposure[0]?.weightPct ?? 0;
 
   const dimensions: InvestmentDecisionDimension[] = [];
 
@@ -196,7 +200,10 @@ function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnap
 
   let liquidityScore = 0;
   let liquidityAnalysis = 'Liquidity remains acceptable after this purchase.';
-  if (liquidAfter < snapshot.emergencyFundTarget * 0.75) {
+  if (liquidImpactPct > 30) {
+    liquidityScore = -4;
+    liquidityAnalysis = `This would commit ${liquidImpactPct.toFixed(1)}% of liquid reserves, which is above the 30% ceiling for a new discretionary move.`;
+  } else if (liquidAfter < snapshot.emergencyFundTarget * 0.75) {
     liquidityScore = -4;
     liquidityAnalysis = `Paying ${input.price.toLocaleString()} now would drop liquid reserves below a safe emergency threshold.`;
   } else if (liquidAfter < snapshot.emergencyFundTarget) {
@@ -237,7 +244,10 @@ function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnap
 
   let savingsScore = 0;
   let savingsAnalysis = 'You can fund this without materially delaying your savings path.';
-  if (monthsToAfford > 6) {
+  if (nearestAtRiskObligation) {
+    savingsScore = -4;
+    savingsAnalysis = `There is already a ${nearestAtRiskObligation.fundingGap.toLocaleString()} SAR funding gap for ${nearestAtRiskObligation.title} due by ${nearestAtRiskObligation.dueDate}, so this should not take priority over the obligation plan.`;
+  } else if (monthsToAfford > 6) {
     savingsScore = -3;
     savingsAnalysis = `At your current savings pace, this is better revisited after about ${monthsToAfford} months.`;
   } else if (monthsToAfford > 0) {
@@ -257,7 +267,10 @@ function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnap
 
   let riskScore = 0;
   let riskAnalysis = 'The risk level is broadly in line with your current profile.';
-  if (snapshot.riskProfile === 'conservative' && (assetClass === 'crypto' || assetClass === 'stock')) {
+  if (lowSavingsRate && (assetClass === 'crypto' || assetClass === 'stock')) {
+    riskScore = -3;
+    riskAnalysis = 'Cash flow is already tight, so adding volatile exposure would amplify the financial downside if a shortfall appears.';
+  } else if (snapshot.riskProfile === 'conservative' && (assetClass === 'crypto' || assetClass === 'stock')) {
     riskScore = -3;
     riskAnalysis = 'Your current balance sheet points to a conservative profile, so a volatile asset is mismatched right now.';
   } else if (snapshot.riskProfile === 'moderate' && assetClass === 'crypto') {
@@ -304,12 +317,18 @@ function buildDimensions(input: InvestmentDecisionInput, snapshot: FinancialSnap
   let opportunityScore = 0;
   const firstAlternative = snapshot.watchlistAlternatives[0];
   let opportunityAnalysis = 'The opportunity cost is reasonable relative to your current alternatives.';
-  if (assetClass === 'vehicle' && firstAlternative) {
+  if (nearestAtRiskObligation) {
+    opportunityScore = -4;
+    opportunityAnalysis = `The stronger use of cash is to close the ${nearestAtRiskObligation.title} gap before adding a new discretionary position.`;
+  } else if (assetClass === 'vehicle' && firstAlternative) {
     opportunityScore = -4;
     opportunityAnalysis = `Deploying this cash here means giving up a stronger priority such as ${firstAlternative.name}.`;
   } else if (snapshot.emergencyFundMonths < 6) {
     opportunityScore = -2;
     opportunityAnalysis = 'The higher-priority use of capital is improving resilience before adding another discretionary exposure.';
+  } else if ((assetClass === 'stock' || assetClass === 'crypto') && topSectorWeightPct > 40) {
+    opportunityScore = -2;
+    opportunityAnalysis = 'The portfolio is already concentrated by sector, so cash or a broader fund would improve balance more than another concentrated add.';
   } else if (assetClass === 'gold' && !hasGoldExposure) {
     opportunityScore = 2;
     opportunityAnalysis = 'The trade-off is acceptable because this fills a real diversification gap rather than duplicating what you already own.';
@@ -360,9 +379,11 @@ function buildVerdictLabel(verdict: InvestmentDecisionVerdict, locale: 'ar' | 'e
   }
 }
 
-function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: FinancialSnapshot): InvestmentDecisionResult {
-  const { assetClass, dimensions, monthsToAfford, comfortableAmount, liquidImpactPct, netWorthImpactPct } = buildDimensions(input, snapshot);
+function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: FinancialSnapshot, wealixContext?: WealixAIContext): InvestmentDecisionResult {
+  const { assetClass, dimensions, monthsToAfford, comfortableAmount, liquidImpactPct, netWorthImpactPct } = buildDimensions(input, snapshot, wealixContext);
   const totalScore = dimensions.reduce((sum, dimension) => sum + dimension.score, 0);
+  const nearestAtRiskObligation = wealixContext?.obligations.find((item) => item.daysUntilDue <= 90 && item.fundingGap > 0);
+  const savingsRate = wealixContext?.savingsRate ?? snapshot.savingsRate;
   const suggestedAmount = roundMoney(Math.max(0, Math.min(
     input.price,
     snapshot.netWorth * 0.08,
@@ -370,9 +391,15 @@ function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: Financi
   )));
 
   let verdict: InvestmentDecisionVerdict = 'proceed_with_caution';
-  if (assetClass === 'vehicle' || liquidImpactPct > 55 || netWorthImpactPct > 30 || snapshot.monthlySavings <= 0) {
+  if (
+    assetClass === 'vehicle' ||
+    liquidImpactPct > 30 ||
+    netWorthImpactPct > 30 ||
+    snapshot.monthlySavings <= 0 ||
+    Boolean(nearestAtRiskObligation)
+  ) {
     verdict = 'do_not_proceed';
-  } else if (monthsToAfford > 0 || liquidImpactPct > 25 || totalScore < 1) {
+  } else if (monthsToAfford > 0 || liquidImpactPct > 25 || totalScore < 1 || savingsRate < 10) {
     verdict = 'postpone';
   } else if (totalScore >= 6 && liquidImpactPct <= 15 && netWorthImpactPct <= 10) {
     verdict = 'proceed_now';
@@ -389,6 +416,8 @@ function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: Financi
 
   const alternative = assetClass === 'vehicle'
     ? 'Preserve capital for liquidity or a diversified investment instead of a depreciating asset.'
+    : nearestAtRiskObligation
+      ? `Fund ${nearestAtRiskObligation.title} first. Closing the ${nearestAtRiskObligation.fundingGap.toLocaleString()} SAR gap is financially stronger than opening this position now.`
     : snapshot.watchlistAlternatives[0]?.reason
       ? `${snapshot.watchlistAlternatives[0].name}: ${snapshot.watchlistAlternatives[0].reason}`
       : 'Favor a smaller initial allocation so you gain exposure without stressing liquidity.';
@@ -397,7 +426,9 @@ function buildFallbackDecision(input: InvestmentDecisionInput, snapshot: Financi
     proceed_now: `This can fit your finances now. The size is manageable, liquidity stays intact, and the asset does not materially derail current goals.`,
     proceed_with_caution: `The idea is financially workable, but the size should stay controlled. A smaller allocation is safer than taking the full position immediately.`,
     postpone: `The investment is not wrong, but the timing is early for your current liquidity and savings path. Waiting until your reserves are stronger gives you a cleaner entry.`,
-    do_not_proceed: `This conflicts with your current financial health more than it helps. The opportunity cost and balance-sheet strain are too high relative to the benefit.`,
+    do_not_proceed: nearestAtRiskObligation
+      ? `This should be blocked for now because your near-term obligation plan is already underfunded. Protecting cash and closing that gap is the higher-priority move.`
+      : `This conflicts with your current financial health more than it helps. The opportunity cost and balance-sheet strain are too high relative to the benefit.`,
   };
 
   return {
@@ -438,6 +469,7 @@ portfolio_alignment, net_worth_impact, liquidity_check, goal_alignment, savings_
 - لا تخرج عن JSON
 - استخدم أرقام اللقطة المالية متى أمكن
 - إذا كان الأصل سيارة أو أصل استهلاكي متناقص، عامل ذلك كاستنزاف رأسمالي لا كاستثمار حقيقي
+- إذا تجاوزت الصفقة 30% من السيولة أو وُجد التزام مهدد خلال 90 يوماً، يجب أن يكون القرار محافظاً جداً وقد يصل إلى do_not_proceed
 - إذا كان القرار postpone، اذكر شهراً واضحاً ومرحلة ادخار واضحة
 - إذا كان القرار proceed_now أو proceed_with_caution، اقترح حجماً مناسباً للاستثمار
 
@@ -482,6 +514,7 @@ Hard rules:
 - output JSON only
 - cite the actual financial snapshot when possible
 - if the asset is a vehicle or other depreciating consumer asset, treat it as capital decay rather than an investment
+- if the purchase exceeds 30% of liquid reserves or there is an at-risk obligation within 90 days, be explicitly restrictive and favor blocking or postponing
 - if the verdict is postpone, give a specific revisit month and savings milestone
 - if the verdict is proceed_now or proceed_with_caution, suggest an appropriate allocation size
 
@@ -512,12 +545,15 @@ Return JSON only in this shape:
 }`;
 }
 
-function buildUserPrompt(input: InvestmentDecisionInput, snapshot: FinancialSnapshot, fallback: InvestmentDecisionResult) {
+function buildUserPrompt(input: InvestmentDecisionInput, snapshot: FinancialSnapshot, fallback: InvestmentDecisionResult, wealixContext?: WealixAIContext) {
   return `Investment under review:
 ${JSON.stringify({ name: input.name, price: input.price, locale: input.locale }, null, 2)}
 
 Financial snapshot:
 ${JSON.stringify(snapshot, null, 2)}
+
+Unified WealixAIContext:
+${JSON.stringify(wealixContext ?? null, null, 2)}
 
 Deterministic model baseline:
 ${JSON.stringify(fallback, null, 2)}
@@ -686,11 +722,12 @@ function coerceModelResult(
 
 export async function generateInvestmentDecision(
   input: InvestmentDecisionInput,
-  snapshot: FinancialSnapshot
+  snapshot: FinancialSnapshot,
+  wealixContext?: WealixAIContext
 ): Promise<InvestmentDecisionResult> {
-  const fallback = buildFallbackDecision(input, snapshot);
+  const fallback = buildFallbackDecision(input, snapshot, wealixContext);
   const systemPrompt = buildSystemPrompt(input.locale);
-  const userPrompt = buildUserPrompt(input, snapshot, fallback);
+  const userPrompt = buildUserPrompt(input, snapshot, fallback, wealixContext);
 
   try {
     const content = await callOpenAI(systemPrompt, userPrompt)

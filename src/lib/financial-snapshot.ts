@@ -5,6 +5,7 @@ import type {
   IncomeEntry,
   LiabilityEntry,
   PortfolioHolding,
+  SavingsAccount,
 } from '@/store/useAppStore';
 
 type GoalStatus = 'on_track' | 'watch' | 'off_track';
@@ -62,6 +63,7 @@ export type ClientFinancialContext = {
   incomeEntries?: IncomeEntry[];
   expenseEntries?: ExpenseEntry[];
   budgetLimits?: Array<{ category: string; limit: number }>;
+  savingsAccounts?: SavingsAccount[];
 };
 
 function normalizeMonthlyIncome(entry: IncomeEntry) {
@@ -184,6 +186,7 @@ function buildSnapshotFromRawData(params: {
   liabilities: LiabilityEntry[];
   incomeEntries: IncomeEntry[];
   expenseEntries: ExpenseEntry[];
+  savingsAccounts?: SavingsAccount[];
 }): FinancialSnapshot {
   const {
     snapshotDate,
@@ -193,16 +196,21 @@ function buildSnapshotFromRawData(params: {
     liabilities,
     incomeEntries,
     expenseEntries,
+    savingsAccounts = [],
   } = params;
 
   const portfolioValue = holdings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
-  const assetValue = assets.reduce((sum, asset) => sum + asset.value, 0);
+  const savingsAssetValue = savingsAccounts.reduce((sum, account) => sum + account.currentBalance, 0);
+  const assetValue = assets.reduce((sum, asset) => sum + asset.value, 0) + savingsAssetValue;
   const totalAssets = assetValue + portfolioValue;
   const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
   const liquidReserves = assets
     .filter((asset) => asset.category === 'cash')
-    .reduce((sum, asset) => sum + asset.value, 0);
+    .reduce((sum, asset) => sum + asset.value, 0)
+    + savingsAccounts
+      .filter((account) => account.type === 'current' || account.type === 'standard_savings' || account.type === 'hassad')
+      .reduce((sum, account) => sum + account.currentBalance, 0);
 
   const monthlyIncome = incomeEntries.reduce((sum, entry) => sum + normalizeMonthlyIncome(entry), 0);
   const monthlyExpenses = averageMonthlyExpenses(expenseEntries);
@@ -325,6 +333,7 @@ export function buildFinancialSnapshotFromWorkspace(workspace: RemoteUserWorkspa
     liabilities: workspace.liabilities ?? [],
     incomeEntries: workspace.incomeEntries ?? [],
     expenseEntries: workspace.expenseEntries ?? [],
+    savingsAccounts: workspace.savingsAccounts ?? [],
   });
 }
 
@@ -337,5 +346,6 @@ export function buildFinancialSnapshotFromClientContext(context: ClientFinancial
     liabilities: context.liabilities ?? [],
     incomeEntries: context.incomeEntries ?? [],
     expenseEntries: context.expenseEntries ?? [],
+    savingsAccounts: context.savingsAccounts ?? [],
   });
 }

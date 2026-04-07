@@ -8,11 +8,13 @@ import type {
   LiabilityEntry,
   NotificationItem,
   NotificationPreferences,
+  OneTimeExpense,
   InvestmentDecisionRecord,
   PortfolioAnalysisRecord,
   PortfolioHolding,
   ReceiptScanResult,
   RecurringObligation,
+  SavingsAccount,
 } from '@/store/useAppStore';
 import type { StartPage } from '@/lib/start-page';
 
@@ -31,6 +33,8 @@ export type RemoteUserWorkspace = {
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];
   recurringObligations?: RecurringObligation[];
+  oneTimeExpenses?: OneTimeExpense[];
+  savingsAccounts?: SavingsAccount[];
 };
 
 export type RemoteWorkspaceRecord = {

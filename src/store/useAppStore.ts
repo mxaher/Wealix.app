@@ -31,6 +31,10 @@ export type ExpenseCategory =
 
 export type RecurringFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'one_time' | 'custom';
 export type ObligationStatus = 'upcoming' | 'due_soon' | 'paid' | 'overdue';
+export type OneTimeExpensePriority = 'critical' | 'high' | 'medium' | 'low';
+export type SavingsAccountType = 'current' | 'awaeed' | 'mudarabah' | 'hassad' | 'standard_savings';
+export type SavingsAccountStatus = 'active' | 'matured' | 'cancelled';
+export type ProfitPayoutMethod = 'at_maturity' | 'monthly' | 'in_advance';
 
 export interface RecurringObligation {
   id: string;
@@ -46,6 +50,37 @@ export interface RecurringObligation {
   notes?: string | null;
   status?: ObligationStatus;
   lastPaidDate?: string | null;
+}
+export interface OneTimeExpense {
+  id: string;
+  title: string;
+  amount: number;
+  currency: string;
+  dueDate: string;
+  category: string;
+  notes?: string | null;
+  priority: OneTimeExpensePriority;
+  fundingSource?: string | null;
+  status?: 'planned' | 'paid';
+  paidDate?: string | null;
+}
+export interface SavingsAccount {
+  id: string;
+  name: string;
+  type: SavingsAccountType;
+  provider: string;
+  principal: number;
+  currentBalance: number;
+  annualProfitRate: number;
+  termMonths: number;
+  openedAt: string;
+  maturityDate: string;
+  purposeLabel?: string | null;
+  profitPayoutMethod: ProfitPayoutMethod;
+  status: SavingsAccountStatus;
+  autoRenew?: boolean;
+  zakatHandledByInstitution?: boolean;
+  notes?: string | null;
 }
 export type PaymentMethod = 'Cash' | 'Card' | 'Transfer' | 'Wallet' | 'Other';
 export type ImportedRecordSource = 'receipt' | 'statement';
@@ -115,6 +150,8 @@ export interface LocalProfile {
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];
   recurringObligations: RecurringObligation[];
+  oneTimeExpenses: OneTimeExpense[];
+  savingsAccounts: SavingsAccount[];
 }
 
 interface AuthenticatedUserPayload {
@@ -314,6 +351,8 @@ export interface RemoteWorkspaceSnapshot {
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];
   recurringObligations: RecurringObligation[];
+  oneTimeExpenses: OneTimeExpense[];
+  savingsAccounts: SavingsAccount[];
 }
 
 function workspaceFieldsToSnapshot(source: {
@@ -331,6 +370,8 @@ function workspaceFieldsToSnapshot(source: {
   liabilities: LiabilityEntry[];
   budgetLimits: BudgetLimit[];
   recurringObligations: RecurringObligation[];
+  oneTimeExpenses: OneTimeExpense[];
+  savingsAccounts: SavingsAccount[];
 }): RemoteWorkspaceSnapshot {
   return {
     appMode: source.appMode,
@@ -347,6 +388,8 @@ function workspaceFieldsToSnapshot(source: {
     liabilities: source.liabilities,
     budgetLimits: source.budgetLimits,
     recurringObligations: source.recurringObligations,
+    oneTimeExpenses: source.oneTimeExpenses,
+    savingsAccounts: source.savingsAccounts,
   };
 }
 
@@ -873,6 +916,59 @@ const defaultRecurringObligations: RecurringObligation[] = [
   },
 ];
 
+const defaultOneTimeExpenses: OneTimeExpense[] = [
+  {
+    id: 'expense-iqama-renewal',
+    title: 'Iqama Renewal',
+    amount: 19000,
+    currency: 'SAR',
+    dueDate: new Date(new Date().getFullYear(), new Date().getMonth() + 5, 27).toISOString().slice(0, 10),
+    category: 'other',
+    priority: 'critical',
+    fundingSource: 'Awaeed - Iqama Reserve',
+    status: 'planned',
+    notes: 'Annual renewal reserve target',
+  },
+];
+
+const defaultSavingsAccounts: SavingsAccount[] = [
+  {
+    id: 'account-current-main',
+    name: 'Main Current Account',
+    type: 'current',
+    provider: 'Al Rajhi',
+    principal: 52000,
+    currentBalance: 52000,
+    annualProfitRate: 0,
+    termMonths: 0,
+    openedAt: new Date().toISOString().slice(0, 10),
+    maturityDate: new Date().toISOString().slice(0, 10),
+    purposeLabel: 'Operating cash buffer',
+    profitPayoutMethod: 'monthly',
+    status: 'active',
+    autoRenew: false,
+    zakatHandledByInstitution: false,
+  },
+  {
+    id: 'account-awaeed-iqama',
+    name: 'Awaeed - Iqama Reserve',
+    type: 'awaeed',
+    provider: 'Al Rajhi',
+    principal: 140000,
+    currentBalance: 140000,
+    annualProfitRate: 4.5,
+    termMonths: 6,
+    openedAt: new Date().toISOString().slice(0, 10),
+    maturityDate: new Date(new Date().getFullYear(), new Date().getMonth() + 4, 28).toISOString().slice(0, 10),
+    purposeLabel: 'Iqama renewal reserve',
+    profitPayoutMethod: 'at_maturity',
+    status: 'active',
+    autoRenew: false,
+    zakatHandledByInstitution: true,
+    notes: 'Sharia-compliant Mudarabah account',
+  },
+];
+
 function buildDemoState() {
   return {
     appMode: 'demo' as const,
@@ -888,6 +984,8 @@ function buildDemoState() {
     liabilities: defaultLiabilities,
     budgetLimits: defaultBudgetLimits,
     recurringObligations: defaultRecurringObligations,
+    oneTimeExpenses: defaultOneTimeExpenses,
+    savingsAccounts: defaultSavingsAccounts,
   };
 }
 
@@ -906,6 +1004,8 @@ function buildLiveState() {
     liabilities: [] as LiabilityEntry[],
     budgetLimits: [] as BudgetLimit[],
     recurringObligations: [] as RecurringObligation[],
+    oneTimeExpenses: [] as OneTimeExpense[],
+    savingsAccounts: [] as SavingsAccount[],
   };
 }
 
@@ -930,6 +1030,8 @@ function sanitizeRemoteWorkspace(workspace: Partial<RemoteWorkspaceSnapshot> | u
     liabilities: normalizeLiabilityEntries(workspace?.liabilities),
     budgetLimits: Array.isArray(workspace?.budgetLimits) ? workspace.budgetLimits : live.budgetLimits,
     recurringObligations: Array.isArray(workspace?.recurringObligations) ? workspace.recurringObligations : live.recurringObligations,
+    oneTimeExpenses: Array.isArray(workspace?.oneTimeExpenses) ? workspace.oneTimeExpenses : live.oneTimeExpenses,
+    savingsAccounts: Array.isArray(workspace?.savingsAccounts) ? workspace.savingsAccounts : live.savingsAccounts,
   };
 }
 
@@ -964,6 +1066,8 @@ function createProfileSnapshot(
     liabilities: state.liabilities,
     budgetLimits: state.budgetLimits,
     recurringObligations: state.recurringObligations,
+    oneTimeExpenses: state.oneTimeExpenses,
+    savingsAccounts: state.savingsAccounts,
   };
 }
 
@@ -1010,6 +1114,8 @@ function normalizeLocalProfiles(profiles: unknown): LocalProfile[] {
       liabilities: normalizeLiabilityEntries(item.liabilities),
       budgetLimits: Array.isArray(item.budgetLimits) ? item.budgetLimits : [],
       recurringObligations: Array.isArray(item.recurringObligations) ? item.recurringObligations : [],
+      oneTimeExpenses: Array.isArray(item.oneTimeExpenses) ? item.oneTimeExpenses : [],
+      savingsAccounts: Array.isArray(item.savingsAccounts) ? item.savingsAccounts : [],
     }];
   });
 }
@@ -1030,6 +1136,8 @@ function profileToRemoteWorkspace(profile: LocalProfile): RemoteWorkspaceSnapsho
     liabilities: profile.liabilities,
     budgetLimits: profile.budgetLimits,
     recurringObligations: profile.recurringObligations,
+    oneTimeExpenses: profile.oneTimeExpenses,
+    savingsAccounts: profile.savingsAccounts,
   });
 }
 
@@ -1055,6 +1163,8 @@ function snapshotActiveProfile(state: AppState): LocalProfile {
     liabilities: state.liabilities,
     budgetLimits: state.budgetLimits,
     recurringObligations: state.recurringObligations,
+    oneTimeExpenses: state.oneTimeExpenses,
+    savingsAccounts: state.savingsAccounts,
   };
 }
 
@@ -1097,6 +1207,8 @@ function profileToState(profile: LocalProfile) {
     liabilities: normalizeLiabilityEntries(profile.liabilities),
     budgetLimits: profile.budgetLimits,
     recurringObligations: Array.isArray(profile.recurringObligations) ? profile.recurringObligations : [],
+    oneTimeExpenses: Array.isArray(profile.oneTimeExpenses) ? profile.oneTimeExpenses : [],
+    savingsAccounts: Array.isArray(profile.savingsAccounts) ? profile.savingsAccounts : [],
   };
 }
 
@@ -1162,6 +1274,14 @@ interface AppState {
   updateRecurringObligation: (id: string, updates: Partial<RecurringObligation>) => void;
   deleteRecurringObligation: (id: string) => void;
   markObligationPaid: (id: string, paidDate: string) => void;
+  oneTimeExpenses: OneTimeExpense[];
+  addOneTimeExpense: (expense: OneTimeExpense) => void;
+  updateOneTimeExpense: (id: string, updates: Partial<OneTimeExpense>) => void;
+  deleteOneTimeExpense: (id: string) => void;
+  savingsAccounts: SavingsAccount[];
+  addSavingsAccount: (account: SavingsAccount) => void;
+  updateSavingsAccount: (id: string, updates: Partial<SavingsAccount>) => void;
+  deleteSavingsAccount: (id: string) => void;
   hydrateRemoteWorkspace: (workspace: RemoteWorkspaceSnapshot) => void;
   stashRemoteWorkspace: (workspace: RemoteWorkspaceSnapshot) => void;
   clearAllData: () => void;
@@ -1539,6 +1659,42 @@ export const useAppStore = create<AppState>()(
           ),
         })
       ),
+      oneTimeExpenses: initialGuestProfile.oneTimeExpenses,
+      addOneTimeExpense: (expense) => set((state) =>
+        syncActiveProfileState(state, {
+          oneTimeExpenses: [expense, ...state.oneTimeExpenses],
+        })
+      ),
+      updateOneTimeExpense: (id, updates) => set((state) =>
+        syncActiveProfileState(state, {
+          oneTimeExpenses: state.oneTimeExpenses.map((expense) =>
+            expense.id === id ? { ...expense, ...updates } : expense
+          ),
+        })
+      ),
+      deleteOneTimeExpense: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          oneTimeExpenses: state.oneTimeExpenses.filter((expense) => expense.id !== id),
+        })
+      ),
+      savingsAccounts: initialGuestProfile.savingsAccounts,
+      addSavingsAccount: (account) => set((state) =>
+        syncActiveProfileState(state, {
+          savingsAccounts: [account, ...state.savingsAccounts],
+        })
+      ),
+      updateSavingsAccount: (id, updates) => set((state) =>
+        syncActiveProfileState(state, {
+          savingsAccounts: state.savingsAccounts.map((account) =>
+            account.id === id ? { ...account, ...updates } : account
+          ),
+        })
+      ),
+      deleteSavingsAccount: (id) => set((state) =>
+        syncActiveProfileState(state, {
+          savingsAccounts: state.savingsAccounts.filter((account) => account.id !== id),
+        })
+      ),
       hydrateRemoteWorkspace: (workspace) => set((state) => {
         const sanitizedWorkspace = sanitizeRemoteWorkspace(workspace);
         return syncActiveProfileState(state, {
@@ -1556,6 +1712,8 @@ export const useAppStore = create<AppState>()(
           liabilities: sanitizedWorkspace.liabilities,
           budgetLimits: sanitizedWorkspace.budgetLimits,
           recurringObligations: sanitizedWorkspace.recurringObligations,
+          oneTimeExpenses: sanitizedWorkspace.oneTimeExpenses,
+          savingsAccounts: sanitizedWorkspace.savingsAccounts,
         });
       }),
       stashRemoteWorkspace: (workspace) => set((state) => {
@@ -1597,6 +1755,8 @@ export const useAppStore = create<AppState>()(
           liabilities: sanitizedWorkspace.liabilities,
           budgetLimits: sanitizedWorkspace.budgetLimits,
           recurringObligations: sanitizedWorkspace.recurringObligations,
+          oneTimeExpenses: sanitizedWorkspace.oneTimeExpenses,
+          savingsAccounts: sanitizedWorkspace.savingsAccounts,
         };
 
         return {
@@ -1734,6 +1894,8 @@ export const useAppStore = create<AppState>()(
         liabilities: state.liabilities,
         budgetLimits: state.budgetLimits,
         recurringObligations: state.recurringObligations,
+        oneTimeExpenses: state.oneTimeExpenses,
+        savingsAccounts: state.savingsAccounts,
         sidebarCollapsed: state.sidebarCollapsed,
         shariahFilterEnabled: state.shariahFilterEnabled,
       }),
@@ -1759,6 +1921,8 @@ export function getPersistableWorkspaceSnapshot(state: Pick<
   | 'liabilities'
   | 'budgetLimits'
   | 'recurringObligations'
+  | 'oneTimeExpenses'
+  | 'savingsAccounts'
 >): RemoteWorkspaceSnapshot {
   if (state.appMode === 'demo') {
     const activeProfile = findProfileById(state.profiles, state.activeProfileId);
@@ -1782,6 +1946,8 @@ export function getPersistableWorkspaceSnapshot(state: Pick<
     liabilities: state.liabilities,
     budgetLimits: state.budgetLimits,
     recurringObligations: state.recurringObligations,
+    oneTimeExpenses: state.oneTimeExpenses,
+    savingsAccounts: state.savingsAccounts,
   });
 }
 
