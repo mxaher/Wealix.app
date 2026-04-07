@@ -1,6 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { type NextRequest, NextResponse } from 'next/server';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app';
+const APP_ORIGIN = new URL(APP_URL);
+const APP_HOSTNAME = APP_ORIGIN.hostname.toLowerCase();
+
 // ─── Route matchers ────────────────────────────────────────────────────────────
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -53,6 +57,22 @@ const CLERK_COOKIES = [
   '__clerk_redirect_count',
 ];
 
+function isAllowedHost(hostname: string) {
+  const normalized = hostname.toLowerCase();
+  return normalized === APP_HOSTNAME || normalized.endsWith(`.${APP_HOSTNAME}`);
+}
+
+function getSafeHostname(hostname: string) {
+  return isAllowedHost(hostname) ? hostname : APP_ORIGIN.hostname;
+}
+
+function buildSafeUrl(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.protocol = APP_ORIGIN.protocol;
+  url.host = getSafeHostname(url.hostname);
+  return url;
+}
+
 function buildCookieDomains(hostname: string) {
   const parts = hostname.split('.').filter(Boolean);
   const domains = new Set<string>([hostname]);
@@ -91,13 +111,13 @@ function handleStaleHandshake(req: NextRequest): NextResponse | null {
 
   // If kid is missing OR belongs to the dev instance → purge and redirect clean
   if (!kid || kid !== VALID_KID) {
-    const cleanUrl = req.nextUrl.clone();
+    const cleanUrl = buildSafeUrl(req);
     cleanUrl.searchParams.delete('__clerk_handshake');
     cleanUrl.searchParams.delete('__clerk_db_jwt');
     cleanUrl.searchParams.delete('__clerk_redirect_count');
 
     const res = NextResponse.redirect(cleanUrl, { status: 302 });
-    nukeCookies(res, req.nextUrl.hostname);
+    nukeCookies(res, getSafeHostname(req.nextUrl.hostname));
     return res;
   }
 

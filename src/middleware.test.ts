@@ -32,6 +32,17 @@ describe('middleware helpers', () => {
     expect(response?.headers.get('location')).toBe('https://app.wealix.app/advisor');
   });
 
+  test('normalizes stale-handshake redirects to an allowed host', () => {
+    const invalidHeader = Buffer.from(JSON.stringify({ kid: 'ins_dev_123' })).toString('base64url');
+    const token = `${invalidHeader}.payload.signature`;
+    const request = new NextRequest(`https://evil.example/advisor?__clerk_handshake=${token}`);
+
+    const response = handleStaleHandshake(request);
+
+    expect(response?.status).toBe(302);
+    expect(response?.headers.get('location')).toBe('https://wealix.app/advisor');
+  });
+
   test('clears cookies across nested parent domains', () => {
     expect(buildCookieDomains('app.api.wealix.app')).toEqual([
       'app.api.wealix.app',
