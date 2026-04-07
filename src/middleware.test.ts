@@ -9,6 +9,7 @@ describe('middleware helpers', () => {
 
     expect(policy).toContain("'nonce-nonce-value'");
     expect(scriptDirective).toBeDefined();
+    expect(scriptDirective).not.toContain("'strict-dynamic'");
     expect(scriptDirective).not.toContain("'unsafe-inline'");
     expect(scriptDirective).not.toContain("'unsafe-eval'");
   });
