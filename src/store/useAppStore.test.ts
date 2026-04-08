@@ -173,6 +173,33 @@ describe('useAppStore mode isolation', () => {
     expect(useAppStore.getState().startPage).toBe('portfolio');
   });
 
+  test('forces live mode even when a persisted signed-in profile was incorrectly saved as demo', () => {
+    const store = useAppStore.getState();
+
+    store.syncClerkUser({
+      id: 'user_legacy_demo',
+      email: 'legacy@example.com',
+      name: 'Legacy User',
+      avatarUrl: null,
+      subscriptionTier: 'core',
+    });
+    store.addIncomeEntry(buildIncomeEntry('income-live', 'Stable Salary'));
+    store.setAppMode('demo');
+
+    useAppStore.setState((state) => ({
+      profiles: state.profiles.map((profile) =>
+        profile.id === 'user_legacy_demo'
+          ? { ...profile, appMode: 'demo' }
+          : profile
+      ),
+    }));
+
+    useAppStore.getState().setAppMode('live');
+
+    expect(useAppStore.getState().appMode).toBe('live');
+    expect(useAppStore.getState().incomeEntries.map((entry) => entry.id)).toEqual(['income-live']);
+  });
+
   test('bumps financial snapshot version for each mutation type', () => {
     const store = useAppStore.getState();
 
