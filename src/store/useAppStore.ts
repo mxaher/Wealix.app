@@ -1447,11 +1447,15 @@ export const useAppStore = create<AppState>()(
         }
 
         const activeProfile = findProfileById(state.profiles, state.activeProfileId);
+        const restorableProfile =
+          activeProfile && activeProfile.id !== initialGuestProfile.id
+            ? activeProfile
+            : null;
 
         if (mode === 'demo') {
           console.info('[mode-switch] live -> demo', {
             profileId: state.activeProfileId,
-            hasPersistedLiveProfile: Boolean(activeProfile),
+            hasPersistedLiveProfile: Boolean(restorableProfile),
           });
 
           return syncActiveProfileState(state, {
@@ -1466,8 +1470,8 @@ export const useAppStore = create<AppState>()(
                   subscriptionTier: state.user?.subscriptionTier ?? 'none',
                 }
               : null,
-            notificationPreferences: activeProfile?.notificationPreferences ?? state.notificationPreferences,
-            startPage: activeProfile?.startPage ?? state.startPage,
+            notificationPreferences: restorableProfile?.notificationPreferences ?? state.notificationPreferences,
+            startPage: restorableProfile?.startPage ?? state.startPage,
             sidebarCollapsed: false,
             activeDashboardTab: 'overview',
             selectedExchange: 'all',
@@ -1479,18 +1483,18 @@ export const useAppStore = create<AppState>()(
           });
         }
 
-        const restoredState: PersistedWorkspaceState = activeProfile
+        const restoredState: PersistedWorkspaceState = restorableProfile
           ? {
-              ...profileToState(activeProfile),
+              ...profileToState(restorableProfile),
               appMode: 'live' as const,
-              user: activeProfile.user
+              user: restorableProfile.user
                 ? {
-                    ...activeProfile.user,
+                    ...restorableProfile.user,
                     id: state.activeProfileId,
-                    name: state.user?.name ?? activeProfile.user.name ?? '',
-                    email: state.user?.email ?? activeProfile.user.email,
-                    avatarUrl: state.user?.avatarUrl ?? activeProfile.user.avatarUrl ?? null,
-                    subscriptionTier: state.user?.subscriptionTier ?? activeProfile.user.subscriptionTier ?? 'none',
+                    name: state.user?.name ?? restorableProfile.user.name ?? '',
+                    email: state.user?.email ?? restorableProfile.user.email,
+                    avatarUrl: state.user?.avatarUrl ?? restorableProfile.user.avatarUrl ?? null,
+                    subscriptionTier: state.user?.subscriptionTier ?? restorableProfile.user.subscriptionTier ?? 'none',
                   }
                 : state.user,
             }
@@ -1510,7 +1514,7 @@ export const useAppStore = create<AppState>()(
 
         console.info('[mode-switch] demo -> live', {
           profileId: state.activeProfileId,
-          restoredFromPersistedProfile: Boolean(activeProfile),
+          restoredFromPersistedProfile: Boolean(restorableProfile),
           restoredIncomeEntries: restoredState.incomeEntries.length,
           restoredExpenseEntries: restoredState.expenseEntries.length,
         });

@@ -209,6 +209,47 @@ describe('useAppStore mode isolation', () => {
     expect(useAppStore.getState().startPage).toBe('portfolio');
   });
 
+  test('does not restore seeded guest demo data when switching a guest workspace back to live', () => {
+    useAppStore.setState((state) => ({
+      ...state,
+      profiles: [
+        {
+          id: 'guest',
+          label: 'Guest',
+          email: '',
+          avatarUrl: null,
+          appMode: 'demo',
+          startPage: 'dashboard',
+          user: null,
+          notificationPreferences: state.notificationPreferences,
+          notificationFeed: [],
+          incomeEntries: [buildIncomeEntry('income-guest-demo', 'Seeded Guest Demo')],
+          expenseEntries: [buildExpenseEntry('expense-guest-demo', 'Seeded Guest Expense')],
+          receiptScans: [],
+          portfolioHoldings: [],
+          portfolioAnalysisHistory: [],
+          investmentDecisionHistory: [],
+          assets: [],
+          liabilities: [],
+          budgetLimits: [],
+          recurringObligations: [],
+          oneTimeExpenses: [],
+          savingsAccounts: [],
+        },
+      ],
+      activeProfileId: 'guest',
+      appMode: 'demo',
+      incomeEntries: [buildIncomeEntry('income-demo-current', 'Current Demo')],
+      expenseEntries: [buildExpenseEntry('expense-demo-current', 'Current Demo Expense')],
+    }));
+
+    useAppStore.getState().setAppMode('live');
+
+    expect(useAppStore.getState().appMode).toBe('live');
+    expect(useAppStore.getState().incomeEntries).toEqual([]);
+    expect(useAppStore.getState().expenseEntries).toEqual([]);
+  });
+
   test('forces live mode even when a persisted signed-in profile was incorrectly saved as demo', () => {
     const store = useAppStore.getState();
 
