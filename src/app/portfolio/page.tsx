@@ -97,6 +97,13 @@ import {
 } from '@/store/useAppStore';
 import { useRuntimeUser } from '@/hooks/useRuntimeUser';
 import { cn } from '@/lib/utils';
+import {
+  MARKETS_LIST,
+  MARKET_GROUP_LABELS,
+  GOLD_FORMS,
+  KARAT_OPTIONS,
+  type MarketOption,
+} from '@/lib/data/financialLists';
 
 type FxRateMap = Partial<Record<'USD_SAR' | 'EGP_SAR', {
   symbol: string;
@@ -152,76 +159,19 @@ const ACCEPTED_SPREADSHEET_TYPES = new Set([
   'text/csv',
 ]);
 const REQUIRED_IMPORT_COLUMNS = ['ticker', 'shares', 'avgcost'];
-const MARKETS_LIST = [
-  { value: 'TASI', label: { en: 'TASI — Saudi Stock Exchange', ar: 'تداول — السوق المالية السعودية' }, country: 'SA' },
-  { value: 'NOMU', label: { en: 'Nomu — Saudi Parallel Market', ar: 'نمو — السوق الموازية السعودية' }, country: 'SA' },
-  { value: 'ADX', label: { en: 'ADX — Abu Dhabi Securities Exchange', ar: 'سوق أبوظبي للأوراق المالية' }, country: 'AE' },
-  { value: 'DFM', label: { en: 'DFM — Dubai Financial Market', ar: 'سوق دبي المالي' }, country: 'AE' },
-  { value: 'NASDAQ_DUBAI', label: { en: 'Nasdaq Dubai', ar: 'ناسداك دبي' }, country: 'AE' },
-  { value: 'QSE', label: { en: 'QSE — Qatar Stock Exchange', ar: 'بورصة قطر' }, country: 'QA' },
-  { value: 'BKK', label: { en: 'Boursa Kuwait', ar: 'بورصة الكويت' }, country: 'KW' },
-  { value: 'BHB', label: { en: 'Bahrain Bourse', ar: 'بورصة البحرين' }, country: 'BH' },
-  { value: 'MSX', label: { en: 'Muscat Stock Exchange', ar: 'بورصة مسقط' }, country: 'OM' },
-  { value: 'EGX', label: { en: 'EGX — Egyptian Exchange', ar: 'البورصة المصرية' }, country: 'EG' },
-  { value: 'ASE', label: { en: 'ASE — Amman Stock Exchange', ar: 'بورصة عمان' }, country: 'JO' },
-  { value: 'NASDAQ', label: { en: 'Nasdaq (US)', ar: 'ناسداك (الولايات المتحدة)' }, country: 'US' },
-  { value: 'NYSE', label: { en: 'NYSE — New York Stock Exchange', ar: 'بورصة نيويورك' }, country: 'US' },
-  { value: 'AMEX', label: { en: 'NYSE American (AMEX)', ar: 'بورصة أمريكان' }, country: 'US' },
-  { value: 'LSE', label: { en: 'LSE — London Stock Exchange', ar: 'بورصة لندن' }, country: 'GB' },
-  { value: 'EURONEXT', label: { en: 'Euronext', ar: 'يورونكست' }, country: 'EU' },
-  { value: 'XETRA', label: { en: 'Xetra — Frankfurt', ar: 'بورصة فرانكفورت' }, country: 'DE' },
-  { value: 'TSE', label: { en: 'TSE — Tokyo Stock Exchange', ar: 'بورصة طوكيو' }, country: 'JP' },
-  { value: 'HKEX', label: { en: 'HKEX — Hong Kong', ar: 'بورصة هونغ كونغ' }, country: 'HK' },
-  { value: 'SSE', label: { en: 'SSE — Shanghai', ar: 'بورصة شنغهاي' }, country: 'CN' },
-  { value: 'COMEX', label: { en: 'COMEX — Commodities (Gold/Silver)', ar: 'كوميكس — السلع (ذهب / فضة)' }, country: 'GLOBAL' },
-  { value: 'LME', label: { en: 'LME — London Metals Exchange', ar: 'بورصة المعادن لندن' }, country: 'GB' },
-  { value: 'CRYPTO', label: { en: 'Crypto Markets (Global)', ar: 'أسواق العملات الرقمية' }, country: 'GLOBAL' },
-  { value: 'OTC', label: { en: 'OTC / Over The Counter', ar: 'خارج البورصة (OTC)' }, country: 'GLOBAL' },
-] as const;
-
-const MARKET_GROUP_LABELS: Record<(typeof MARKETS_LIST)[number]['country'], { en: string; ar: string }> = {
-  SA: { en: 'Saudi Arabia', ar: 'السعودية' },
-  AE: { en: 'United Arab Emirates', ar: 'الإمارات' },
-  QA: { en: 'Qatar', ar: 'قطر' },
-  KW: { en: 'Kuwait', ar: 'الكويت' },
-  BH: { en: 'Bahrain', ar: 'البحرين' },
-  OM: { en: 'Oman', ar: 'عُمان' },
-  EG: { en: 'Egypt', ar: 'مصر' },
-  JO: { en: 'Jordan', ar: 'الأردن' },
-  US: { en: 'United States', ar: 'الولايات المتحدة' },
-  GB: { en: 'United Kingdom', ar: 'المملكة المتحدة' },
-  EU: { en: 'Europe', ar: 'أوروبا' },
-  DE: { en: 'Germany', ar: 'ألمانيا' },
-  JP: { en: 'Japan', ar: 'اليابان' },
-  HK: { en: 'Hong Kong', ar: 'هونغ كونغ' },
-  CN: { en: 'China', ar: 'الصين' },
-  GLOBAL: { en: 'Global', ar: 'عالمي' },
-};
-
-const SECURITY_TYPES = [
-  { value: 'stock', label: { en: 'Stock', ar: 'سهم' }, icon: TrendingUp },
-  { value: 'etf', label: { en: 'ETF', ar: 'صندوق ETF' }, icon: LayoutGrid },
-  { value: 'gold', label: { en: 'Gold', ar: 'ذهب' }, icon: Gem },
-  { value: 'other', label: { en: 'Other', ar: 'أخرى' }, icon: Package },
-] as const;
-
 type SecurityType = 'stock' | 'etf' | 'gold' | 'other';
 
-const GOLD_FORMS = [
-  { value: 'bullion_bar', label: { en: 'Bullion Bar', ar: 'سبيكة ذهب' } },
-  { value: 'coin', label: { en: 'Gold Coin', ar: 'عملة ذهبية' } },
-  { value: 'jewelry', label: { en: 'Jewelry', ar: 'مجوهرات' } },
-  { value: 'etf_gold', label: { en: 'Gold ETF', ar: 'صندوق ذهب ETF' } },
-  { value: 'digital_gold', label: { en: 'Digital Gold', ar: 'ذهب رقمي' } },
-] as const;
+const SECURITY_TYPES_WITH_ICONS = [
+  { value: 'stock' as const, label: { en: 'Stock', ar: 'سهم' }, icon: TrendingUp },
+  { value: 'etf' as const, label: { en: 'ETF', ar: 'صندوق ETF' }, icon: LayoutGrid },
+  { value: 'gold' as const, label: { en: 'Gold', ar: 'ذهب' }, icon: Gem },
+  { value: 'other' as const, label: { en: 'Other', ar: 'أخرى' }, icon: Package },
+];
 
-const KARAT_OPTIONS = ['24K', '22K', '21K', '18K', '14K'] as const;
 const SUPPORTED_EXCHANGES: PortfolioExchange[] = [
   ...MARKETS_LIST.map((market) => market.value),
   'GOLD',
 ];
-
-type MarketOption = (typeof MARKETS_LIST)[number];
 
 type HoldingDraft = {
   ticker: string;
@@ -277,7 +227,7 @@ function getLocalizedMarketLabel(item: MarketOption, isArabic: boolean) {
 
 function getSecurityTypeMeta(type: SecurityType | undefined, isArabic: boolean) {
   const securityType = type ?? 'stock';
-  const item = SECURITY_TYPES.find((option) => option.value === securityType) ?? SECURITY_TYPES[0];
+  const item = SECURITY_TYPES_WITH_ICONS.find((option) => option.value === securityType) ?? SECURITY_TYPES_WITH_ICONS[0];
 
   return {
     icon: item.icon,
@@ -941,9 +891,9 @@ export default function PortfolioPage() {
         sector: 'Precious Metals',
         isShariah: newHolding.isShariah,
         securityType,
-        goldForm: newHolding.goldForm,
+        goldForm: newHolding.goldForm as PortfolioHolding['goldForm'],
         grams: goldGrams,
-        karat: newHolding.karat,
+        karat: newHolding.karat as PortfolioHolding['karat'],
         purchasePricePerGram: goldPurchasePrice,
         currentPricePerGram: goldCurrentPrice,
       };
@@ -1372,7 +1322,7 @@ export default function PortfolioPage() {
                   <div className="space-y-2" dir={isArabic ? 'rtl' : 'ltr'}>
                     <Label dir={isArabic ? 'rtl' : 'ltr'}>{isArabic ? 'نوع الورقة المالية' : 'Security Type'}</Label>
                     <div dir={isArabic ? 'rtl' : 'ltr'} className={cn('flex flex-wrap gap-2', isArabic && 'flex-row-reverse')}>
-                      {SECURITY_TYPES.map((option) => {
+                      {SECURITY_TYPES_WITH_ICONS.map((option) => {
                         const Icon = option.icon;
                         const active = securityType === option.value;
 

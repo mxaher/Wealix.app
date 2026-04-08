@@ -88,18 +88,13 @@ import {
   type SavingsAccount,
   useAppStore,
 } from '@/store/useAppStore';
-
-type SavingsOption = {
-  value: string;
-  label: {
-    en: string;
-    ar: string;
-  };
-};
-
-type BankOption = SavingsOption & {
-  country: string;
-};
+import {
+  SAVINGS_ACCOUNT_NAMES,
+  GULF_BANKS,
+  BANK_GROUP_LABELS,
+  type SavingsOption,
+  type BankOption,
+} from '@/lib/data/financialLists';
 
 type ForecastTooltipDatum = {
   month: string;
@@ -149,89 +144,6 @@ type SuggestionComboboxProps<TOption extends SavingsOption> = {
   renderItemMeta?: (option: TOption) => ReactNode;
 };
 
-const SAVINGS_ACCOUNT_NAMES: SavingsOption[] = [
-  { value: 'al_rajhi_awaeed', label: { en: 'Al Rajhi — Awaeed Account', ar: 'الراجحي — حساب عوائد' } },
-  { value: 'al_rajhi_mudarabah', label: { en: 'Al Rajhi — Mudarabah Account', ar: 'الراجحي — حساب المضاربة' } },
-  { value: 'al_rajhi_current', label: { en: 'Al Rajhi — Current Account', ar: 'الراجحي — الحساب الجاري' } },
-  { value: 'snb_saver', label: { en: 'SNB — Savings Account', ar: 'البنك الأهلي — حساب التوفير' } },
-  { value: 'snb_almujdy', label: { en: 'SNB — Al Mujdy Account', ar: 'البنك الأهلي — حساب المجدي' } },
-  { value: 'riyad_hassad', label: { en: 'Riyad Bank — Hassad Account', ar: 'بنك الرياض — حساب الحصاد' } },
-  { value: 'riyad_savings', label: { en: 'Riyad Bank — Savings Account', ar: 'بنك الرياض — حساب التوفير' } },
-  { value: 'albilad_wefak', label: { en: 'Al Bilad — Wefak Account', ar: 'بنك البلاد — حساب وفاق' } },
-  { value: 'albilad_savings', label: { en: 'Al Bilad — Savings Account', ar: 'بنك البلاد — حساب التوفير' } },
-  { value: 'alinma_savings', label: { en: 'Alinma Bank — Savings Account', ar: 'بنك الإنماء — حساب التوفير' } },
-  { value: 'alinma_tawfeer', label: { en: 'Alinma Bank — Tawfeer Account', ar: 'بنك الإنماء — حساب توفير' } },
-  { value: 'samba_savings', label: { en: 'Samba — Savings Account', ar: 'سامبا — حساب التوفير' } },
-  { value: 'anb_savings', label: { en: 'ANB — Savings Account', ar: 'البنك العربي الوطني — حساب التوفير' } },
-  { value: 'saib_savings', label: { en: 'SAIB — Savings Account', ar: 'البنك السعودي للاستثمار — حساب التوفير' } },
-  { value: 'adcb_active_saver', label: { en: 'ADCB — Active Saver', ar: 'أبوظبي التجاري — حساب التوفير' } },
-  { value: 'fab_savings', label: { en: 'FAB — Savings Account', ar: 'بنك أبوظبي الأول — حساب التوفير' } },
-  { value: 'emirates_nbd_savings', label: { en: 'Emirates NBD — Savings Account', ar: 'الإمارات NBD — حساب التوفير' } },
-  { value: 'mashreq_savings', label: { en: 'Mashreq — Savings Account', ar: 'مصرف المشرق — حساب التوفير' } },
-  { value: 'qnb_savings', label: { en: 'QNB — Savings Account', ar: 'بنك قطر الوطني — حساب التوفير' } },
-  { value: 'qatar_islamic_savings', label: { en: 'Qatar Islamic Bank — Savings', ar: 'بنك قطر الإسلامي — حساب التوفير' } },
-  { value: 'nbk_savings', label: { en: 'NBK — Savings Account', ar: 'بنك الكويت الوطني — حساب التوفير' } },
-  { value: 'kfh_savings', label: { en: 'KFH — Savings Account', ar: 'بيت التمويل الكويتي — حساب التوفير' } },
-  { value: 'ahli_bahrain_savings', label: { en: 'Ahli United — Savings Account', ar: 'الأهلي المتحد — حساب التوفير' } },
-  { value: 'arab_bank_savings', label: { en: 'Arab Bank — Savings Account', ar: 'البنك العربي — حساب التوفير' } },
-  { value: 'cairo_amman_savings', label: { en: 'Cairo Amman Bank — Savings', ar: 'بنك القاهرة عمان — حساب التوفير' } },
-  { value: 'nbe_savings', label: { en: 'NBE — Savings Account', ar: 'البنك الأهلي المصري — حساب التوفير' } },
-  { value: 'cib_savings', label: { en: 'CIB — Savings Account', ar: 'البنك التجاري الدولي — حساب التوفير' } },
-  { value: 'qnb_egypt_savings', label: { en: 'QNB Egypt — Savings Account', ar: 'QNB مصر — حساب التوفير' } },
-  { value: 'banque_misr_savings', label: { en: 'Banque Misr — Savings', ar: 'بنك مصر — حساب التوفير' } },
-  { value: 'term_deposit', label: { en: 'Term Deposit (Generic)', ar: 'وديعة لأجل (عام)' } },
-  { value: 'other_savings', label: { en: 'Other / Custom', ar: 'حساب آخر / مخصص' } },
-];
-
-const GULF_BANKS: BankOption[] = [
-  { value: 'Al Rajhi Bank', label: { en: 'Al Rajhi Bank', ar: 'مصرف الراجحي' }, country: 'SA' },
-  { value: 'Saudi National Bank (SNB)', label: { en: 'Saudi National Bank (SNB)', ar: 'البنك الأهلي السعودي (SNB)' }, country: 'SA' },
-  { value: 'Riyad Bank', label: { en: 'Riyad Bank', ar: 'بنك الرياض' }, country: 'SA' },
-  { value: 'Bank AlBilad', label: { en: 'Bank AlBilad', ar: 'بنك البلاد' }, country: 'SA' },
-  { value: 'Alinma Bank', label: { en: 'Alinma Bank', ar: 'بنك الإنماء' }, country: 'SA' },
-  { value: 'Arab National Bank (ANB)', label: { en: 'Arab National Bank (ANB)', ar: 'البنك العربي الوطني' }, country: 'SA' },
-  { value: 'Banque Saudi Fransi', label: { en: 'Banque Saudi Fransi', ar: 'البنك السعودي الفرنسي' }, country: 'SA' },
-  { value: 'SAMBA Financial Group', label: { en: 'SAMBA Financial Group', ar: 'مجموعة سامبا المالية' }, country: 'SA' },
-  { value: 'Saudi Investment Bank (SAIB)', label: { en: 'Saudi Investment Bank (SAIB)', ar: 'البنك السعودي للاستثمار' }, country: 'SA' },
-  { value: 'Gulf International Bank (GIB)', label: { en: 'Gulf International Bank (GIB)', ar: 'بنك الخليج الدولي' }, country: 'SA' },
-  { value: 'Emirates NBD', label: { en: 'Emirates NBD', ar: 'الإمارات NBD' }, country: 'AE' },
-  { value: 'Abu Dhabi Commercial Bank (ADCB)', label: { en: 'Abu Dhabi Commercial Bank (ADCB)', ar: 'بنك أبوظبي التجاري' }, country: 'AE' },
-  { value: 'First Abu Dhabi Bank (FAB)', label: { en: 'First Abu Dhabi Bank (FAB)', ar: 'بنك أبوظبي الأول' }, country: 'AE' },
-  { value: 'Dubai Islamic Bank (DIB)', label: { en: 'Dubai Islamic Bank (DIB)', ar: 'بنك دبي الإسلامي' }, country: 'AE' },
-  { value: 'Mashreq Bank', label: { en: 'Mashreq Bank', ar: 'مصرف المشرق' }, country: 'AE' },
-  { value: 'ENBD Bank', label: { en: 'ENBD Bank', ar: 'بنك الإمارات دبي الوطني' }, country: 'AE' },
-  { value: 'Qatar National Bank (QNB)', label: { en: 'Qatar National Bank (QNB)', ar: 'بنك قطر الوطني' }, country: 'QA' },
-  { value: 'Qatar Islamic Bank (QIB)', label: { en: 'Qatar Islamic Bank (QIB)', ar: 'بنك قطر الإسلامي' }, country: 'QA' },
-  { value: 'Commercial Bank of Qatar', label: { en: 'Commercial Bank of Qatar', ar: 'البنك التجاري القطري' }, country: 'QA' },
-  { value: 'National Bank of Kuwait (NBK)', label: { en: 'National Bank of Kuwait (NBK)', ar: 'بنك الكويت الوطني' }, country: 'KW' },
-  { value: 'Kuwait Finance House (KFH)', label: { en: 'Kuwait Finance House (KFH)', ar: 'بيت التمويل الكويتي' }, country: 'KW' },
-  { value: 'Gulf Bank Kuwait', label: { en: 'Gulf Bank Kuwait', ar: 'بنك الخليج - الكويت' }, country: 'KW' },
-  { value: 'Ahli United Bank (Bahrain)', label: { en: 'Ahli United Bank (Bahrain)', ar: 'بنك الأهلي المتحد - البحرين' }, country: 'BH' },
-  { value: 'Bank of Bahrain and Kuwait (BBK)', label: { en: 'BBK — Bank of Bahrain and Kuwait', ar: 'بنك البحرين والكويت' }, country: 'BH' },
-  { value: 'Bank Muscat', label: { en: 'Bank Muscat', ar: 'بنك مسقط' }, country: 'OM' },
-  { value: 'National Bank of Oman (NBO)', label: { en: 'National Bank of Oman (NBO)', ar: 'البنك الوطني العماني' }, country: 'OM' },
-  { value: 'Arab Bank (Jordan)', label: { en: 'Arab Bank (Jordan)', ar: 'البنك العربي - الأردن' }, country: 'JO' },
-  { value: 'Cairo Amman Bank', label: { en: 'Cairo Amman Bank', ar: 'بنك القاهرة عمان' }, country: 'JO' },
-  { value: 'Jordan Ahli Bank', label: { en: 'Jordan Ahli Bank', ar: 'البنك الأهلي الأردني' }, country: 'JO' },
-  { value: 'National Bank of Egypt (NBE)', label: { en: 'National Bank of Egypt (NBE)', ar: 'البنك الأهلي المصري' }, country: 'EG' },
-  { value: 'Banque Misr', label: { en: 'Banque Misr', ar: 'بنك مصر' }, country: 'EG' },
-  { value: 'Commercial International Bank (CIB)', label: { en: 'Commercial International Bank (CIB)', ar: 'البنك التجاري الدولي - CIB' }, country: 'EG' },
-  { value: 'QNB Egypt', label: { en: 'QNB Egypt', ar: 'QNB مصر' }, country: 'EG' },
-  { value: 'HSBC Egypt', label: { en: 'HSBC Egypt', ar: 'HSBC مصر' }, country: 'EG' },
-  { value: 'Arab African International Bank (AAIB)', label: { en: 'AAIB — Arab African International Bank', ar: 'البنك العربي الأفريقي الدولي' }, country: 'EG' },
-  { value: 'Other', label: { en: 'Other / Custom Bank', ar: 'بنك آخر / مخصص' }, country: '' },
-];
-
-const BANK_GROUP_LABELS: Record<string, string> = {
-  SA: '🇸🇦 السعودية',
-  AE: '🇦🇪 الإمارات',
-  QA: '🇶🇦 قطر',
-  KW: '🇰🇼 الكويت',
-  BH: '🇧🇭 البحرين',
-  OM: '🇴🇲 عُمان',
-  JO: '🇯🇴 الأردن',
-  EG: '🇪🇬 مصر',
-};
 
 const budgetToExpenseCategory: Record<string, ExpenseEntry['category']> = {
   housing: 'Housing',

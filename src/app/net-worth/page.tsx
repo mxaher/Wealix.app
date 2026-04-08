@@ -75,6 +75,7 @@ import {
   type AssetEntry,
   type LiabilityEntry,
 } from '@/store/useAppStore';
+import { BarChart2 } from 'lucide-react';
 import { useFinancialSnapshot } from '@/hooks/useFinancialSnapshot';
 import { toast } from '@/hooks/use-toast';
 import { createOpaqueId } from '@/lib/ids';
@@ -121,6 +122,9 @@ export default function NetWorthPage() {
   const appMode = useAppStore((state) => state.appMode);
   const assets = useAppStore((state) => state.assets);
   const liabilities = useAppStore((state) => state.liabilities);
+  const incomeEntries = useAppStore((state) => state.incomeEntries);
+  const expenseEntries = useAppStore((state) => state.expenseEntries);
+  const recurringObligations = useAppStore((state) => state.recurringObligations) ?? [];
   const addAsset = useAppStore((state) => state.addAsset);
   const deleteAsset = useAppStore((state) => state.deleteAsset);
   const addLiability = useAppStore((state) => state.addLiability);
@@ -148,17 +152,17 @@ export default function NetWorthPage() {
         value: account.currentBalance,
         currency: 'SAR',
         locked: true,
-        sourceLabel: isArabic ? '?????? ?? Budget & Planning' : 'Synced from Budget & Planning',
+        sourceLabel: isArabic ? 'متزامن من Budget & Planning' : 'Synced from Budget & Planning',
       })),
       ...(portfolioInvestmentsValue > 0
         ? [{
             id: 'portfolio-investments',
-            name: isArabic ? '??????? ??????????? ???????' : 'Current Portfolio Holdings',
+            name: isArabic ? 'محفظة الاستثمارات الحالية' : 'Current Portfolio Holdings',
             category: 'investment' as const,
             value: portfolioInvestmentsValue,
             currency: 'SAR',
             locked: true,
-            sourceLabel: isArabic ? '?????? ?? Portfolio' : 'Synced from Portfolio',
+            sourceLabel: isArabic ? 'متزامن من Portfolio' : 'Synced from Portfolio',
           }]
         : []),
       ...assets,
@@ -213,6 +217,42 @@ export default function NetWorthPage() {
       },
     ];
   }, [appMode, assets.length, liabilities.length, isArabic, netWorth, portfolioInvestmentsValue, snapshot.recurringObligations.length, snapshot.savings.savingsAccounts.length, totalAssets, totalLiabilities]);
+
+  const monthlyIncome = useMemo(
+    () =>
+      incomeEntries.reduce((sum, entry) => {
+        if (!entry.isRecurring) return sum;
+        switch (entry.frequency) {
+          case 'weekly': return sum + (entry.amount * 52) / 12;
+          case 'quarterly': return sum + entry.amount / 3;
+          case 'yearly': return sum + entry.amount / 12;
+          default: return sum + entry.amount;
+        }
+      }, 0),
+    [incomeEntries]
+  );
+
+  const monthlyExpenses = useMemo(
+    () => expenseEntries.reduce((sum, entry) => sum + entry.amount, 0),
+    [expenseEntries]
+  );
+
+  const monthlyObligations = useMemo(
+    () =>
+      recurringObligations.reduce((sum, ob) => {
+        if (ob.status === 'paid') return sum;
+        switch (ob.frequency) {
+          case 'quarterly': return sum + ob.amount / 3;
+          case 'semi_annual': return sum + ob.amount / 6;
+          case 'annual': return sum + ob.amount / 12;
+          case 'one_time': return sum;
+          default: return sum + ob.amount;
+        }
+      }, 0),
+    [recurringObligations]
+  );
+
+  const monthlyCashFlow = monthlyIncome - monthlyExpenses - monthlyObligations;
 
   const ratio = totalLiabilities > 0 ? totalAssets / totalLiabilities : totalAssets > 0 ? totalAssets : 0;
   const ratioProgress = totalAssets > 0 ? Math.min(100, (totalLiabilities / totalAssets) * 100) : 0;
@@ -351,8 +391,8 @@ export default function NetWorthPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="real_estate">{isArabic ? '??????' : 'Real Estate'}</SelectItem>
-                        <SelectItem value="vehicle">{isArabic ? '??????' : 'Vehicles'}</SelectItem>
+                        <SelectItem value="real_estate">{isArabic ? 'عقارات' : 'Real Estate'}</SelectItem>
+                        <SelectItem value="vehicle">{isArabic ? 'مركبات' : 'Vehicles'}</SelectItem>
                         <SelectItem value="other">{isArabic ? 'أخرى' : 'Other'}</SelectItem>
                       </SelectContent>
                     </Select>
@@ -498,7 +538,7 @@ export default function NetWorthPage() {
                   <p className="text-2xl font-bold text-gold">{formatCurrency(snapshot.netWorth.net, 'SAR', locale)}</p>
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                     <Info className="h-3.5 w-3.5" />
-                    {isArabic ? '?????? ?????? - ?????? ??????????' : 'Total assets - total liabilities'}
+                    {isArabic ? 'إجمالي الأصول - إجمالي الالتزامات' : 'Total assets - total liabilities'}
                   </p>
                 </div>
               </div>
@@ -644,18 +684,77 @@ export default function NetWorthPage() {
                 </CardContent>
               </Card>
             </div>
+            {/* Monthly Cash Flow — read-only, sourced from Budget & Planning */}
+            {(monthlyIncome > 0 || monthlyExpenses > 0 || monthlyObligations > 0) && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="h-5 w-5 text-muted-foreground" />
+                    <CardTitle className="text-base">
+                      {isArabic ? 'التدفق النقدي الشهري' : 'Monthly Cash Flow'}
+                    </CardTitle>
+                  </div>
+                  <CardDescription>
+                    {isArabic
+                      ? 'مصدر البيانات: Budget & Planning — للتعديل انتقل إلى تلك الصفحة.'
+                      : 'Data sourced from Budget & Planning — go there to make changes.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg bg-muted/50 p-4">
+                      <p className="text-xs text-muted-foreground">
+                        {isArabic ? 'الدخل الشهري' : 'Monthly Income'}
+                      </p>
+                      <p className="mt-1 text-xl font-semibold text-emerald-500">
+                        {formatCurrency(monthlyIncome, 'SAR', locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-4">
+                      <p className="text-xs text-muted-foreground">
+                        {isArabic ? 'المصروفات الشهرية' : 'Monthly Expenses'}
+                      </p>
+                      <p className="mt-1 text-xl font-semibold text-rose-500">
+                        -{formatCurrency(monthlyExpenses, 'SAR', locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-4">
+                      <p className="text-xs text-muted-foreground">
+                        {isArabic ? 'الالتزامات الشهرية' : 'Monthly Obligations'}
+                      </p>
+                      <p className="mt-1 text-xl font-semibold text-orange-500">
+                        -{formatCurrency(monthlyObligations, 'SAR', locale)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-4">
+                      <p className="text-xs text-muted-foreground">
+                        {isArabic ? 'صافي التدفق النقدي' : 'Net Cash Flow'}
+                      </p>
+                      <p
+                        className={`mt-1 text-xl font-semibold ${
+                          monthlyCashFlow >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                        }`}
+                      >
+                        {monthlyCashFlow >= 0 ? '+' : ''}
+                        {formatCurrency(monthlyCashFlow, 'SAR', locale)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="assets">
             <Card>
               <CardHeader>
-                <CardTitle>{isArabic ? '????? ??????' : 'Assets List'}</CardTitle>
-                <CardDescription>{isArabic ? `${displayAssets.length} ???` : `${displayAssets.length} assets`}</CardDescription>
+                <CardTitle>{isArabic ? 'قائمة الأصول' : 'Assets List'}</CardTitle>
+                <CardDescription>{isArabic ? `${displayAssets.length} أصل` : `${displayAssets.length} assets`}</CardDescription>
               </CardHeader>
               <CardContent>
                 {displayAssets.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? '?? ???? ???? ???.' : 'No assets added yet.'}
+                    {isArabic ? 'لا توجد أصول بعد.' : 'No assets added yet.'}
                   </div>
                 ) : (
                   <ScrollArea className="h-96">
@@ -685,21 +784,21 @@ export default function NetWorthPage() {
                                 {isSavingsAsset ? (
                                   <Badge variant="secondary" className="text-xs">
                                     <Link2 className="mr-1 h-3 w-3" />
-                                    {isArabic ? '????? ??????' : 'Synced savings'}
+                                    {isArabic ? 'مدخرات متزامنة' : 'Synced savings'}
                                   </Badge>
                                 ) : null}
                                 {isPortfolioAsset ? (
                                   <Badge variant="secondary" className="text-xs">
                                     <Link2 className="mr-1 h-3 w-3" />
-                                    {isArabic ? '??????? ??????' : 'Synced investment'}
+                                    {isArabic ? 'استثمار متزامن' : 'Synced investment'}
                                   </Badge>
                                 ) : null}
                               </div>
                               {isLockedAsset ? (
                                 <p className="mt-1 text-xs text-muted-foreground">
                                   {isSavingsAsset
-                                    ? (isArabic ? '??? ????? ??? ????? ?? ???? Budget & Planning.' : 'This asset is managed in Budget & Planning.')
-                                    : (isArabic ? '??? ?????? ??? ????? ???????? ?? ???? Portfolio.' : 'This asset is calculated automatically from Portfolio.')}
+                                    ? (isArabic ? 'هذا الأصل مُدار من قسم Budget & Planning.' : 'This asset is managed in Budget & Planning.')
+                                    : (isArabic ? 'هذا الرصيد يُحسب تلقائيًا من قسم Portfolio.' : 'This asset is calculated automatically from Portfolio.')}
                                 </p>
                               ) : null}
                             </div>
@@ -722,13 +821,13 @@ export default function NetWorthPage() {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>{isArabic ? '??? ??????' : 'Delete Asset?'}</AlertDialogTitle>
+                                    <AlertDialogTitle>{isArabic ? 'حذف أصل؟' : 'Delete Asset?'}</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      {isArabic ? '?? ??? ????? ?? ??? ??? ??????' : 'Are you sure you want to delete this asset?'}
+                                      {isArabic ? 'هل تريد حذف هذا الأصل؟' : 'Are you sure you want to delete this asset?'}
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>{isArabic ? '?????' : 'Cancel'}</AlertDialogCancel>
+                                    <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => handleDeleteAsset(asset.id)} className="bg-rose-500 hover:bg-rose-600">
                                       {isArabic ? '???' : 'Delete'}
                                     </AlertDialogAction>
@@ -749,13 +848,13 @@ export default function NetWorthPage() {
           <TabsContent value="liabilities">
             <Card>
               <CardHeader>
-                <CardTitle>{isArabic ? '????? ??????????' : 'Liabilities List'}</CardTitle>
-                <CardDescription>{isArabic ? `${displayLiabilities.length} ??????` : `${displayLiabilities.length} liabilities`}</CardDescription>
+                <CardTitle>{isArabic ? 'قائمة الالتزامات' : 'Liabilities List'}</CardTitle>
+                <CardDescription>{isArabic ? `${displayLiabilities.length} التزام` : `${displayLiabilities.length} liabilities`}</CardDescription>
               </CardHeader>
               <CardContent>
                 {displayLiabilities.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? '?? ???? ???????? ???.' : 'No liabilities added yet.'}
+                    {isArabic ? 'لا توجد التزامات بعد.' : 'No liabilities added yet.'}
                   </div>
                 ) : (
                   <ScrollArea className="h-96">
@@ -782,13 +881,13 @@ export default function NetWorthPage() {
                                 {isLockedLiability ? (
                                   <Badge variant="secondary" className="text-xs">
                                     <Link2 className="mr-1 h-3 w-3" />
-                                    {isArabic ? '?????? ??????' : 'Synced obligation'}
+                                    {isArabic ? 'التزام متزامن' : 'Synced obligation'}
                                   </Badge>
                                 ) : null}
                               </div>
                               {isLockedLiability ? (
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                  {isArabic ? '??? ????? ??? ???????? ?? ???? Budget & Planning.' : 'This liability is managed in Budget & Planning.'}
+                                  {isArabic ? 'هذا الالتزام مُدار من قسم Budget & Planning.' : 'This liability is managed in Budget & Planning.'}
                                 </p>
                               ) : null}
                             </div>
@@ -811,13 +910,13 @@ export default function NetWorthPage() {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>{isArabic ? '??? ?????????' : 'Delete Liability?'}</AlertDialogTitle>
+                                    <AlertDialogTitle>{isArabic ? 'حذف التزام؟' : 'Delete Liability?'}</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      {isArabic ? '?? ??? ????? ?? ??? ??? ?????????' : 'Are you sure you want to delete this liability?'}
+                                      {isArabic ? 'هل تريد حذف هذا الالتزام؟' : 'Are you sure you want to delete this liability?'}
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>{isArabic ? '?????' : 'Cancel'}</AlertDialogCancel>
+                                    <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => handleDeleteLiability(liability.id)} className="bg-rose-500 hover:bg-rose-600">
                                       {isArabic ? '???' : 'Delete'}
                                     </AlertDialogAction>
