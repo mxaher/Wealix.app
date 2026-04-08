@@ -369,10 +369,12 @@ function MarketCombobox({
   }, [normalizedQuery]);
 
   const groupedOptions = useMemo(() => {
-    return filteredOptions.reduce<Record<string, MarketOption[]>>((acc, option) => {
+    const groups: Record<string, MarketOption[]> = {};
+
+    return filteredOptions.reduce((acc, option) => {
       acc[option.country] = acc[option.country] ? [...acc[option.country], option] : [option];
       return acc;
-    }, {});
+    }, groups);
   }, [filteredOptions]);
 
   const suggestionValue = useMemo(() => {
