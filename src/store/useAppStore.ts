@@ -1804,7 +1804,10 @@ export const useAppStore = create<AppState>()(
         })
       ),
       hydrateRemoteWorkspace: (workspace) => set((state) => {
-        const sanitizedWorkspace = sanitizeRemoteWorkspace(workspace);
+        const sanitizedWorkspace = sanitizeRemoteWorkspace({
+          ...workspace,
+          appMode: 'live',
+        });
         return syncActiveProfileState(state, {
           appMode: sanitizedWorkspace.appMode,
           startPage: sanitizedWorkspace.startPage,

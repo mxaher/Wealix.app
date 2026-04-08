@@ -173,6 +173,42 @@ describe('useAppStore mode isolation', () => {
     expect(useAppStore.getState().startPage).toBe('portfolio');
   });
 
+  test('treats remotely hydrated workspaces as live even if a legacy payload says demo', () => {
+    const store = useAppStore.getState();
+
+    store.syncClerkUser({
+      id: 'user_remote_demo',
+      email: 'remote-demo@example.com',
+      name: 'Remote Demo User',
+      avatarUrl: null,
+      subscriptionTier: 'core',
+    });
+    store.setAppMode('demo');
+
+    useAppStore.getState().hydrateRemoteWorkspace({
+      appMode: 'demo',
+      startPage: 'portfolio',
+      notificationPreferences: useAppStore.getState().notificationPreferences,
+      notificationFeed: [],
+      incomeEntries: [buildIncomeEntry('income-remote-demo', 'Recovered Salary')],
+      expenseEntries: [],
+      receiptScans: [],
+      portfolioHoldings: [],
+      portfolioAnalysisHistory: [],
+      investmentDecisionHistory: [],
+      assets: [],
+      liabilities: [],
+      budgetLimits: [],
+      recurringObligations: [],
+      oneTimeExpenses: [],
+      savingsAccounts: [],
+    });
+
+    expect(useAppStore.getState().appMode).toBe('live');
+    expect(useAppStore.getState().incomeEntries.map((entry) => entry.id)).toEqual(['income-remote-demo']);
+    expect(useAppStore.getState().startPage).toBe('portfolio');
+  });
+
   test('forces live mode even when a persisted signed-in profile was incorrectly saved as demo', () => {
     const store = useAppStore.getState();
 
