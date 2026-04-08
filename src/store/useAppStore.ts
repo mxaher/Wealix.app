@@ -356,6 +356,7 @@ export interface AssetEntry {
   category: AssetCategory;
   value: number;
   currency: string;
+  source?: 'manual' | 'budget_planning';
 }
 
 export interface LiabilityEntry {
@@ -364,6 +365,7 @@ export interface LiabilityEntry {
   category: LiabilityCategory;
   balance: number;
   currency: string;
+  source?: 'manual' | 'budget_planning';
 }
 
 export interface BudgetLimit {
@@ -532,6 +534,7 @@ function normalizeAssetEntries(entries: unknown): AssetEntry[] {
       category: (['cash', 'investment', 'real_estate', 'vehicle', 'other'].includes(category) ? category : 'other') as AssetCategory,
       value,
       currency: String(asset.currency ?? 'SAR').toUpperCase() || 'SAR',
+      source: asset.source === 'budget_planning' ? 'budget_planning' : 'manual',
     }];
   });
 }
@@ -741,6 +744,7 @@ function normalizeLiabilityEntries(entries: unknown): LiabilityEntry[] {
       category: (['loan', 'mortgage', 'credit_card', 'other'].includes(category) ? category : 'other') as LiabilityCategory,
       balance,
       currency: String(liability.currency ?? 'SAR').toUpperCase() || 'SAR',
+      source: liability.source === 'budget_planning' ? 'budget_planning' : 'manual',
     }];
   });
 }
@@ -906,17 +910,17 @@ const defaultPortfolioHoldings: PortfolioHolding[] = [
 ];
 
 const defaultAssets: AssetEntry[] = [
-  { id: 'asset-1', name: 'Al Rajhi Savings', category: 'cash', value: 98000, currency: 'SAR' },
-  { id: 'asset-2', name: 'SNB Current', category: 'cash', value: 28000, currency: 'SAR' },
-  { id: 'asset-3', name: 'Investment Portfolio', category: 'investment', value: 340000, currency: 'SAR' },
-  { id: 'asset-4', name: 'Apartment - Riyadh', category: 'real_estate', value: 780000, currency: 'SAR' },
-  { id: 'asset-5', name: 'Toyota Camry', category: 'vehicle', value: 68000, currency: 'SAR' },
+  { id: 'asset-1', name: 'Al Rajhi Savings', category: 'cash', value: 98000, currency: 'SAR', source: 'manual' },
+  { id: 'asset-2', name: 'SNB Current', category: 'cash', value: 28000, currency: 'SAR', source: 'manual' },
+  { id: 'asset-3', name: 'Investment Portfolio', category: 'investment', value: 340000, currency: 'SAR', source: 'manual' },
+  { id: 'asset-4', name: 'Apartment - Riyadh', category: 'real_estate', value: 780000, currency: 'SAR', source: 'manual' },
+  { id: 'asset-5', name: 'Toyota Camry', category: 'vehicle', value: 68000, currency: 'SAR', source: 'manual' },
 ];
 
 const defaultLiabilities: LiabilityEntry[] = [
-  { id: 'liability-1', name: 'Mortgage - Riyadh', category: 'mortgage', balance: 470000, currency: 'SAR' },
-  { id: 'liability-2', name: 'Car Loan', category: 'loan', balance: 32000, currency: 'SAR' },
-  { id: 'liability-3', name: 'Credit Card', category: 'credit_card', balance: 6200, currency: 'SAR' },
+  { id: 'liability-1', name: 'Mortgage - Riyadh', category: 'mortgage', balance: 470000, currency: 'SAR', source: 'manual' },
+  { id: 'liability-2', name: 'Car Loan', category: 'loan', balance: 32000, currency: 'SAR', source: 'manual' },
+  { id: 'liability-3', name: 'Credit Card', category: 'credit_card', balance: 6200, currency: 'SAR', source: 'manual' },
 ];
 
 const defaultBudgetLimits: BudgetLimit[] = [
@@ -1470,6 +1474,7 @@ export const useAppStore = create<AppState>()(
         const restoredState = activeProfile
           ? {
               ...profileToState(activeProfile),
+              appMode: 'live',
               user: activeProfile.user
                 ? {
                     ...activeProfile.user,
@@ -1565,6 +1570,7 @@ export const useAppStore = create<AppState>()(
           if (existing) {
             const updatedProfile: LocalProfile = {
               ...existing,
+              appMode: 'live',
               label: authUser.name?.trim() || existing.label || 'User',
               email: authUser.email,
               avatarUrl: authUser.avatarUrl,

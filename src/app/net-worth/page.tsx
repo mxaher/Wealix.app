@@ -8,6 +8,8 @@ import {
   Car,
   Landmark,
   Briefcase,
+  Link2,
+  Lock,
   MoreHorizontal,
   Wallet,
   TrendingUp,
@@ -15,6 +17,7 @@ import {
   Trash2,
   ArrowUpRight,
   History,
+  Info,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -69,6 +72,8 @@ import {
   formatCurrency,
   type AssetCategory,
   type LiabilityCategory,
+  type AssetEntry,
+  type LiabilityEntry,
 } from '@/store/useAppStore';
 import { useFinancialSnapshot } from '@/hooks/useFinancialSnapshot';
 import { toast } from '@/hooks/use-toast';
@@ -99,6 +104,18 @@ const mockHistory = [
   { month: 'Dec 2025', assets: 1170000, liabilities: 585500, netWorth: 584500 },
 ];
 
+type NetWorthAssetRow = AssetEntry & {
+  origin: 'manual' | 'budget_planning' | 'portfolio';
+  helperText?: string;
+  locked?: boolean;
+};
+
+type NetWorthLiabilityRow = LiabilityEntry & {
+  origin: 'manual' | 'budget_planning';
+  helperText?: string;
+  locked?: boolean;
+};
+
 export default function NetWorthPage() {
   const locale = useAppStore((state) => state.locale);
   const appMode = useAppStore((state) => state.appMode);
@@ -114,7 +131,7 @@ export default function NetWorthPage() {
 
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
-  const [newAsset, setNewAsset] = useState({ name: '', category: 'cash', value: '' });
+  const [newAsset, setNewAsset] = useState({ name: '', category: 'real_estate', value: '' });
   const [newLiability, setNewLiability] = useState({ name: '', category: 'loan', balance: '' });
 
   const portfolioInvestmentsValue = appMode === 'demo' ? 0 : snapshot.portfolio.totalInvestments;
@@ -122,39 +139,68 @@ export default function NetWorthPage() {
   const totalLiabilities = appMode === 'demo' ? 585500 : snapshot.totalLiabilities;
   const netWorth = appMode === 'demo' ? 584500 : snapshot.netWorth.net;
 
-  const displayAssets = useMemo(() => {
-    const lockedSavingsAssets = snapshot.savings.savingsAccounts
-      .filter((account) => !account.isLiquid)
-      .map((account) => ({
-        id: `locked-${account.id}`,
-        name: `${account.name}${isArabic ? ' (ادخار مقفل)' : ' (Locked savings)'}`,
-        category: 'cash' as const,
+  const displayAssets = useMemo(
+    () => [
+      ...snapshot.savings.savingsAccounts.map((account) => ({
+        id: `savings-${account.id}`,
+        name: account.name,
+        category: (account.type === 'current' || account.type === 'standard_savings' || account.type === 'hassad' ? 'cash' : 'investment') as AssetCategory,
         value: account.currentBalance,
         currency: 'SAR',
-      }));
-
-    const syntheticAssets = portfolioInvestmentsValue <= 0
-      ? lockedSavingsAssets
-      : [
-          {
+        locked: true,
+        sourceLabel: isArabic ? '?????? ?? Budget & Planning' : 'Synced from Budget & Planning',
+      })),
+      ...(portfolioInvestmentsValue > 0
+        ? [{
             id: 'portfolio-investments',
-            name: isArabic ? 'المحفظة الاستثمارية الحالية' : 'Current Portfolio Holdings',
+            name: isArabic ? '??????? ??????????? ???????' : 'Current Portfolio Holdings',
             category: 'investment' as const,
             value: portfolioInvestmentsValue,
             currency: 'SAR',
-          },
-          ...lockedSavingsAssets,
-        ];
+            locked: true,
+            sourceLabel: isArabic ? '?????? ?? Portfolio' : 'Synced from Portfolio',
+          }]
+        : []),
+      ...assets,
+    ],
+    [assets, isArabic, portfolioInvestmentsValue, snapshot.savings.savingsAccounts]
+  );
 
-    return [...syntheticAssets, ...assets];
-  }, [assets, isArabic, portfolioInvestmentsValue, snapshot.savings.savingsAccounts]);
+  const syncedLiabilities = useMemo(
+    () => snapshot.recurringObligations.map((obligation) => ({
+      id: `obligation-${obligation.id}`,
+      name: obligation.title,
+      category: obligation.category === 'loan'
+        ? 'loan'
+        : obligation.category === 'mortgage'
+          ? 'mortgage'
+          : obligation.category === 'credit_card'
+            ? 'credit_card'
+            : 'other',
+      balance: obligation.amount,
+      currency: obligation.currency || 'SAR',
+      locked: true,
+    })),
+    [snapshot.recurringObligations]
+  );
+
+  const displayLiabilities = useMemo(
+    () => [...syncedLiabilities, ...liabilities],
+    [liabilities, syncedLiabilities]
+  );
 
   const historyData = useMemo(() => {
     if (appMode === 'demo') {
       return mockHistory;
     }
 
-    if (assets.length === 0 && liabilities.length === 0 && portfolioInvestmentsValue === 0 && snapshot.savings.savingsAccounts.length === 0) {
+    if (
+      assets.length === 0 &&
+      liabilities.length === 0 &&
+      portfolioInvestmentsValue === 0 &&
+      snapshot.savings.savingsAccounts.length === 0 &&
+      snapshot.recurringObligations.length === 0
+    ) {
       return [];
     }
 
@@ -166,7 +212,7 @@ export default function NetWorthPage() {
         netWorth,
       },
     ];
-  }, [appMode, assets.length, liabilities.length, isArabic, portfolioInvestmentsValue, snapshot.savings.savingsAccounts.length, totalAssets, totalLiabilities, netWorth]);
+  }, [appMode, assets.length, liabilities.length, isArabic, netWorth, portfolioInvestmentsValue, snapshot.recurringObligations.length, snapshot.savings.savingsAccounts.length, totalAssets, totalLiabilities]);
 
   const ratio = totalLiabilities > 0 ? totalAssets / totalLiabilities : totalAssets > 0 ? totalAssets : 0;
   const ratioProgress = totalAssets > 0 ? Math.min(100, (totalLiabilities / totalAssets) * 100) : 0;
@@ -214,7 +260,7 @@ export default function NetWorthPage() {
       value: Number(newAsset.value),
       currency: 'SAR',
     });
-    setNewAsset({ name: '', category: 'cash', value: '' });
+    setNewAsset({ name: '', category: 'real_estate', value: '' });
     setShowAddAsset(false);
   };
 
@@ -255,6 +301,19 @@ export default function NetWorthPage() {
     deleteLiability(id);
   };
 
+  const showManagedSourceMessage = (source: 'budget' | 'portfolio') => {
+    toast({
+      title: isArabic ? 'عنصر متزامن' : 'Synced item',
+      description: source === 'budget'
+        ? (isArabic
+          ? 'هذا الأصل مُدار من Budget & Planning. انتقل إلى هناك لإجراء التغييرات.'
+          : 'This asset is managed in Budget & Planning. Go there to make changes.')
+        : (isArabic
+          ? 'هذا الأصل مُدار من Portfolio. انتقل إلى هناك لإجراء التغييرات.'
+          : 'This asset is managed in Portfolio. Go there to make changes.'),
+    });
+  };
+
   return (
     <DashboardShell>
       <div className="space-y-6">
@@ -292,10 +351,8 @@ export default function NetWorthPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cash">{isArabic ? 'نقد ومدخرات' : 'Cash & Savings'}</SelectItem>
-                        <SelectItem value="investment">{isArabic ? 'استثمارات' : 'Investments'}</SelectItem>
-                        <SelectItem value="real_estate">{isArabic ? 'عقارات' : 'Real Estate'}</SelectItem>
-                        <SelectItem value="vehicle">{isArabic ? 'مركبات' : 'Vehicles'}</SelectItem>
+                        <SelectItem value="real_estate">{isArabic ? '??????' : 'Real Estate'}</SelectItem>
+                        <SelectItem value="vehicle">{isArabic ? '??????' : 'Vehicles'}</SelectItem>
                         <SelectItem value="other">{isArabic ? 'أخرى' : 'Other'}</SelectItem>
                       </SelectContent>
                     </Select>
@@ -439,6 +496,10 @@ export default function NetWorthPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">{isArabic ? 'صافي الثروة' : 'Net Worth'}</p>
                   <p className="text-2xl font-bold text-gold">{formatCurrency(snapshot.netWorth.net, 'SAR', locale)}</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5" />
+                    {isArabic ? '?????? ?????? - ?????? ??????????' : 'Total assets - total liabilities'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -588,71 +649,96 @@ export default function NetWorthPage() {
           <TabsContent value="assets">
             <Card>
               <CardHeader>
-                <CardTitle>{isArabic ? 'قائمة الأصول' : 'Assets List'}</CardTitle>
-                <CardDescription>{isArabic ? `${displayAssets.length} أصل` : `${displayAssets.length} assets`}</CardDescription>
+                <CardTitle>{isArabic ? '????? ??????' : 'Assets List'}</CardTitle>
+                <CardDescription>{isArabic ? `${displayAssets.length} ???` : `${displayAssets.length} assets`}</CardDescription>
               </CardHeader>
               <CardContent>
                 {displayAssets.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'لا توجد أصول بعد.' : 'No assets added yet.'}
+                    {isArabic ? '?? ???? ???? ???.' : 'No assets added yet.'}
                   </div>
                 ) : (
                   <ScrollArea className="h-96">
                     <div className="space-y-3">
-                      {displayAssets.map((asset, index) => (
-                        <motion.div
-                          key={asset.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="flex items-center gap-4 rounded-lg bg-muted/50 p-4"
-                        >
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
-                            {assetIcons[asset.category]}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{asset.name}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {categoryLabels[asset.category]?.[isArabic ? 'ar' : 'en']}
-                              </Badge>
+                      {displayAssets.map((asset, index) => {
+                        const isSavingsAsset = asset.id.startsWith('savings-');
+                        const isPortfolioAsset = asset.id === 'portfolio-investments';
+                        const isLockedAsset = 'locked' in asset && Boolean(asset.locked);
+
+                        return (
+                          <motion.div
+                            key={asset.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="flex items-center gap-4 rounded-lg bg-muted/50 p-4"
+                          >
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+                              {assetIcons[asset.category]}
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">{formatCurrency(asset.value, asset.currency, locale)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {totalAssets > 0 ? `${((asset.value / totalAssets) * 100).toFixed(1)}%` : '--'}
-                            </p>
-                          </div>
-                          {asset.id === 'portfolio-investments' ? (
-                            <Badge variant="secondary" className="text-xs">
-                              {isArabic ? 'من المحفظة' : 'From portfolio'}
-                            </Badge>
-                          ) : (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" disabled={!isSignedIn}>
-                                  <Trash2 className="w-4 h-4 text-rose-500" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>{isArabic ? 'حذف الأصل؟' : 'Delete Asset?'}</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {isArabic ? 'هل أنت متأكد من حذف هذا الأصل؟' : 'Are you sure you want to delete this asset?'}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteAsset(asset.id)} className="bg-rose-500 hover:bg-rose-600">
-                                    {isArabic ? 'حذف' : 'Delete'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </motion.div>
-                      ))}
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{asset.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {categoryLabels[asset.category]?.[isArabic ? 'ar' : 'en']}
+                                </Badge>
+                                {isSavingsAsset ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Link2 className="mr-1 h-3 w-3" />
+                                    {isArabic ? '????? ??????' : 'Synced savings'}
+                                  </Badge>
+                                ) : null}
+                                {isPortfolioAsset ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Link2 className="mr-1 h-3 w-3" />
+                                    {isArabic ? '??????? ??????' : 'Synced investment'}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              {isLockedAsset ? (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {isSavingsAsset
+                                    ? (isArabic ? '??? ????? ??? ????? ?? ???? Budget & Planning.' : 'This asset is managed in Budget & Planning.')
+                                    : (isArabic ? '??? ?????? ??? ????? ???????? ?? ???? Portfolio.' : 'This asset is calculated automatically from Portfolio.')}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">{formatCurrency(asset.value, asset.currency, locale)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {totalAssets > 0 ? `${((asset.value / totalAssets) * 100).toFixed(1)}%` : '--'}
+                              </p>
+                            </div>
+                            {isLockedAsset ? (
+                              <Button variant="ghost" size="icon" onClick={() => showManagedSourceMessage(isSavingsAsset ? 'budget' : 'portfolio')}>
+                                <Lock className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            ) : (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" disabled={!isSignedIn}>
+                                    <Trash2 className="w-4 h-4 text-rose-500" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>{isArabic ? '??? ??????' : 'Delete Asset?'}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {isArabic ? '?? ??? ????? ?? ??? ??? ??????' : 'Are you sure you want to delete this asset?'}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>{isArabic ? '?????' : 'Cancel'}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteAsset(asset.id)} className="bg-rose-500 hover:bg-rose-600">
+                                      {isArabic ? '???' : 'Delete'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 )}
@@ -663,65 +749,85 @@ export default function NetWorthPage() {
           <TabsContent value="liabilities">
             <Card>
               <CardHeader>
-                <CardTitle>{isArabic ? 'قائمة الالتزامات' : 'Liabilities List'}</CardTitle>
-                <CardDescription>{isArabic ? `${liabilities.length} التزام` : `${liabilities.length} liabilities`}</CardDescription>
+                <CardTitle>{isArabic ? '????? ??????????' : 'Liabilities List'}</CardTitle>
+                <CardDescription>{isArabic ? `${displayLiabilities.length} ??????` : `${displayLiabilities.length} liabilities`}</CardDescription>
               </CardHeader>
               <CardContent>
-                {liabilities.length === 0 ? (
+                {displayLiabilities.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {isArabic ? 'لا توجد التزامات بعد.' : 'No liabilities added yet.'}
+                    {isArabic ? '?? ???? ???????? ???.' : 'No liabilities added yet.'}
                   </div>
                 ) : (
                   <ScrollArea className="h-96">
                     <div className="space-y-3">
-                      {liabilities.map((liability, index) => (
-                        <motion.div
-                          key={liability.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="flex items-center gap-4 rounded-lg bg-muted/50 p-4"
-                        >
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-500">
-                            {liabilityIcons[liability.category]}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{liability.name}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {categoryLabels[liability.category]?.[isArabic ? 'ar' : 'en']}
-                              </Badge>
+                      {displayLiabilities.map((liability, index) => {
+                        const isLockedLiability = 'locked' in liability && Boolean(liability.locked);
+                        return (
+                          <motion.div
+                            key={liability.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="flex items-center gap-4 rounded-lg bg-muted/50 p-4"
+                          >
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-500">
+                              {liabilityIcons[liability.category]}
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">{formatCurrency(liability.balance, liability.currency, locale)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {totalLiabilities > 0 ? `${((liability.balance / totalLiabilities) * 100).toFixed(1)}%` : '--'}
-                            </p>
-                          </div>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" disabled={!isSignedIn}>
-                                <Trash2 className="w-4 h-4 text-rose-500" />
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{liability.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {categoryLabels[liability.category]?.[isArabic ? 'ar' : 'en']}
+                                </Badge>
+                                {isLockedLiability ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Link2 className="mr-1 h-3 w-3" />
+                                    {isArabic ? '?????? ??????' : 'Synced obligation'}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              {isLockedLiability ? (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {isArabic ? '??? ????? ??? ???????? ?? ???? Budget & Planning.' : 'This liability is managed in Budget & Planning.'}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">{formatCurrency(liability.balance, liability.currency, locale)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {totalLiabilities > 0 ? `${((liability.balance / totalLiabilities) * 100).toFixed(1)}%` : '--'}
+                              </p>
+                            </div>
+                            {isLockedLiability ? (
+                              <Button variant="ghost" size="icon" onClick={() => showManagedSourceMessage('budget')}>
+                                <Lock className="h-4 w-4 text-muted-foreground" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{isArabic ? 'حذف الالتزام؟' : 'Delete Liability?'}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {isArabic ? 'هل أنت متأكد من حذف هذا الالتزام؟' : 'Are you sure you want to delete this liability?'}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{isArabic ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteLiability(liability.id)} className="bg-rose-500 hover:bg-rose-600">
-                                  {isArabic ? 'حذف' : 'Delete'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </motion.div>
-                      ))}
+                            ) : (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" disabled={!isSignedIn}>
+                                    <Trash2 className="w-4 h-4 text-rose-500" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>{isArabic ? '??? ?????????' : 'Delete Liability?'}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {isArabic ? '?? ??? ????? ?? ??? ??? ?????????' : 'Are you sure you want to delete this liability?'}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>{isArabic ? '?????' : 'Cancel'}</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteLiability(liability.id)} className="bg-rose-500 hover:bg-rose-600">
+                                      {isArabic ? '???' : 'Delete'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 )}
@@ -785,3 +891,4 @@ export default function NetWorthPage() {
     </DashboardShell>
   );
 }
+

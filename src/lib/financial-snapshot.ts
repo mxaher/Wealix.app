@@ -154,6 +154,12 @@ export type FinancialSnapshot = {
     savingsAccounts: SavingsAccountSummary[];
     totalLockedSavings: number;
   };
+  budgetOverview: {
+    totalBudgetLimits: number;
+    monthlyIncome: number;
+    monthlyExpenses: number;
+    monthlySurplus: number;
+  };
   obligations: {
     pending: ObligationSummary[];
     totalPending: number;
@@ -575,6 +581,7 @@ function buildSnapshotFromRawData(params: FinancialWorkspaceData): FinancialSnap
   const totalLockedSavings = savingsAccounts
     .filter((account) => account.status === 'active' && !isLiquidSavingsAccount(account))
     .reduce((sum, account) => sum + account.currentBalance, 0);
+  const syncedObligationLiabilityTotal = recurringObligations.reduce((sum, obligation) => sum + obligation.amount, 0);
 
   const portfolioValue = holdings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
   const stocks = holdings
@@ -587,7 +594,8 @@ function buildSnapshotFromRawData(params: FinancialWorkspaceData): FinancialSnap
 
   const assetsExcludingSavings = assets.reduce((sum, asset) => sum + asset.value, 0);
   const totalAssets = assetsExcludingSavings + savingsAccounts.reduce((sum, account) => sum + account.currentBalance, 0) + totalInvestments;
-  const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
+  const totalLiabilities =
+    liabilities.reduce((sum, liability) => sum + liability.balance, 0) + syncedObligationLiabilityTotal;
   const grossNetWorth = liquidCash + totalLockedSavings + totalInvestments + assets
     .filter((asset) => asset.category !== 'cash')
     .reduce((sum, asset) => sum + asset.value, 0);
@@ -744,6 +752,12 @@ function buildSnapshotFromRawData(params: FinancialWorkspaceData): FinancialSnap
       liquidCash: roundMoney(liquidCash),
       savingsAccounts: savingsSummaries,
       totalLockedSavings: roundMoney(totalLockedSavings),
+    },
+    budgetOverview: {
+      totalBudgetLimits: roundMoney(budgetLimits.reduce((sum, limit) => sum + limit.limit, 0)),
+      monthlyIncome: roundMoney(monthlyIncome),
+      monthlyExpenses: roundMoney(monthlyExpenses),
+      monthlySurplus: roundMoney(monthlySavings),
     },
     obligations: {
       pending: obligationSummaries,
