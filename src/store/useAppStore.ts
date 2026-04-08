@@ -2050,3 +2050,148 @@ export function formatCurrency(
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+export function getPersistableWorkspaceSnapshot(
+  state: Pick<
+    AppState,
+    | 'appMode'
+    | 'activeProfileId'
+    | 'profiles'
+    | 'startPage'
+    | 'notificationPreferences'
+    | 'notificationFeed'
+    | 'incomeEntries'
+    | 'expenseEntries'
+    | 'receiptScans'
+    | 'portfolioHoldings'
+    | 'portfolioAnalysisHistory'
+    | 'investmentDecisionHistory'
+    | 'assets'
+    | 'liabilities'
+    | 'budgetLimits'
+    | 'recurringObligations'
+    | 'oneTimeExpenses'
+    | 'savingsAccounts'
+  >
+): RemoteWorkspaceSnapshot {
+  if (state.appMode === 'demo') {
+    const activeProfile = findProfileById(state.profiles, state.activeProfileId);
+    if (activeProfile) {
+      return profileToRemoteWorkspace(activeProfile);
+    }
+  }
+
+  return workspaceFieldsToSnapshot({
+    appMode: state.appMode === 'demo' ? 'live' : state.appMode,
+    startPage: state.startPage,
+    notificationPreferences: state.notificationPreferences,
+    notificationFeed: state.notificationFeed,
+    incomeEntries: state.incomeEntries,
+    expenseEntries: state.expenseEntries,
+    receiptScans: state.receiptScans,
+    portfolioHoldings: state.portfolioHoldings,
+    portfolioAnalysisHistory: state.portfolioAnalysisHistory,
+    investmentDecisionHistory: state.investmentDecisionHistory,
+    assets: state.assets,
+    liabilities: state.liabilities,
+    budgetLimits: state.budgetLimits,
+    recurringObligations: state.recurringObligations,
+    oneTimeExpenses: state.oneTimeExpenses,
+    savingsAccounts: state.savingsAccounts,
+  });
+}
+
+export function useSubscription() {
+  const user = useAppStore((state) => state.user);
+  const { user: runtimeUser } = useRuntimeUser();
+  const tier = user?.subscriptionTier ?? 'none';
+  const metadata = runtimeUser?.publicMetadata as Record<string, unknown> | undefined;
+  const billingState = getBillingState(metadata);
+  const hasPaidAccess =
+    (tier === 'core' || tier === 'pro') &&
+    billingState.hasPaidAccess &&
+    billingState.selectedPlan === tier;
+  const hasStandardAccess =
+    (tier === 'core' || tier === 'pro') &&
+    billingState.hasStandardAccess &&
+    billingState.selectedPlan === tier;
+
+  return {
+    tier,
+    isFree: tier === 'none',
+    isCore: tier === 'core',
+    isPro: tier === 'pro',
+    trialActive: billingState.trialActive,
+    paymentAdded: billingState.paymentAdded,
+    hasPaidAccess,
+    hasStandardAccess,
+    canAccess: (feature: string) => {
+      const features: Record<string, 'standard' | 'paid' | 'pro-paid'> = {
+        'portfolio.unlimited': 'standard',
+        'portfolio.ai_analysis': 'pro-paid',
+        'fire.scenarios': 'standard',
+        'budget.history': 'standard',
+        'expenses.receipt_scan': 'standard',
+        'expenses.statement_import': 'pro-paid',
+        'ai.advisor': 'pro-paid',
+        'ai.portfolio_analysis': 'pro-paid',
+        'reports.basic': 'paid',
+        'reports.full': 'pro-paid',
+        'alerts.unlimited': 'pro-paid',
+        'alerts.3max': 'standard',
+        'data.export': 'standard',
+      };
+      const requirement = features[feature];
+
+      if (!requirement) {
+        return false;
+      }
+
+      if (requirement === 'standard') {
+        return hasStandardAccess;
+      }
+
+      if (requirement === 'paid') {
+        return hasPaidAccess;
+      }
+
+      return hasPaidAccess && tier === 'pro';
+    },
+  };
+}
+
+export function formatNumber(
+  value: number,
+  locale: Locale = 'en',
+  options?: Intl.NumberFormatOptions
+): string {
+  const lang = locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US';
+  return new Intl.NumberFormat(lang, options).format(value);
+}
+
+export function formatDate(
+  value: Date | string,
+  locale: Locale = 'en',
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  const lang = locale === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US';
+  return new Intl.DateTimeFormat(lang, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    ...options,
+  }).format(date);
+}
+
+export function formatPercent(
+  value: number,
+  locale: Locale = 'en',
+  decimals = 2
+): string {
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${formatNumber(value, locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}%`;
+}
