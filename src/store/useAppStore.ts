@@ -1653,7 +1653,6 @@ export const useAppStore = create<AppState>()(
             // re-seeding demo rows into the live store on every sign-in.
             const updatedProfile: LocalProfile = {
               ...existing,
-              appMode: 'live',
               label: authUser.name?.trim() || existing.label || 'User',
               email: authUser.email,
               avatarUrl: authUser.avatarUrl,
@@ -1664,6 +1663,7 @@ export const useAppStore = create<AppState>()(
               // Preserve the user's real data arrays from the existing profile,
               // but strip any demo seeds so even a contaminated profile is safe.
               ...purgeDemoDataFromState(profileToState(existing)),
+              appMode: 'live',
             };
 
             return {
