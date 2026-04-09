@@ -28,7 +28,6 @@ export async function POST(request: Request) {
 
   // Build partial update — only include fields present in the request body
   const data: Record<string, unknown> = { onboardingDone: true };
-
   if (typeof name === 'string' && name.trim()) data.name = name.trim();
   if (typeof phone === 'string') data.phone = phone.trim() || null;
   if (typeof notificationChannel === 'string') data.notificationChannel = notificationChannel;
@@ -53,5 +52,16 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+
+  // Set the onboarding gate cookie — httpOnly + secure + 1 year expiry
+  response.cookies.set('onboarding_done', '1', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+    path: '/',
+  });
+
+  return response;
 }
