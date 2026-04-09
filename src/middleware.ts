@@ -201,11 +201,15 @@ export default function middleware(req: NextRequest) {
 
   // 3. Hand off to Clerk for all remaining requests
   const clerkHandler = clerkMiddleware(async (auth, request) => {
-    const { userId } = await auth();
-
-    // Authenticated users visiting '/' go directly to the app
-    if (userId && request.nextUrl.pathname === '/') {
-      return NextResponse.redirect(new URL('/app', request.url));
+    // Authenticated users visiting '/' go directly to the app.
+    // auth() is intentionally called ONLY for '/' to avoid interfering
+    // with Clerk's sign-in/sign-up handshake flows on other public routes.
+    if (request.nextUrl.pathname === '/') {
+      const { userId } = await auth();
+      if (userId) {
+        return NextResponse.redirect(new URL('/app', request.url));
+      }
+      return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     if (isPublicRoute(request)) {
