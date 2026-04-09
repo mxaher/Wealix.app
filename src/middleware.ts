@@ -34,10 +34,9 @@ const isAppRoute = createRouteMatcher([
 ]);
 
 // ─── Clerk instance guard ──────────────────────────────────────────────────────
-// Live instance: ins_3BXeeFpYvNEqGtajEpFP4w8d1q0  (production)
-// Dev  instance: ins_3BTweREnZ4qiEVQJoQqgMRn5Bfg  (local dev — must never reach prod)
+// Live instance: ins_3BXeeFpYvNEqGtajEpFP4w8d1q0 (production)
+// Dev instance: ins_3BTweREnZ4qiEVQJoQqgMRn5Bfg (local dev — must never reach prod)
 const VALID_KID = 'ins_3BXeeFpYvNEqGtajEpFP4w8d1q0';
-
 function getHandshakeKid(token: string): string | null {
   try {
     const seg = token.split('.')[0];
@@ -57,34 +56,27 @@ const CLERK_COOKIES = [
   '__clerk_handshake',
   '__clerk_redirect_count',
 ];
-
 function isAllowedHost(hostname: string) {
   const normalized = hostname.toLowerCase();
   return normalized === APP_HOSTNAME || normalized.endsWith(`.${APP_HOSTNAME}`);
 }
-
 function getSafeHostname(hostname: string) {
   return isAllowedHost(hostname) ? hostname : APP_ORIGIN.hostname;
 }
-
 function buildSafeUrl(request: NextRequest) {
   const url = request.nextUrl.clone();
   url.protocol = APP_ORIGIN.protocol;
   url.host = getSafeHostname(url.hostname);
   return url;
 }
-
 function buildCookieDomains(hostname: string) {
   const parts = hostname.split('.').filter(Boolean);
   const domains = new Set<string>([hostname]);
-
   for (let index = 1; index < parts.length - 1; index += 1) {
     domains.add(`.${parts.slice(index).join('.')}`);
   }
-
   return [...domains];
 }
-
 function nukeCookies(response: NextResponse, hostname: string) {
   const domains = buildCookieDomains(hostname);
   for (const name of CLERK_COOKIES) {
@@ -107,21 +99,17 @@ function nukeCookies(response: NextResponse, hostname: string) {
 function handleStaleHandshake(req: NextRequest): NextResponse | null {
   const handshake = req.nextUrl.searchParams.get('__clerk_handshake');
   if (!handshake) return null;
-
   const kid = getHandshakeKid(handshake);
-
   // If kid is missing OR belongs to the dev instance → purge and redirect clean
   if (!kid || kid !== VALID_KID) {
     const cleanUrl = buildSafeUrl(req);
     cleanUrl.searchParams.delete('__clerk_handshake');
     cleanUrl.searchParams.delete('__clerk_db_jwt');
     cleanUrl.searchParams.delete('__clerk_redirect_count');
-
     const res = NextResponse.redirect(cleanUrl, { status: 302 });
     nukeCookies(res, getSafeHostname(req.nextUrl.hostname));
     return res;
   }
-
   return null; // valid handshake — let Clerk handle it normally
 }
 
@@ -162,7 +150,7 @@ function buildContentSecurityPolicy(nonce: string) {
     frame-ancestors 'none';
     form-action 'self' https://*.clerk.com https://clerk.wealix.app https://accounts.wealix.app;
     upgrade-insecure-requests;
-  `.replace(/\s{2,}/g, ' ').trim();
+    `.replace(/\s{2,}/g, ' ').trim();
 }
 
 function applySecurityHeaders(response: Response, pathname: string, nonce: string) {
@@ -227,25 +215,36 @@ export default function middleware(req: NextRequest) {
 
     if (isAppRoute(request)) {
       await auth.protect();
+
+      // ── Onboarding gate ──────────────────────────────────────────────
+      // Skip the gate for /onboarding itself to prevent a redirect loop
+      if (!request.nextUrl.pathname.startsWith('/onboarding')) {
+        const onboardingDone = request.cookies.get('onboarding_done')?.value;
+        if (!onboardingDone) {
+          return NextResponse.redirect(new URL('/onboarding', request.url));
+        }
+      }
+      // ────────────────────────────────────────────────────────────────
+
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     return NextResponse.next({ request: { headers: requestHeaders } });
   });
-  const response = clerkHandler(req, {} as any) ?? NextResponse.next({ request: { headers: requestHeaders } });
 
-  return Promise.resolve(response).then((resolvedResponse) => (
+  const response = clerkHandler(req, {} as any) ?? NextResponse.next({ request: { headers: requestHeaders } });
+  return Promise.resolve(response).then((resolvedResponse) =>
     applySecurityHeaders(
       resolvedResponse ?? NextResponse.next({ request: { headers: requestHeaders } }),
       pathname,
       nonce
     )
-  ));
+  );
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|images|fonts|icons|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|images|fonts|icons|.*\.png|.*\.jpg|.*\.svg|.*\.ico).*)',
     '/(api|trpc)(.*)',
   ],
 };
