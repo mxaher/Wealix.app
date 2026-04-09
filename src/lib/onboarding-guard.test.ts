@@ -31,8 +31,8 @@ describe('getOnboardingRedirectTarget', () => {
     expect(target).toBe('/settings/billing');
   });
 
-  test('allows fresh users to stay on onboarding', () => {
-    expect(getOnboardingRedirectTarget({})).toBeNull();
+  test('redirects fresh users to app as a safe fallback', () => {
+    expect(getOnboardingRedirectTarget({})).toBe('/app');
   });
 
   test('recognizes the onboarding gate cookie', () => {

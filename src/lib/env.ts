@@ -15,9 +15,18 @@ const sentDmEnvSchema = z.object({
   SENTDM_WEBHOOK_SIGNING_SECRET: z.string().min(1, 'SENTDM_WEBHOOK_SIGNING_SECRET is required'),
 });
 
+const cloudflareEmailEnvSchema = z.object({
+  CLOUDFLARE_EMAIL_ACCOUNT_ID: z.string().min(1, 'CLOUDFLARE_EMAIL_ACCOUNT_ID is required'),
+  CLOUDFLARE_EMAIL_API_TOKEN: z.string().min(1, 'CLOUDFLARE_EMAIL_API_TOKEN is required'),
+  CLOUDFLARE_EMAIL_FROM: z.string().email('CLOUDFLARE_EMAIL_FROM must be a valid email address'),
+  CLOUDFLARE_EMAIL_FROM_NAME: z.string().min(1).default('Wealix'),
+  CLOUDFLARE_EMAIL_REPLY_TO: z.string().email('CLOUDFLARE_EMAIL_REPLY_TO must be a valid email address').optional(),
+});
+
 let cachedPublicAppEnv: z.infer<typeof publicAppEnvSchema> | null = null;
 let cachedPublicClerkEnv: z.infer<typeof publicClerkEnvSchema> | null = null;
 let cachedSentDmEnv: z.infer<typeof sentDmEnvSchema> | null = null;
+let cachedCloudflareEmailEnv: z.infer<typeof cloudflareEmailEnvSchema> | null | undefined;
 
 export function getPublicAppEnv() {
   if (cachedPublicAppEnv) {
@@ -56,6 +65,33 @@ export function getSentDmEnv() {
   });
 
   return cachedSentDmEnv;
+}
+
+export function getCloudflareEmailEnv() {
+  if (cachedCloudflareEmailEnv !== undefined) {
+    return cachedCloudflareEmailEnv;
+  }
+
+  const hasAnyEmailConfig = Boolean(
+    process.env.CLOUDFLARE_EMAIL_ACCOUNT_ID ||
+      process.env.CLOUDFLARE_EMAIL_API_TOKEN ||
+      process.env.CLOUDFLARE_EMAIL_FROM
+  );
+
+  if (!hasAnyEmailConfig) {
+    cachedCloudflareEmailEnv = null;
+    return cachedCloudflareEmailEnv;
+  }
+
+  cachedCloudflareEmailEnv = cloudflareEmailEnvSchema.parse({
+    CLOUDFLARE_EMAIL_ACCOUNT_ID: process.env.CLOUDFLARE_EMAIL_ACCOUNT_ID,
+    CLOUDFLARE_EMAIL_API_TOKEN: process.env.CLOUDFLARE_EMAIL_API_TOKEN,
+    CLOUDFLARE_EMAIL_FROM: process.env.CLOUDFLARE_EMAIL_FROM,
+    CLOUDFLARE_EMAIL_FROM_NAME: process.env.CLOUDFLARE_EMAIL_FROM_NAME || 'Wealix',
+    CLOUDFLARE_EMAIL_REPLY_TO: process.env.CLOUDFLARE_EMAIL_REPLY_TO || undefined,
+  });
+
+  return cachedCloudflareEmailEnv;
 }
 
 export function getRequiredEnv(name: string) {

@@ -77,6 +77,17 @@ export async function getUserSubscriptionTier(userId: string): Promise<PlanTier>
   return state.hasStandardAccess ? state.selectedPlan : 'none';
 }
 
+export async function getUserPrimaryEmail(userId: string): Promise<string | null> {
+  const e2eUser = getE2ETestUser();
+  if (userId === e2eUser.id) {
+    return e2eUser.email;
+  }
+
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  return user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null;
+}
+
 export async function requireTier(requiredTier: 'core' | 'pro') {
   const authResult = await requireAuthenticatedUser();
   if (authResult.error || !authResult.userId) {

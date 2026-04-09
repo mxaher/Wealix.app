@@ -2,6 +2,7 @@ import { createOpaqueId } from '@/lib/ids';
 import type { DailyPlanningSnapshot } from '@/lib/ai/daily-planning';
 import { saveRemoteWorkspace, type RemoteUserWorkspace } from '@/lib/remote-user-data';
 import { sendBudgetPlanningMessage } from '@/lib/sentdm';
+import { getUserPrimaryEmail } from '@/lib/server-auth';
 
 function appendInAppNotification(workspace: RemoteUserWorkspace) {
   return {
@@ -28,6 +29,7 @@ export async function notifyDailyPlanningReady(params: {
 }) {
   const updatedWorkspace = appendInAppNotification(params.workspace);
   await saveRemoteWorkspace(params.userId, updatedWorkspace);
+  const email = await getUserPrimaryEmail(params.userId).catch(() => null);
 
   const messagingResult = await sendBudgetPlanningMessage({
     userId: params.userId,
@@ -35,6 +37,7 @@ export async function notifyDailyPlanningReady(params: {
     title: params.snapshot.daily_headline.title || 'Budget & Planning update',
     body: params.snapshot.daily_headline.subtitle || 'Your latest AI analysis is ready in Budget & Planning.',
     route: '/budget-planning',
+    email,
     phoneNumber: params.workspace.notificationPreferences.phoneNumber,
     whatsappNumber: params.workspace.notificationPreferences.whatsappNumber,
     preferences: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAuthenticatedUser } from '@/lib/server-auth';
+import { getUserPrimaryEmail, requireAuthenticatedUser } from '@/lib/server-auth';
 import { sendBudgetPlanningMessage } from '@/lib/sentdm';
 
 const dispatchSchema = z.object({
@@ -39,12 +39,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
+  const email = await getUserPrimaryEmail(auth.userId).catch(() => null);
   const result = await sendBudgetPlanningMessage({
     userId: auth.userId,
     type: payload.data.type,
     title: payload.data.title,
     body: payload.data.body,
     route: payload.data.route,
+    email,
     phoneNumber: payload.data.phoneNumber ?? payload.data.preferences.phoneNumber,
     whatsappNumber: payload.data.whatsappNumber ?? payload.data.preferences.whatsappNumber,
     preferences: payload.data.preferences,
