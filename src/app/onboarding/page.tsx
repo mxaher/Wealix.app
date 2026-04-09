@@ -15,8 +15,7 @@ export default async function OnboardingPage() {
     select: { onboardingDone: true },
   });
 
-  // Already completed onboarding — go to app
-  // (This handles direct navigation to /onboarding for existing users)
+  // Already completed onboarding — go back to app
   if (dbUser?.onboardingDone) {
     redirect('/app');
   }
