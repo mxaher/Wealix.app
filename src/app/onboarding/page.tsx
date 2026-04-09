@@ -1,6 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
 import OnboardingClient from '@/app/onboarding/OnboardingClient';
 
@@ -12,23 +11,15 @@ export default async function OnboardingPage() {
   }
 
   // Check DB record — if onboarding is already completed, go straight to /app
+  // The /api/onboarding/backfill-cookie route will set the onboarding_done cookie
+  // so the middleware gate is cleared (cookies cannot be set in Server Components)
   const dbUser = await db.user.findUnique({
     where: { id: userId },
     select: { onboardingDone: true },
   });
 
   if (dbUser?.onboardingDone) {
-    // Backfill the cookie for existing users who completed onboarding
-    // before the cookie-based gate existed (prevents middleware redirect loop)
-    const cookieStore = await cookies();
-    cookieStore.set('onboarding_done', '1', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-      path: '/',
-    });
-    redirect('/app');
+    redirect('/api/onboarding/backfill-cookie');
   }
 
   return <OnboardingClient />;
