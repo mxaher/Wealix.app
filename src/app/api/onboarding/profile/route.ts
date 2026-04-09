@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 import { getOnboardingDoneCookieOptions, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
+import { saveOnboardingProfile } from '@/lib/onboarding-profile-storage';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 
 export async function POST(request: Request) {
@@ -27,30 +27,21 @@ export async function POST(request: Request) {
     onboardingSkipped,
   } = body;
 
-  // Build partial update — only include fields present in the request body
-  const data: Record<string, unknown> = { onboardingDone: true };
-  if (typeof name === 'string' && name.trim()) data.name = name.trim();
-  if (typeof phone === 'string') data.phone = phone.trim() || null;
-  if (typeof notificationChannel === 'string') data.notificationChannel = notificationChannel;
-  if (typeof monthlyIncome === 'number' && monthlyIncome >= 0) data.monthlyIncome = monthlyIncome;
-  if (typeof riskTolerance === 'string') data.riskTolerance = riskTolerance;
-  if (Array.isArray(preferredMarkets)) data.preferredMarkets = JSON.stringify(preferredMarkets);
-  if (typeof retirementAge === 'number') data.retirementAge = Math.round(retirementAge);
-  if (typeof currentAge === 'number') data.currentAge = Math.round(currentAge);
-  if (typeof retirementGoal === 'string') data.retirementGoal = retirementGoal;
-  if (onboardingSkipped === true) {
-    data.onboardingSkipped = true;
-    data.onboardingDone = true;
-  }
-
-  await db.user.upsert({
-    where: { id: userId },
-    update: data,
-    create: {
-      id: userId,
-      email: typeof body.email === 'string' ? body.email : `${userId}@unknown.local`,
-      ...data,
-    },
+  await saveOnboardingProfile(userId, {
+    email: typeof body.email === 'string' ? body.email : null,
+    name: typeof name === 'string' && name.trim() ? name.trim() : null,
+    phone: typeof phone === 'string' ? phone.trim() || null : null,
+    notificationChannel: typeof notificationChannel === 'string' ? notificationChannel : null,
+    monthlyIncome: typeof monthlyIncome === 'number' && monthlyIncome >= 0 ? monthlyIncome : null,
+    riskTolerance: typeof riskTolerance === 'string' ? riskTolerance : null,
+    preferredMarkets: Array.isArray(preferredMarkets)
+      ? preferredMarkets.filter((item): item is string => typeof item === 'string')
+      : null,
+    retirementAge: typeof retirementAge === 'number' ? Math.round(retirementAge) : null,
+    currentAge: typeof currentAge === 'number' ? Math.round(currentAge) : null,
+    retirementGoal: typeof retirementGoal === 'string' ? retirementGoal : null,
+    onboardingDone: true,
+    onboardingSkipped: onboardingSkipped === true,
   });
 
   const response = NextResponse.json({ success: true });
