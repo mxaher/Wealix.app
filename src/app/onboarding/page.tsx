@@ -10,16 +10,15 @@ export default async function OnboardingPage() {
     redirect('/');
   }
 
-  // Check DB record — if onboarding is already completed, go straight to /app
-  // The /api/onboarding/backfill-cookie route will set the onboarding_done cookie
-  // so the middleware gate is cleared (cookies cannot be set in Server Components)
   const dbUser = await db.user.findUnique({
     where: { id: userId },
     select: { onboardingDone: true },
   });
 
+  // Already completed onboarding — go to app
+  // (This handles direct navigation to /onboarding for existing users)
   if (dbUser?.onboardingDone) {
-    redirect('/api/onboarding/backfill-cookie');
+    redirect('/app');
   }
 
   return <OnboardingClient />;
