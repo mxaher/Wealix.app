@@ -34,13 +34,10 @@ const isAppRoute = createRouteMatcher([
 ]);
 
 // ─── Clerk instance guard ──────────────────────────────────────────────────────
-// Live instance: ins_3BXeeFpYvNEqGtajEpFP4w8d1q0 (production)
-// Dev instance: ins_3BTweREnZ4qiEVQJoQqgMRn5Bfg (local dev — must never reach prod)
 const VALID_KID = 'ins_3BXeeFpYvNEqGtajEpFP4w8d1q0';
 function getHandshakeKid(token: string): string | null {
   try {
     const seg = token.split('.')[0];
-    // restore base64url padding
     const padded = seg + '==='.slice(0, (4 - (seg.length & 3)) & 3);
     const header = JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/')));
     return typeof header?.kid === 'string' ? header.kid : null;
@@ -93,14 +90,10 @@ function nukeCookies(response: NextResponse, hostname: string) {
   }
 }
 
-// ─── Raw pre-Clerk interceptor ─────────────────────────────────────────────────
-// This function runs BEFORE clerkMiddleware so a stale dev-instance handshake
-// never reaches Clerk's verification logic (which would throw a 500).
 function handleStaleHandshake(req: NextRequest): NextResponse | null {
   const handshake = req.nextUrl.searchParams.get('__clerk_handshake');
   if (!handshake) return null;
   const kid = getHandshakeKid(handshake);
-  // If kid is missing OR belongs to the dev instance → purge and redirect clean
   if (!kid || kid !== VALID_KID) {
     const cleanUrl = buildSafeUrl(req);
     cleanUrl.searchParams.delete('__clerk_handshake');
@@ -110,7 +103,7 @@ function handleStaleHandshake(req: NextRequest): NextResponse | null {
     nukeCookies(res, getSafeHostname(req.nextUrl.hostname));
     return res;
   }
-  return null; // valid handshake — let Clerk handle it normally
+  return null;
 }
 
 function buildContentSecurityPolicy(nonce: string) {
@@ -169,29 +162,22 @@ function applySecurityHeaders(response: Response, pathname: string, nonce: strin
   return response;
 }
 
-// ─── Main middleware export ────────────────────────────────────────────────────
 export default function middleware(req: NextRequest) {
   const nonce = crypto.randomUUID().replace(/-/g, '');
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', buildContentSecurityPolicy(nonce));
 
-  // 1. Block scanner bots before anything else
   const { pathname } = req.nextUrl;
   const blockedPaths = ['/wp-admin', '/wp-login', '/xmlrpc', '/.env', '/.git', '/admin', '/phpmyadmin'];
   if (blockedPaths.some((p) => pathname.startsWith(p))) {
     return applySecurityHeaders(new NextResponse('Not Found', { status: 404 }), pathname, nonce);
   }
 
-  // 2. Intercept stale / dev-instance handshakes BEFORE Clerk runs
   const staleResponse = handleStaleHandshake(req);
   if (staleResponse) return applySecurityHeaders(staleResponse, pathname, nonce);
 
-  // 3. Hand off to Clerk for all remaining requests
   const clerkHandler = clerkMiddleware(async (auth, request) => {
-    // Authenticated users visiting '/' go directly to the app.
-    // auth() is intentionally called ONLY for '/' to avoid interfering
-    // with Clerk's sign-in/sign-up handshake flows on other public routes.
     if (request.nextUrl.pathname === '/') {
       const { userId } = await auth();
       if (userId) {
@@ -215,17 +201,6 @@ export default function middleware(req: NextRequest) {
 
     if (isAppRoute(request)) {
       await auth.protect();
-
-      // ── Onboarding gate ──────────────────────────────────────────────
-      // Skip the gate for /onboarding itself to prevent a redirect loop
-      if (!request.nextUrl.pathname.startsWith('/onboarding')) {
-        const onboardingDone = request.cookies.get('onboarding_done')?.value;
-        if (!onboardingDone) {
-          return NextResponse.redirect(new URL('/onboarding', request.url));
-        }
-      }
-      // ────────────────────────────────────────────────────────────────
-
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
