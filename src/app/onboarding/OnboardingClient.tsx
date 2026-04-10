@@ -387,8 +387,6 @@ export default function OnboardingClient() {
   const { user } = useUser();
   const locale = useAppStore((s) => s.locale);
   const updateUser = useAppStore((s) => s.updateUser);
-  const setUserProfile = useAppStore((s) => s.setUserProfile);
-  const addIncomeEntry = useAppStore((s) => s.addIncomeEntry);
   const isArabic = locale === 'ar';
 
   const [step, setStep] = useState(1);
@@ -428,17 +426,20 @@ export default function OnboardingClient() {
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   async function submitProfile(extra: Partial<Record<string, unknown>> = {}) {
+    const monthlyIncome = data.monthlyIncome ? parseFloat(data.monthlyIncome) : undefined;
+    const currentAge = data.currentAge ? parseInt(data.currentAge, 10) : undefined;
+    const retirementAge = data.retirementAge ? parseInt(data.retirementAge, 10) : undefined;
     const payload: Record<string, unknown> = {
       name: data.name || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
       notificationChannel: data.notificationChannel || undefined,
-      monthlyIncome: data.monthlyIncome ? parseFloat(data.monthlyIncome) : undefined,
+      monthlyIncome,
       riskTolerance: data.riskTolerance || undefined,
       preferredMarkets: data.preferredMarkets.length > 0 ? data.preferredMarkets : undefined,
       retirementGoal: data.retirementGoal || undefined,
-      currentAge: data.currentAge ? parseInt(data.currentAge, 10) : undefined,
-      retirementAge: data.retirementAge ? parseInt(data.retirementAge, 10) : undefined,
+      currentAge,
+      retirementAge,
       ...extra,
     };
 
@@ -452,33 +453,48 @@ export default function OnboardingClient() {
       // Non-blocking — never prevent redirect
     }
 
-    // Hydrate Zustand store immediately
-    if (data.name) updateUser({ name: data.name });
-    setUserProfile({
-      monthlyIncome: data.monthlyIncome ? parseFloat(data.monthlyIncome) : undefined,
-      riskTolerance: (data.riskTolerance as RiskTolerance) || undefined,
-      preferredMarkets: data.preferredMarkets.length > 0 ? data.preferredMarkets : undefined,
-      retirementGoal: (data.retirementGoal as RetirementGoal) || undefined,
-      currentAge: data.currentAge ? parseInt(data.currentAge, 10) : undefined,
-      retirementAge: data.retirementAge ? parseInt(data.retirementAge, 10) : undefined,
-    });
+    const store = useAppStore.getState();
+    const {
+      addIncomeEntry,
+      deleteIncomeEntry,
+      setUserProfile,
+      updateUser: updateStoreUser,
+      incomeEntries,
+    } = store;
 
-    // Seed initial income entry so Dashboard and Budget pages show real data
-    // from the moment the user lands — not zeros.
-    const incomeAmount = data.monthlyIncome ? parseFloat(data.monthlyIncome) : 0;
-    if (incomeAmount > 0) {
+    const onboardingSeedNote = 'Added during onboarding';
+
+    incomeEntries
+      .filter((entry) => entry.notes === onboardingSeedNote)
+      .forEach((entry) => deleteIncomeEntry(entry.id));
+
+    if (monthlyIncome && monthlyIncome > 0) {
       addIncomeEntry({
         id: createOpaqueId('income'),
-        amount: incomeAmount,
+        amount: monthlyIncome,
         currency: data.currency,
         source: 'salary',
-        sourceName: isArabic ? 'الراتب الشهري' : 'Monthly Salary',
+        sourceName: isArabic ? 'الدخل الأساسي' : 'Primary Income',
         frequency: 'monthly',
         date: new Date().toISOString().split('T')[0],
         isRecurring: true,
-        notes: null,
+        notes: onboardingSeedNote,
       });
     }
+
+    setUserProfile({
+      monthlyIncome,
+      riskTolerance: (data.riskTolerance as RiskTolerance) || undefined,
+      preferredMarkets: data.preferredMarkets.length > 0 ? data.preferredMarkets : undefined,
+      retirementGoal: (data.retirementGoal as RetirementGoal) || undefined,
+      currentAge,
+      retirementAge,
+    });
+
+    updateStoreUser({
+      onboardingDone: true,
+      ...(data.name ? { name: data.name } : {}),
+    });
   }
 
   async function handleFinish() {

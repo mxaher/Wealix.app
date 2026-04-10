@@ -70,6 +70,7 @@ import { DashboardShell } from '@/components/layout';
 import {
   useAppStore,
   formatCurrency,
+  useTotalMonthlyIncome,
   type AssetCategory,
   type LiabilityCategory,
   type AssetEntry,
@@ -122,7 +123,6 @@ export default function NetWorthPage() {
   const appMode = useAppStore((state) => state.appMode);
   const assets = useAppStore((state) => state.assets);
   const liabilities = useAppStore((state) => state.liabilities);
-  const incomeEntries = useAppStore((state) => state.incomeEntries);
   const expenseEntries = useAppStore((state) => state.expenseEntries);
   const recurringObligations = useAppStore((state) => state.recurringObligations) ?? [];
   const addAsset = useAppStore((state) => state.addAsset);
@@ -218,19 +218,7 @@ export default function NetWorthPage() {
     ];
   }, [appMode, assets.length, liabilities.length, isArabic, netWorth, portfolioInvestmentsValue, snapshot.recurringObligations.length, snapshot.savings.savingsAccounts.length, totalAssets, totalLiabilities]);
 
-  const monthlyIncome = useMemo(
-    () =>
-      incomeEntries.reduce((sum, entry) => {
-        if (!entry.isRecurring) return sum;
-        switch (entry.frequency) {
-          case 'weekly': return sum + (entry.amount * 52) / 12;
-          case 'quarterly': return sum + entry.amount / 3;
-          case 'yearly': return sum + entry.amount / 12;
-          default: return sum + entry.amount;
-        }
-      }, 0),
-    [incomeEntries]
-  );
+  const monthlyIncome = useTotalMonthlyIncome();
 
   const monthlyExpenses = useMemo(
     () => expenseEntries.reduce((sum, entry) => sum + entry.amount, 0),
@@ -990,4 +978,3 @@ export default function NetWorthPage() {
     </DashboardShell>
   );
 }
-

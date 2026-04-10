@@ -2174,6 +2174,51 @@ export function useSubscription() {
   };
 }
 
+function normalizeIncomeEntryToMonthlyAmount(entry: IncomeEntry): number {
+  if (!entry.isRecurring) {
+    return 0;
+  }
+
+  switch (entry.frequency) {
+    case 'weekly':
+      return entry.amount * 4.33;
+    case 'quarterly':
+      return entry.amount / 3;
+    case 'yearly':
+      return entry.amount / 12;
+    default:
+      return entry.amount;
+  }
+}
+
+export function getTotalMonthlyIncome(entries: IncomeEntry[]): number {
+  return entries.reduce((total, entry) => total + normalizeIncomeEntryToMonthlyAmount(entry), 0);
+}
+
+export function getTotalNetWorth(assets: AssetEntry[], liabilities: LiabilityEntry[]): number {
+  const totalAssets = assets.reduce((sum, asset) => sum + asset.value, 0);
+  const totalLiabilities = liabilities.reduce((sum, liability) => sum + liability.balance, 0);
+  return totalAssets - totalLiabilities;
+}
+
+/**
+ * Returns the total monthly income from all recurring income entries.
+ * This is the single source of truth for income across all pages.
+ */
+export function useTotalMonthlyIncome(): number {
+  const incomeEntries = useAppStore((state) => state.incomeEntries);
+  return getTotalMonthlyIncome(incomeEntries);
+}
+
+/**
+ * Returns total net worth: sum of assets minus sum of liabilities.
+ */
+export function useTotalNetWorth(): number {
+  const assets = useAppStore((state) => state.assets);
+  const liabilities = useAppStore((state) => state.liabilities);
+  return getTotalNetWorth(assets, liabilities);
+}
+
 export function formatNumber(
   value: number,
   locale: Locale = 'en',

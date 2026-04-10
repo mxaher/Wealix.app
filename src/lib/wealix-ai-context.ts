@@ -416,15 +416,7 @@ function buildContext(input: ContextBuildInput): WealixAIContext {
   const { snapshot, expenseEntries, budgetLimits } = input;
   const profile = input.onboardingProfile;
 
-  // Use profile monthlyIncome as override when income entries are sparse (< 1 entry)
-  const derivedMonthlyIncome = roundMoney(snapshot.income.monthlyNormalized);
-  const monthlyIncome = (
-    profile?.monthlyIncome &&
-    profile.monthlyIncome > 0 &&
-    input.incomeEntries.length < 1
-  )
-    ? roundMoney(profile.monthlyIncome)
-    : derivedMonthlyIncome;
+  const monthlyIncome = roundMoney(snapshot.income.monthlyNormalized);
   const monthlyExpenses = roundMoney(snapshot.expenses.monthlyNormalized);
   const monthlySurplus = roundMoney(snapshot.monthlySavings);
   const annualIncome = roundMoney((monthlyIncome * 12));

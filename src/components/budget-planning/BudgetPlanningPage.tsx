@@ -87,6 +87,7 @@ import {
   type RecurringObligation,
   type SavingsAccount,
   useAppStore,
+  useTotalMonthlyIncome,
 } from '@/store/useAppStore';
 import {
   SAVINGS_ACCOUNT_NAMES,
@@ -566,24 +567,7 @@ export function BudgetPlanningPage({
   const totalIncome = incomeEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const totalExpenses = expenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
-  const monthlyIncome = useMemo(() => {
-    return incomeEntries.reduce((sum, entry) => {
-      if (!entry.isRecurring) {
-        return sum;
-      }
-
-      switch (entry.frequency) {
-        case 'weekly':
-          return sum + (entry.amount * 52) / 12;
-        case 'quarterly':
-          return sum + entry.amount / 3;
-        case 'yearly':
-          return sum + entry.amount / 12;
-        default:
-          return sum + entry.amount;
-      }
-    }, 0);
-  }, [incomeEntries]);
+  const monthlyIncome = useTotalMonthlyIncome();
 
   const spendingByCategory = expenseEntries.reduce((acc, entry) => {
     const key = budgetToExpenseCategory[entry.category] ?? entry.category.toLowerCase();
