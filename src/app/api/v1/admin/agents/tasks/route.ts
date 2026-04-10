@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callCompanyAgents } from '@/lib/company-agents-client';
-import { requireAdminUser } from '@/lib/server-auth';
+import { requireAdminPanelApiAccess } from '@/lib/admin-panel-auth';
 
 export async function GET(request: NextRequest) {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   const query = request.nextUrl.searchParams.toString();
@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   try {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { updateAIModelConfig } from '@/lib/ai-model-storage';
-import { requireAdminUser } from '@/lib/server-auth';
+import { requireAdminPanelApiAccess } from '@/lib/admin-panel-auth';
 
 const updateSchema = z.object({
   modelId: z.string().min(1).optional(),
@@ -14,9 +14,9 @@ const updateSchema = z.object({
 });
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   const { id } = await params;

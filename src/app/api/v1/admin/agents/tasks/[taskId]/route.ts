@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callCompanyAgents } from '@/lib/company-agents-client';
-import { requireAdminUser } from '@/lib/server-auth';
+import { requireAdminPanelApiAccess } from '@/lib/admin-panel-auth';
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+export async function GET(request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   const { taskId } = await params;
@@ -20,10 +20,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   const { taskId } = await params;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAIModelConfig, listAIModelConfigs } from '@/lib/ai-model-storage';
-import { requireAdminUser } from '@/lib/server-auth';
+import { requireAdminPanelApiAccess } from '@/lib/admin-panel-auth';
 
 const createModelSchema = z.object({
   modelId: z.string().min(1),
@@ -13,10 +13,10 @@ const createModelSchema = z.object({
   description: z.string().nullable().optional(),
 });
 
-export async function GET() {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+export async function GET(request: NextRequest) {
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   const record = await listAIModelConfigs();
@@ -28,9 +28,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdminUser();
-  if (admin.error) {
-    return admin.error;
+  const authError = requireAdminPanelApiAccess(request);
+  if (authError) {
+    return authError;
   }
 
   const parsed = createModelSchema.safeParse(await request.json().catch(() => null));

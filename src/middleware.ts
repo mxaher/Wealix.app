@@ -6,6 +6,7 @@ import { hasCompletedOnboardingCookie, ONBOARDING_DONE_COOKIE } from '@/lib/onbo
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app';
 const APP_ORIGIN = new URL(APP_URL);
 const APP_HOSTNAME = APP_ORIGIN.hostname.toLowerCase();
+const ADMIN_PANEL_HOST = (process.env.WEALIX_ADMIN_PANEL_HOST || 'wealix-admin-panel.moh-zaher.workers.dev').toLowerCase();
 
 // ─── Route matchers ────────────────────────────────────────────────────────────
 const isPublicRoute = createRouteMatcher([
@@ -17,9 +18,9 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks/stripe(.*)',
 ]);
 const isProtectedApiRoute = createRouteMatcher(['/api(.*)']);
+const isAdminPanelRoute = createRouteMatcher(['/admin(.*)', '/api/v1/admin(.*)', '/api/admin-panel(.*)']);
 const isAppRoute = createRouteMatcher([
   '/app(.*)',
-  '/admin(.*)',
   '/dashboard(.*)',
   '/settings(.*)',
   '/advisor(.*)',
@@ -171,9 +172,18 @@ export default function middleware(req: NextRequest) {
   requestHeaders.set('Content-Security-Policy', buildContentSecurityPolicy(nonce));
 
   const { pathname } = req.nextUrl;
+  const hostname = req.nextUrl.hostname.toLowerCase();
   const blockedPaths = ['/wp-admin', '/wp-login', '/xmlrpc', '/.env', '/.git', '/phpmyadmin'];
   if (blockedPaths.some((p) => pathname.startsWith(p))) {
     return applySecurityHeaders(new NextResponse('Not Found', { status: 404 }), pathname, nonce);
+  }
+
+  if (isAdminPanelRoute(req)) {
+    if (hostname !== ADMIN_PANEL_HOST) {
+      return applySecurityHeaders(new NextResponse('Not Found', { status: 404 }), pathname, nonce);
+    }
+
+    return applySecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }), pathname, nonce);
   }
 
   const staleResponse = handleStaleHandshake(req);
