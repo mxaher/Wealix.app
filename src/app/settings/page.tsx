@@ -33,7 +33,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { DashboardShell } from '@/components/layout';
 import { AIModelSelector } from '@/components/shared';
-import { useAppStore } from '@/store/useAppStore';
+import { getPersistableWorkspaceSnapshot, useAppStore } from '@/store/useAppStore';
 import { useAIModelStore } from '@/store/useAIModelStore';
 import { useAgentTaskStore } from '@/store/useAgentTaskStore';
 import { useFinancialSettingsStore } from '@/store/useFinancialSettingsStore';
@@ -262,10 +262,23 @@ function SettingsPageContent() {
     });
   };
 
-  const handleDeleteAllData = () => {
+  const handleDeleteAllData = async () => {
     if (!isSignedIn) { requireAccount(); return; }
 
     clearAllData();
+
+    try {
+      await fetch('/api/user-data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace: getPersistableWorkspaceSnapshot(useAppStore.getState()),
+        }),
+      });
+    } catch {
+      // Keep the local reset even if remote persistence is temporarily unavailable.
+    }
+
     resetFinancialSettings();
     resetAIModels();
     resetAgentTasks();
