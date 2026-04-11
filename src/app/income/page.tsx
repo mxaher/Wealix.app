@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, TrendingUp, Wallet } from 'lucide-react';
 import { DashboardShell } from '@/components/layout';
 import { StatCard } from '@/components/shared';
@@ -18,6 +18,7 @@ import { useFinancialSettingsStore } from '@/store/useFinancialSettingsStore';
 import { toast } from '@/hooks/use-toast';
 import { createOpaqueId } from '@/lib/ids';
 import { useRuntimeUser } from '@/hooks/useRuntimeUser';
+import type { FinancialSettings } from '@/lib/financial-settings';
 
 const incomeSources: Array<{ value: IncomeSource; en: string; ar: string }> = [
   { value: 'salary', en: 'Salary', ar: 'راتب' },
@@ -52,11 +53,38 @@ export default function IncomePage() {
   const addIncomeEntry = useAppStore((state) => state.addIncomeEntry);
   const deleteIncomeEntry = useAppStore((state) => state.deleteIncomeEntry);
   const isArabic = locale === 'ar';
-  const { isSignedIn } = useRuntimeUser();
+  const { isSignedIn, user } = useRuntimeUser();
   const financialSettings = useFinancialSettingsStore((state) => state.data);
+  const replaceFinancialSettings = useFinancialSettingsStore((state) => state.replaceData);
   const updateFinancialSettings = useFinancialSettingsStore((state) => state.updateFields);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function getFinancialSettings(userId: string) {
+      const response = await fetch('/api/v1/user/financial-settings', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as
+        | { settings?: FinancialSettings }
+        | null;
+
+      if (!cancelled && response.ok && payload?.settings) {
+        replaceFinancialSettings(payload.settings, { broadcast: false, syncStatus: 'saved' });
+      }
+    }
+
+    if (user?.id) {
+      void getFinancialSettings(user.id);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [replaceFinancialSettings, user?.id]);
 
   const summary = useMemo(() => {
     const now = new Date();

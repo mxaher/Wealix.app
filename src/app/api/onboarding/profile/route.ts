@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { saveFinancialSettings } from '@/lib/financial-settings-storage';
 import { getOnboardingDoneCookieOptions, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
 import { getOnboardingProfile, saveOnboardingProfile } from '@/lib/onboarding-profile-storage';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     onboardingSkipped,
   } = body;
 
-  await saveOnboardingProfile(userId, {
+  const savedProfile = await saveOnboardingProfile(userId, {
     email: typeof body.email === 'string' ? body.email : null,
     name: typeof name === 'string' && name.trim() ? name.trim() : null,
     phone: typeof phone === 'string' ? phone.trim() || null : null,
@@ -50,6 +51,18 @@ export async function POST(request: Request) {
     retirementGoal: typeof retirementGoal === 'string' ? retirementGoal : null,
     onboardingDone: true,
     onboardingSkipped: onboardingSkipped === true,
+  });
+
+  await saveFinancialSettings(userId, {
+    monthlyIncome: savedProfile?.monthlyIncome ?? 0,
+    annualIncome: (savedProfile?.monthlyIncome ?? 0) * 12,
+    currency: typeof body.currency === 'string' ? body.currency : 'SAR',
+    fireTargetAge: savedProfile?.retirementAge ?? 60,
+    riskProfile:
+      savedProfile?.riskTolerance === 'conservative' || savedProfile?.riskTolerance === 'aggressive'
+        ? savedProfile.riskTolerance
+        : 'moderate',
+    onboardingCompleted: true,
   });
 
   const response = NextResponse.json({ success: true });

@@ -1,5 +1,6 @@
 import type { RemoteUserWorkspace } from '@/lib/remote-user-data';
 import { buildFinancialSnapshotFromClientContext, buildFinancialSnapshotFromWorkspace, type ClientFinancialContext, type FinancialSnapshot } from '@/lib/financial-snapshot';
+import type { FinancialSettings } from '@/lib/financial-settings';
 import type { BudgetLimit, ExpenseCategory, ExpenseEntry, IncomeEntry, OneTimeExpense, RecurringObligation, SavingsAccount } from '@/store/useAppStore';
 
 type AlertSeverity = 'info' | 'warning' | 'critical';
@@ -623,7 +624,22 @@ export function buildWealixAIContextFromClientContext(userId: string, context: C
 }
 
 export function buildCompactWealixAIContext(context: WealixAIContext, locale: 'ar' | 'en' = 'en') {
+  const settings = context as WealixAIContext & {
+    financialSettings?: Partial<FinancialSettings> & {
+      savingsGoal?: number | null;
+      fireTargetAmount?: number | null;
+      riskTolerance?: string | null;
+      budgetTargets?: unknown;
+    };
+  };
+  const profileSettings = settings.financialSettings ?? {};
   const lines = [
+    'USER FINANCIAL PROFILE:',
+    `Monthly Income: ${profileSettings.monthlyIncome ?? context.monthlyIncome} ${profileSettings.currency ?? context.currency}`,
+    `Savings Goal: ${profileSettings.savingsGoal ?? context.savingsRate}%`,
+    `FIRE Target: ${profileSettings.fireTargetAmount ?? profileSettings.fireTarget ?? context.financialSnapshot.fire.fireNumber} by age ${profileSettings.fireTargetAge ?? context.onboardingProfile?.retirementAge ?? 60}`,
+    `Risk Tolerance: ${profileSettings.riskTolerance ?? context.onboardingProfile?.riskTolerance ?? 'moderate'}`,
+    `Budget Targets: ${JSON.stringify(profileSettings.budgetTargets ?? context.budgets)}`,
     `Snapshot date: ${context.snapshotDate}`,
     `Currency: ${context.currency}`,
     `Health score: ${context.healthScore}/100`,

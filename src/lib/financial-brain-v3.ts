@@ -1,3 +1,5 @@
+import { getStoredFinancialSettings as getFinancialSettings } from '@/lib/financial-settings-storage';
+
 export type FinancialPersona = {
   userId: string;
   profile: {
@@ -202,6 +204,8 @@ function addMonths(dateString: string, months: number) {
   date.setUTCMonth(date.getUTCMonth() + months);
   return date.toISOString().slice(0, 10);
 }
+
+type FinancialSettingsSnapshot = Awaited<ReturnType<typeof getFinancialSettings>>['settings'];
 
 export function daysUntil(asOf: string, dueDate: string) {
   const start = new Date(`${asOf}T00:00:00Z`);
@@ -409,11 +413,21 @@ export function compareAwaeedVsHassad(principal: number, termMonths: number, has
 }
 
 export function buildHealthySavingsSnapshot(persona: FinancialPersona) {
+  let settings: FinancialSettingsSnapshot | null = null;
+  void getFinancialSettings(persona.userId).then((record) => {
+    settings = record.settings;
+  });
+  const monthlyIncome = settings?.monthlyIncome ?? persona.income.monthlyTotal;
+  const monthlySurplus = settings?.monthlyIncome != null
+    ? roundMoney(settings.monthlyIncome - persona.expenses.monthlyTotal)
+    : persona.cashFlow.netMonthlySurplus;
+  const savingsRate = settings?.currentSavingsRate ?? (monthlyIncome > 0 ? Number(((monthlySurplus / monthlyIncome) * 100).toFixed(1)) : 0);
+
   return {
-    monthlyIncome: persona.income.monthlyTotal,
-    monthlySurplus: persona.cashFlow.netMonthlySurplus,
-    savingsRate: Number(((persona.cashFlow.netMonthlySurplus / persona.income.monthlyTotal) * 100).toFixed(1)),
-    isExcellent: (persona.cashFlow.netMonthlySurplus / persona.income.monthlyTotal) * 100 >= 30,
+    monthlyIncome,
+    monthlySurplus,
+    savingsRate,
+    isExcellent: savingsRate >= 30,
   };
 }
 
@@ -450,7 +464,13 @@ export function buildOmarTrackAssessment(persona: FinancialPersona) {
 }
 
 export function projectTemporaryIncomeDrop(persona: FinancialPersona, reducedIncome: number, months: number) {
-  const monthlyShortfall = roundMoney(reducedIncome - persona.expenses.monthlyTotal);
+  let settings: FinancialSettingsSnapshot | null = null;
+  void getFinancialSettings(persona.userId).then((record) => {
+    settings = record.settings;
+  });
+  const baselineIncome = settings?.monthlyIncome ?? persona.income.monthlyTotal;
+  const effectiveReducedIncome = reducedIncome ?? baselineIncome;
+  const monthlyShortfall = roundMoney(effectiveReducedIncome - persona.expenses.monthlyTotal);
   const totalShortfall = roundMoney(monthlyShortfall * months);
   const endingLiquid = roundMoney(persona.cash.liquidBalance + totalShortfall);
   const bufferMonthsAfter = persona.expenses.monthlyTotal > 0
@@ -492,13 +512,19 @@ export function buildIncomeChangeHeadline(persona: FinancialPersona, monthlyIncr
 }
 
 export function buildKhaledFireInsight(persona: FinancialPersona, monthlyContributionIncrease: number) {
+  let settings: FinancialSettingsSnapshot | null = null;
+  void getFinancialSettings(persona.userId).then((record) => {
+    settings = record.settings;
+  });
   const milestone = buildFireMilestone(persona, monthlyContributionIncrease);
+  const fireTarget = settings?.fireTarget ?? persona.fire.fireNumber;
+  const fireTargetAge = settings?.fireTargetAge ?? 60;
 
   return [
-    `Your FIRE progress is ${persona.fire.progressPct.toFixed(1)}% (${persona.fire.currentInvestableAssets.toLocaleString()} SAR / ${persona.fire.fireNumber.toLocaleString()} SAR).`,
+    `Your FIRE progress is ${persona.fire.progressPct.toFixed(1)}% (${persona.fire.currentInvestableAssets.toLocaleString()} SAR / ${fireTarget.toLocaleString()} SAR).`,
     `At your current trajectory, financial independence is about ${milestone.currentYears} years away.`,
     `Adding ${monthlyContributionIncrease.toLocaleString()} SAR per month would likely shorten that to about ${milestone.acceleratedYears} years.`,
-    `Your next FIRE milestone is 25%, which is ${milestone.gapTo25Pct.toLocaleString()} SAR away.`,
+    `Your next FIRE milestone is 25%, which is ${milestone.gapTo25Pct.toLocaleString()} SAR away, with a target age of ${fireTargetAge}.`,
   ];
 }
 
@@ -585,10 +611,17 @@ export function buildAwaeedMaturityPlan(persona: FinancialPersona) {
 }
 
 export function buildPortfolioOverride(persona: FinancialPersona): PortfolioOverrideResult {
+  let settings: FinancialSettingsSnapshot | null = null;
+  void getFinancialSettings(persona.userId).then((record) => {
+    settings = record.settings;
+  });
   const ratio = portfolioToLiquidRatio(persona);
   const totalGap = totalObligationGap(persona);
   const energyValue = persona.portfolio.stocks.filter((item) => item.sector === 'Energy').reduce((sum, item) => sum + item.value, 0);
   const energyWeight = persona.portfolio.totalPortfolioValue > 0 ? Number(((energyValue / persona.portfolio.totalPortfolioValue) * 100).toFixed(1)) : 0;
+  const monthlyInvestmentCapacity = settings?.currentSavingsRate != null && (settings?.monthlyIncome ?? 0) > 0
+    ? roundMoney(((settings.monthlyIncome ?? 0) * settings.currentSavingsRate) / 100)
+    : 0;
 
   return {
     summary: `Before analyzing portfolio quality, a critical financial context note: liquid cash is ${persona.cash.liquidBalance.toLocaleString()} SAR while obligation gaps total ${totalGap.toLocaleString()} SAR. Portfolio value is ${persona.portfolio.totalPortfolioValue.toLocaleString()} SAR, so partial liquidation should be assessed before any hold/add decision.`,
@@ -596,7 +629,7 @@ export function buildPortfolioOverride(persona: FinancialPersona): PortfolioOver
     keyRisks: [
       `Liquidity risk is extreme at ${ratio.toFixed(1)}x portfolio-to-liquid.`,
       `Energy concentration is ${energyWeight.toFixed(1)}%, above the 40% caution threshold.`,
-      `Current monthly investment capacity should be treated as 0 SAR until obligations are cleared.`,
+      `Current monthly investment capacity should be treated as ${monthlyInvestmentCapacity.toLocaleString()} SAR until obligations are cleared.`,
     ],
     opportunities: [
       'Use partial portfolio liquidation as a smart liquidity rebalance, not as a defeat.',
@@ -614,10 +647,15 @@ export function buildPortfolioOverride(persona: FinancialPersona): PortfolioOver
 }
 
 export function modelHouseholdSpendIncrease(persona: FinancialPersona, newHouseholdAmount: number): HouseholdSpendScenario {
+  let settings: FinancialSettingsSnapshot | null = null;
+  void getFinancialSettings(persona.userId).then((record) => {
+    settings = record.settings;
+  });
   const currentHousehold = persona.expenses.categories.find((item) => /household/i.test(item.name))?.amount ?? 0;
   const delta = roundMoney(newHouseholdAmount - currentHousehold);
   const newSurplus = roundMoney(persona.cashFlow.netMonthlySurplus - delta);
-  const newSavingsRate = persona.income.monthlyTotal > 0 ? Number(((newSurplus / persona.income.monthlyTotal) * 100).toFixed(1)) : 0;
+  const monthlyIncome = settings?.monthlyIncome ?? persona.income.monthlyTotal;
+  const newSavingsRate = monthlyIncome > 0 ? Number(((newSurplus / monthlyIncome) * 100).toFixed(1)) : 0;
 
   return {
     originalSurplus: persona.cashFlow.netMonthlySurplus,
@@ -653,8 +691,14 @@ export function modelPortfolioSaleForObligations(persona: FinancialPersona, sale
 }
 
 export function buildRecoveryPlan(persona: FinancialPersona): RecoveryPlan {
-  const endingLiquidityEstimate = 16268;
-  const remainingIqamaGap = 2732;
+  let settings: FinancialSettingsSnapshot | null = null;
+  void getFinancialSettings(persona.userId).then((record) => {
+    settings = record.settings;
+  });
+  const monthlyIncome = settings?.monthlyIncome ?? persona.income.monthlyTotal;
+  const monthlySavingsRate = settings?.currentSavingsRate ?? persona.cashFlow.surplusRate;
+  const endingLiquidityEstimate = roundMoney(persona.cash.liquidBalance + Math.max(0, persona.cashFlow.netMonthlySurplus * 2));
+  const remainingIqamaGap = roundMoney(Math.max(0, totalObligationGap(persona) - endingLiquidityEstimate));
 
   return {
     steps: [
@@ -662,7 +706,7 @@ export function buildRecoveryPlan(persona: FinancialPersona): RecoveryPlan {
       'Step 2: Pay the 2,500 SAR car registration from current cash in May.',
       'Step 3: Pay the 17,500 SAR rent obligation in July.',
       'Step 4: Pay the 22,000 SAR school fees in August.',
-      'Step 5: Reduce household spending from 12,000 SAR to 9,500 SAR, which lifts monthly surplus by 2,500 SAR to 5,378 SAR.',
+      `Step 5: Reduce household spending to preserve a ${monthlySavingsRate.toFixed(1)}% savings rate against ${monthlyIncome.toLocaleString()} SAR of monthly income.`,
       `Step 6: Sell an additional 5,000 SAR if needed to close the remaining Iqama gap of about ${remainingIqamaGap.toLocaleString()} SAR.`,
     ],
     endingLiquidityEstimate,
