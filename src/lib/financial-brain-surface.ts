@@ -10,7 +10,6 @@ import {
   buildOmarTrackAssessment,
   buildPortfolioOverride,
   buildRecoveryPlan,
-  buildSaraCriticalAlerts,
   compareAwaeedVsHassad,
   evaluateAwaeedTiming,
   evaluateBuyDecision,
@@ -382,10 +381,6 @@ export function buildSurfaceDecisionOverride(persona: FinancialPersona, amount: 
 }
 
 export function buildBudgetCriticalAlerts(persona: FinancialPersona) {
-  if (persona.profile.name.toLowerCase() === 'sara') {
-    return buildSaraCriticalAlerts(persona);
-  }
-
   const totalGap = totalObligationGap(persona);
   return totalGap > 0
     ? [{
@@ -403,6 +398,13 @@ export function buildPortfolioAnalysisOverride(persona: FinancialPersona) {
   }
 
   const override = buildPortfolioOverride(persona);
+  const topStock = [...persona.portfolio.stocks].sort((a, b) => b.value - a.value)[0];
+  const tradeTicker = override.tradePlan[0]?.ticker ?? topStock?.ticker ?? '';
+  const tradeName = override.tradePlan[0]?.name ?? topStock?.name ?? 'top holding';
+  const tradeAmount = override.tradePlan[0]?.amountSar ?? Math.round(totalObligationGap(persona) * 1.1);
+  const tradeNote = override.tradePlan[0]?.note
+    ?? `Sell a partial position of ${tradeName} to fund obligations and reduce concentration.`;
+
   return {
     summary: override.summary,
     marketOutlook: override.marketOutlook,
@@ -414,21 +416,21 @@ export function buildPortfolioAnalysisOverride(persona: FinancialPersona) {
       {
         type: 'trim',
         title: 'Prioritize liquidity before portfolio optimization',
-        description: `${override.tradePlan[0]?.note ?? 'Sell a partial position to fund obligations.'} This is a smart liquidity rebalance, not a defeat.`,
+        description: `${tradeNote} This is a smart liquidity rebalance, not a defeat.`,
       },
     ],
     opportunities: override.opportunities,
     executionSummary: [
       {
-        asset: override.tradePlan[0]?.name ?? 'Saudi Aramco',
-        ticker: override.tradePlan[0]?.ticker ?? '2222',
+        asset: tradeName,
+        ticker: tradeTicker,
         action: 'sell' as const,
         sharesUnits: 'Partial position',
         executeWhen: 'Before next due date',
-        priceZone: `${override.tradePlan[0]?.amountSar.toLocaleString() ?? '30,000'} SAR`,
+        priceZone: `${tradeAmount.toLocaleString()} SAR`,
         stopLoss: '—',
         priority: 'high' as const,
-        notes: override.tradePlan[0]?.note ?? '',
+        notes: tradeNote,
       },
     ],
     healthScore: override.healthScore,
@@ -438,17 +440,17 @@ export function buildPortfolioAnalysisOverride(persona: FinancialPersona) {
       { dimension: 'Risk Balance', score: 4, comment: 'Liquidity risk dominates the portfolio picture.' },
       { dimension: 'Market Exposure', score: 7, comment: 'Portfolio structure should be simplified until near-term obligations are funded.' },
     ],
-    tradePlan: [
+    tradePlan: tradeTicker ? [
       {
         side: 'sell' as const,
-        ticker: override.tradePlan[0]?.ticker ?? '2222',
-        name: override.tradePlan[0]?.name ?? 'Saudi Aramco',
+        ticker: tradeTicker,
+        name: tradeName,
         exchange: 'TASI' as const,
         shares: 1,
-        targetPrice: override.tradePlan[0]?.amountSar ?? 30000,
+        targetPrice: tradeAmount,
         timing: 'now' as const,
-        note: override.tradePlan[0]?.note ?? '',
+        note: tradeNote,
       },
-    ],
+    ] : [],
   };
 }
