@@ -53,8 +53,8 @@ export function isRemotePersistenceConfigured() {
 }
 
 async function readE2EWorkspace(clerkUserId: string): Promise<RemoteWorkspaceRecord> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const baseDir = path.join(process.cwd(), getE2EStorageDir());
   const filePath = path.join(baseDir, `${clerkUserId}.json`);
 
@@ -81,8 +81,8 @@ async function writeE2EWorkspace(
   workspace: RemoteUserWorkspace,
   knownUpdatedAt?: string | null
 ): Promise<RemoteWorkspaceRecord> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const baseDir = path.join(process.cwd(), getE2EStorageDir());
   const filePath = path.join(baseDir, `${clerkUserId}.json`);
   const existing = await readE2EWorkspace(clerkUserId);

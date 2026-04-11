@@ -34,8 +34,8 @@ function getE2EFilePath(clerkUserId: string) {
 }
 
 async function readE2EFinancialSettings(clerkUserId: string): Promise<FinancialSettingsRecord> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const filePath = path.join(process.cwd(), getE2EFilePath(clerkUserId));
 
   try {
@@ -57,8 +57,8 @@ async function writeE2EFinancialSettings(
   clerkUserId: string,
   settings: FinancialSettings
 ): Promise<FinancialSettingsRecord> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const filePath = path.join(process.cwd(), getE2EFilePath(clerkUserId));
   const nextRecord: FinancialSettingsRecord = {
     settings,

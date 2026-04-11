@@ -72,8 +72,8 @@ function getE2EPreferencePath(clerkUserId: string) {
 }
 
 async function readJsonFile<T>(filePath: string, fallback: T) {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const absolutePath = path.join(process.cwd(), filePath);
 
   try {
@@ -88,8 +88,8 @@ async function readJsonFile<T>(filePath: string, fallback: T) {
 }
 
 async function writeJsonFile<T>(filePath: string, data: T) {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const absolutePath = path.join(process.cwd(), filePath);
 
   await fs.mkdir(path.dirname(absolutePath), { recursive: true });

@@ -113,8 +113,8 @@ function getE2EFilePath(clerkUserId: string) {
 }
 
 async function readE2EOnboardingProfile(clerkUserId: string): Promise<OnboardingProfileRecord | null> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const filePath = path.join(process.cwd(), getE2EFilePath(clerkUserId));
 
   try {
@@ -132,8 +132,8 @@ async function writeE2EOnboardingProfile(
   clerkUserId: string,
   input: SaveOnboardingProfileInput
 ): Promise<OnboardingProfileRecord> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const fs = await import('fs/promises');
+  const path = await import('path');
   const filePath = path.join(process.cwd(), getE2EFilePath(clerkUserId));
   const existing = await readE2EOnboardingProfile(clerkUserId);
   const nextRecord: OnboardingProfileRecord = {
