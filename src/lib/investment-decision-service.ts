@@ -591,7 +591,6 @@ async function callOpenAI(systemPrompt: string, userPrompt: string) {
       ],
     }),
     cache: 'no-store',
-    signal: AbortSignal.timeout(30_000),
   });
 
   const json = await response.json().catch(() => null) as {
@@ -627,7 +626,6 @@ async function callAnthropic(systemPrompt: string, userPrompt: string) {
       messages: [{ role: 'user', content: userPrompt }],
     }),
     cache: 'no-store',
-    signal: AbortSignal.timeout(30_000),
   });
 
   const json = await response.json().catch(() => null) as {
@@ -665,7 +663,6 @@ async function callNvidia(systemPrompt: string, userPrompt: string) {
       ],
     }),
     cache: 'no-store',
-    signal: AbortSignal.timeout(30_000),
   });
 
   const json = await response.json().catch(() => null) as {

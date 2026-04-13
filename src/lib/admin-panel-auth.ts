@@ -85,35 +85,25 @@ export function isValidAdminPanelSessionToken(token: string | null | undefined) 
 }
 
 export function buildAdminPanelCookie(token: string) {
-  const domain = process.env.WEALIX_ADMIN_PANEL_HOST
-    ? `.${process.env.WEALIX_ADMIN_PANEL_HOST.trim().toLowerCase()}`
-    : undefined;
-
   return {
     name: ADMIN_PANEL_SESSION_COOKIE,
     value: token,
     httpOnly: true,
-    sameSite: 'strict' as const,
+    sameSite: 'lax' as const,
     secure: true,
     path: '/',
-    domain,
     maxAge: SESSION_TTL_SECONDS,
   };
 }
 
 export function clearAdminPanelCookie(response: NextResponse) {
-  const domain = process.env.WEALIX_ADMIN_PANEL_HOST
-    ? `.${process.env.WEALIX_ADMIN_PANEL_HOST.trim().toLowerCase()}`
-    : undefined;
-
   response.cookies.set({
     name: ADMIN_PANEL_SESSION_COOKIE,
     value: '',
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: 'lax',
     secure: true,
     path: '/',
-    domain,
     maxAge: 0,
   });
 }
