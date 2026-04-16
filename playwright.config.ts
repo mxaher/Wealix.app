@@ -1,7 +1,6 @@
 // BUG #030 FIX — Configurable baseURL, CI retries, proper timeouts
 import { defineConfig, devices } from '@playwright/test';
 
-<<<<<<< HEAD
 // CRITICAL: Do NOT set a default E2E_AUTH_SECRET here.
 // CI pipelines must supply a cryptographically strong secret (>= 32 chars) via env.
 // A missing or short secret disables the E2E auth bypass system — this is intentional.
@@ -17,28 +16,19 @@ const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: './e2e',
-  // Bug #7 fix: use undefined locally so Playwright auto-detects optimal workers
   fullyParallel: !isCI,
   workers: isCI ? 1 : undefined,
   timeout: 60_000,
   retries: isCI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
-=======
-export default defineConfig({
-  testDir: './e2e',
->>>>>>> 97076ca (fix: apply 33-bug audit fixes across all layers)
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    baseURL,
     actionTimeout: 10_000,
     navigationTimeout: 20_000,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  retries: process.env.CI ? 2 : 0,
-  timeout: 30_000,
-  reporter: process.env.CI ? 'github' : 'list',
   projects: [
-<<<<<<< HEAD
     {
       name: 'setup',
       testMatch: /.*\/auth\.setup\.ts/,
@@ -53,9 +43,6 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
-=======
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
->>>>>>> 97076ca (fix: apply 33-bug audit fixes across all layers)
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },

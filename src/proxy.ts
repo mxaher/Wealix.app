@@ -6,13 +6,22 @@ import { hasCompletedOnboardingCookie, ONBOARDING_DONE_COOKIE } from '@/lib/onbo
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app';
 const APP_ORIGIN = new URL(APP_URL);
 const APP_HOSTNAME = APP_ORIGIN.hostname.toLowerCase();
-const ADMIN_PANEL_HOST = (
-  process.env.WEALIX_ADMIN_PANEL_HOST || 'wealix-admin-panel.moh-zaher.workers.dev'
-).toLowerCase();
+
+// Bug #020 fix: no hardcoded fallback — WEALIX_ADMIN_PANEL_HOST must be set in env.
+// A missing value disables admin panel routing entirely rather than exposing a known URL.
+const ADMIN_PANEL_HOST = (process.env.WEALIX_ADMIN_PANEL_HOST ?? '').toLowerCase();
 
 // Bug #17 fix: CLERK_EXPECTED_KID must be set explicitly in env — no hardcoded fallback.
 // If not set, the stale handshake check is skipped (safer than accepting any kid).
 const VALID_KID = process.env.CLERK_EXPECTED_KID ?? null;
+
+// Bug #021 fix: warn at startup if security-critical env vars are absent.
+if (!VALID_KID) {
+  console.warn('[Security] CLERK_EXPECTED_KID not set — stale handshake protection disabled');
+}
+if (!ADMIN_PANEL_HOST) {
+  console.warn('[Security] WEALIX_ADMIN_PANEL_HOST not set — admin panel routing disabled');
+}
 
 // ─── Route matchers ───────────────────────────────────────────────────────────────────────────
 const isPublicRoute = createRouteMatcher([
@@ -162,7 +171,13 @@ function buildContentSecurityPolicy(nonce: string) {
       https://www.googletagmanager.com
       https://www.google-analytics.com;
     style-src 'self' 'nonce-${nonce}';
-    img-src 'self' data: blob: https: https://www.google-analytics.com;
+    img-src 'self' data: blob:
+      https://*.clerk.com
+      https://clerk.wealix.app
+      https://accounts.wealix.app
+      https://img.clerk.com
+      https://www.google-analytics.com
+      https://www.googletagmanager.com;
     font-src 'self' data: https://clerk.wealix.app https://accounts.wealix.app;
     connect-src 'self'
       https://*.clerk.com
@@ -216,7 +231,12 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
   const { pathname } = req.nextUrl;
   const hostname = req.nextUrl.hostname.toLowerCase();
 
-  const blockedPaths = ['/wp-admin', '/wp-login', '/xmlrpc', '/.env', '/.git', '/phpmyadmin'];
+  // Bug #019 fix: expanded attack path blocklist.
+  const blockedPaths = [
+    '/wp-admin', '/wp-login', '/xmlrpc', '/.env', '/.git', '/phpmyadmin',
+    '/vendor/', '/node_modules/', '/.DS_Store', '/backup/', '/dump/',
+    '/.well-known/acme-challenge',
+  ];
   if (blockedPaths.some((p) => pathname.startsWith(p))) {
     return applySecurityHeaders(new NextResponse('Not Found', { status: 404 }), pathname, nonce);
   }
