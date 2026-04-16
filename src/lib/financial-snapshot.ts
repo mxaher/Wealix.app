@@ -581,8 +581,6 @@ function buildSnapshotFromRawData(params: FinancialWorkspaceData): FinancialSnap
   const totalLockedSavings = savingsAccounts
     .filter((account) => account.status === 'active' && !isLiquidSavingsAccount(account))
     .reduce((sum, account) => sum + account.currentBalance, 0);
-  const syncedObligationLiabilityTotal = recurringObligations.reduce((sum, obligation) => sum + obligation.amount, 0);
-
   const portfolioValue = holdings.reduce((sum, holding) => sum + (holding.shares * holding.currentPrice), 0);
   const stocks = holdings
     .filter((holding) => classifyHoldingAssetClass(holding) !== 'funds')

@@ -16,6 +16,7 @@
     "upload": "opennextjs-cloudflare build && wrangler versions upload",
     "cf-typegen": "wrangler types",
     "test": "bun test src/",
+    "test:unit": "bun test src/",
     "lint": "eslint .",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test e2e/specs/smoke",
