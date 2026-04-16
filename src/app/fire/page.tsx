@@ -47,7 +47,10 @@ import {
 
 // FIRE calculation functions
 function calculateFireNumber(annualExpenses: number, withdrawalRate: number): number {
-  return annualExpenses / (withdrawalRate / 100);
+  if (!withdrawalRate || withdrawalRate <= 0 || withdrawalRate > 100) return 0;
+  if (annualExpenses <= 0) return 0;
+  const result = annualExpenses / (withdrawalRate / 100);
+  return Number.isFinite(result) ? result : 0;
 }
 
 function calculateYearsToFire(
@@ -130,7 +133,7 @@ export default function FirePage() {
   const progress = useMemo(
     () => (
       financialSettings.fireTarget > 0
-        ? Number(Math.min((currentInvestableAssets / fireNumber) * 100, 100).toFixed(2))
+        ? (fireNumber > 0 ? Number(Math.min((currentInvestableAssets / fireNumber) * 100, 100).toFixed(2)) : 0)
         : snapshot.fire.progressPct
     ),
     [currentInvestableAssets, financialSettings.fireTarget, fireNumber, snapshot.fire.progressPct]

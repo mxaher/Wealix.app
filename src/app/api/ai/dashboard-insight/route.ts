@@ -136,13 +136,6 @@ Return exactly 4 plain text sentences, one per line. No markdown, no headers.`;
         fallbackModelId: selection.defaultModelId,
       });
       responseContent = aiResult.content;
-
-      // Log successful insight generation
-      console.log('[ai/dashboard-insight] AI insight generated successfully', {
-        userId: authResult.userId!,
-        model: aiResult.model.modelId,
-        source: 'ai-generated',
-      });
     } catch (aiError) {
       console.error('[ai/dashboard-insight] AI service error:', aiError);
       

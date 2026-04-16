@@ -2068,10 +2068,11 @@ if (typeof window !== 'undefined' && isE2EAuthEnabled()) {
 // \u2500\u2500\u2500 Derived selectors \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 export function formatCurrency(
-  amount: number,
+  amount: number | null | undefined,
   currency = 'SAR',
   locale: Locale = 'en'
 ): string {
+  if (amount == null || !Number.isFinite(amount)) return '—';
   const lang = locale === 'ar' ? 'ar-SA' : 'en-US';
   return new Intl.NumberFormat(lang, {
     style: 'currency',
@@ -2259,10 +2260,11 @@ export function formatDate(
 }
 
 export function formatPercent(
-  value: number,
+  value: number | null | undefined,
   locale: Locale = 'en',
   decimals = 2
 ): string {
+  if (value == null || !Number.isFinite(value)) return '—';
   const sign = value >= 0 ? '+' : '';
   return `${sign}${formatNumber(value, locale, {
     minimumFractionDigits: decimals,
