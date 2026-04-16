@@ -123,73 +123,9 @@ export async function seedWorkspace(page: Page, workspace: RemoteWorkspaceSnapsh
     throw new Error(`Seed confirmation failed with ${confirmedResult.status}: ${JSON.stringify(confirmedResult.data)}`);
   }
 
-  await page.evaluate(({ nextWorkspace, e2eUser }) => {
-    const getState = (window as Window & {
-      __WEALIX_E2E_GET_STATE__?: () => Record<string, unknown>;
-      __WEALIX_E2E_SET_STATE__?: (partial: Record<string, unknown>) => void;
-    }).__WEALIX_E2E_GET_STATE__;
-    const setState = (window as Window & {
-      __WEALIX_E2E_SET_STATE__?: (partial: Record<string, unknown>) => void;
-    }).__WEALIX_E2E_SET_STATE__;
-
-    if (!getState || !setState) {
-      throw new Error('Missing live E2E store accessors.');
-    }
-
-    const state = getState();
-    const timestamp = new Date().toISOString();
-    const existingProfiles = Array.isArray(state.profiles) ? state.profiles.filter((profile) => {
-      return profile && typeof profile === 'object' && (profile as { id?: string }).id !== e2eUser.id;
-    }) : [];
-
-    const liveProfile = {
-      id: e2eUser.id,
-      label: e2eUser.name,
-      email: e2eUser.email,
-      avatarUrl: e2eUser.avatarUrl,
-      appMode: 'live',
-      startPage: nextWorkspace.startPage,
-      user: e2eUser,
-      notificationPreferences: nextWorkspace.notificationPreferences,
-      notificationFeed: nextWorkspace.notificationFeed,
-      incomeEntries: nextWorkspace.incomeEntries,
-      expenseEntries: nextWorkspace.expenseEntries,
-      receiptScans: nextWorkspace.receiptScans,
-      portfolioHoldings: nextWorkspace.portfolioHoldings,
-      portfolioAnalysisHistory: nextWorkspace.portfolioAnalysisHistory,
-      investmentDecisionHistory: nextWorkspace.investmentDecisionHistory,
-      assets: nextWorkspace.assets,
-      liabilities: nextWorkspace.liabilities,
-      budgetLimits: nextWorkspace.budgetLimits,
-      recurringObligations: nextWorkspace.recurringObligations ?? [],
-      oneTimeExpenses: nextWorkspace.oneTimeExpenses ?? [],
-      savingsAccounts: nextWorkspace.savingsAccounts ?? [],
-    };
-
-    setState({
-      appMode: 'live',
-      startPage: nextWorkspace.startPage,
-      user: e2eUser,
-      notificationPreferences: nextWorkspace.notificationPreferences,
-      notificationFeed: nextWorkspace.notificationFeed,
-      profiles: [...existingProfiles, liveProfile],
-      activeProfileId: e2eUser.id,
-      financialStateVersion: typeof state.financialStateVersion === 'number' ? state.financialStateVersion + 1 : 1,
-      financialStateUpdatedAt: timestamp,
-      incomeEntries: nextWorkspace.incomeEntries,
-      expenseEntries: nextWorkspace.expenseEntries,
-      receiptScans: nextWorkspace.receiptScans,
-      portfolioHoldings: nextWorkspace.portfolioHoldings,
-      portfolioAnalysisHistory: nextWorkspace.portfolioAnalysisHistory,
-      investmentDecisionHistory: nextWorkspace.investmentDecisionHistory,
-      assets: nextWorkspace.assets,
-      liabilities: nextWorkspace.liabilities,
-      budgetLimits: nextWorkspace.budgetLimits,
-      recurringObligations: nextWorkspace.recurringObligations ?? [],
-      oneTimeExpenses: nextWorkspace.oneTimeExpenses ?? [],
-      savingsAccounts: nextWorkspace.savingsAccounts ?? [],
-    });
-  }, { nextWorkspace: workspace, e2eUser: E2E_USER });
-
-  await page.waitForLoadState('domcontentloaded').catch(() => null);
+  // Avoid mutating the live Zustand store from inside page.evaluate here.
+  // The persisted workspace is already correct in localStorage and on the API;
+  // forcing a full in-page setState can trigger a long persist + render cycle
+  // that stalls Playwright waiting for evaluate() to settle.
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 }
