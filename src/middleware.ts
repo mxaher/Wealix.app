@@ -155,17 +155,18 @@ function handleStaleHandshake(req: NextRequest): NextResponse | null {
 function buildContentSecurityPolicy(nonce: string) {
   return `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}'
+    script-src 'self' 'unsafe-inline' 'nonce-${nonce}'
       https://*.clerk.com
       https://clerk.wealix.app
       https://accounts.wealix.app
       https://challenges.cloudflare.com
       https://www.googletagmanager.com
       https://www.google-analytics.com;
-    style-src 'self' 'nonce-${nonce}'
+    style-src 'self' 'unsafe-inline' 'nonce-${nonce}'
       https://*.clerk.com
       https://clerk.wealix.app
       https://accounts.wealix.app;
+    worker-src 'self' blob:;
     img-src 'self' data: blob:
       https://*.clerk.com
       https://clerk.wealix.app
