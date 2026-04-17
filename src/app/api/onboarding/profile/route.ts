@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { saveFinancialSettings } from '@/lib/financial-settings-storage';
-import { getOnboardingDoneCookieOptions, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
+import { generateSignedOnboardingCookieValue, getOnboardingDoneCookieOptions, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
 import { getOnboardingProfile, saveOnboardingProfile } from '@/lib/onboarding-profile-storage';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
   });
 
   const response = NextResponse.json({ success: true });
-  response.cookies.set(ONBOARDING_DONE_COOKIE, '1', getOnboardingDoneCookieOptions());
+  // Bug #006 fix: use HMAC-signed cookie value tied to this userId.
+  response.cookies.set(ONBOARDING_DONE_COOKIE, await generateSignedOnboardingCookieValue(userId), getOnboardingDoneCookieOptions());
   return response;
 }

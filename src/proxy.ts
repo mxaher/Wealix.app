@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { type NextFetchEvent, type NextRequest, NextResponse } from 'next/server';
 import { isE2ERequestAuthenticated } from '@/lib/e2e-auth';
-import { hasCompletedOnboardingCookie, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
+import { verifyOnboardingCookieValue, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app';
 const APP_ORIGIN = new URL(APP_URL);
@@ -170,7 +170,10 @@ function buildContentSecurityPolicy(nonce: string) {
       https://challenges.cloudflare.com
       https://www.googletagmanager.com
       https://www.google-analytics.com;
-    style-src 'self' 'nonce-${nonce}';
+    style-src 'self' 'nonce-${nonce}'
+      https://*.clerk.com
+      https://clerk.wealix.app
+      https://accounts.wealix.app;
     img-src 'self' data: blob:
       https://*.clerk.com
       https://clerk.wealix.app
@@ -279,20 +282,41 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
     }
 
     if (isProtectedApiRoute(request)) {
+      // Bug #014 fix: CSRF — reject cross-origin state-mutating requests.
+      // Browsers omit the Origin header for same-origin requests (those are safe).
+      // When Origin IS present it must match the app hostname; anything else is a
+      // cross-site request and gets rejected before auth even runs.
+      const method = request.method.toUpperCase();
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        const origin = request.headers.get('origin');
+        if (origin) {
+          let allowed = false;
+          try {
+            allowed = isAllowedHost(new URL(origin).hostname);
+          } catch {
+            allowed = false;
+          }
+          if (!allowed) {
+            return applySecurityHeaders(
+              new NextResponse('Forbidden', { status: 403 }),
+              pathname,
+              nonce
+            );
+          }
+        }
+      }
       await auth.protect();
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     if (isAppRoute(request)) {
-      await auth.protect();
+      // Bug #006 fix: capture userId so the HMAC-signed cookie can be verified
+      // against the authenticated user — prevents cookie-swapping across accounts.
+      const { userId } = await auth.protect();
 
       if (!request.nextUrl.pathname.startsWith('/onboarding')) {
         const onboardingDone = request.cookies.get(ONBOARDING_DONE_COOKIE)?.value;
-        // Bug #18: cookie is a performance cache only — actual onboarding state is
-        // validated server-side in the onboarding API. The cookie prevents repeated
-        // redirects for users who completed onboarding, but cannot be relied upon
-        // as the sole authorization gate for subscription access.
-        if (!hasCompletedOnboardingCookie(onboardingDone)) {
+        if (!(await verifyOnboardingCookieValue(onboardingDone, userId))) {
           return NextResponse.redirect(new URL('/onboarding', request.url));
         }
       }
@@ -308,7 +332,7 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
 
       if (userId) {
         const onboardingDone = request.cookies.get(ONBOARDING_DONE_COOKIE)?.value;
-        if (!hasCompletedOnboardingCookie(onboardingDone)) {
+        if (!(await verifyOnboardingCookieValue(onboardingDone, userId))) {
           return NextResponse.redirect(new URL('/onboarding', request.url));
         }
         requestHeaders.set('x-demo-mode', 'false');

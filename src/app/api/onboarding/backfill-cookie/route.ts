@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { generateSignedOnboardingCookieValue, getOnboardingDoneCookieOptions, ONBOARDING_DONE_COOKIE } from '@/lib/onboarding-guard';
 
 /**
  * GET /api/onboarding/backfill-cookie
@@ -20,13 +21,8 @@ export async function GET() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wealix.app';
   const response = NextResponse.redirect(new URL('/app', appUrl));
 
-  response.cookies.set('onboarding_done', '1', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 365, // 1 year
-    path: '/',
-  });
+  // Bug #006 fix: use HMAC-signed cookie value and shared options helper.
+  response.cookies.set(ONBOARDING_DONE_COOKIE, await generateSignedOnboardingCookieValue(userId), getOnboardingDoneCookieOptions());
 
   return response;
 }
