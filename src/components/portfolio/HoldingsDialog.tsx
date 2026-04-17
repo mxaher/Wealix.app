@@ -205,7 +205,7 @@ function MarketCombobox({
   const selectedOption = MARKETS_LIST.find((option) => option.value === value);
   const displayValue = selectedOption
     ? getLocalizedMarketLabel(selectedOption, isArabic)
-    : (value || (isArabic ? 'ابحث عن السوق أو البورصة...' : 'Search market or exchange...'));
+    : (value || (isArabic ? 'ابحث عن السوق...' : 'Search market or exchange...'));
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -236,7 +236,7 @@ function MarketCombobox({
             dir={isArabic ? 'rtl' : 'ltr'}
             value={query}
             onValueChange={onQueryChange}
-            placeholder={isArabic ? 'ابحث عن السوق أو البورصة...' : 'Search market or exchange...'}
+            placeholder={isArabic ? 'ابحث عن السوق...' : 'Search market or exchange...'}
             className={isArabic ? 'text-right' : 'text-left'}
           />
           <CommandList>

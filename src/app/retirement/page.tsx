@@ -154,51 +154,6 @@ export default function RetirementPage() {
           </div>
         </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-4">
-            <div>
-              <CardTitle>{isArabic ? 'إعدادات التقاعد المشتركة' : 'Shared Retirement Settings'}</CardTitle>
-              <CardDescription>
-                {isArabic
-                  ? 'سن التقاعد والدخل المستهدف متزامنان مع الإعدادات و FIRE.'
-                  : 'Retirement age and target income stay synced with Settings and FIRE.'}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{isArabic ? 'سن التقاعد المستهدف' : 'Target Retirement Age'}</Label>
-              <Input
-                type="number"
-                min="30"
-                max="100"
-                value={effectiveRetirementAge}
-                onChange={(event) => {
-                  const value = Number(event.target.value || 60);
-                  setRetirementAge(value);
-                  updateFinancialSettings({ fireTargetAge: value });
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{isArabic ? 'الدخل الشهري المستهدف' : 'Target Monthly Income'}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={effectiveTargetMonthlyIncome}
-                onChange={(event) => {
-                  const value = Number(event.target.value || 0);
-                  setTargetMonthlyIncome(value);
-                  updateFinancialSettings({
-                    monthlyIncome: value,
-                    annualIncome: value * 12,
-                  });
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Status Card */}
         <Card className={isOnTrack ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/30' : 'bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/30'}>
           <CardContent className="p-6">

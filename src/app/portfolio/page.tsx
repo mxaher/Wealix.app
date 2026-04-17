@@ -350,7 +350,7 @@ function MarketCombobox({
   const selectedOption = MARKETS_LIST.find((option) => option.value === value);
   const displayValue = selectedOption
     ? getLocalizedMarketLabel(selectedOption, isArabic)
-    : (value || (isArabic ? 'ابحث عن السوق أو البورصة...' : 'Search market or exchange...'));
+    : (value || (isArabic ? 'ابحث عن السوق...' : 'Search market or exchange...'));
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -381,7 +381,7 @@ function MarketCombobox({
             dir={isArabic ? 'rtl' : 'ltr'}
             value={query}
             onValueChange={onQueryChange}
-            placeholder={isArabic ? 'ابحث عن السوق أو البورصة...' : 'Search market or exchange...'}
+            placeholder={isArabic ? 'ابحث عن السوق...' : 'Search market or exchange...'}
             className={isArabic ? 'text-right' : 'text-left'}
           />
           <CommandList>
@@ -1590,7 +1590,7 @@ export default function PortfolioPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>{isArabic ? 'البورصة' : 'Exchange'}</Label>
+                      <Label>{isArabic ? 'السوق' : 'Exchange'}</Label>
                       <Select value={newHolding.exchange} onValueChange={(value) => setNewHolding({ ...newHolding, exchange: value })}>
                         <SelectTrigger>
                           <SelectValue />
@@ -1768,7 +1768,7 @@ export default function PortfolioPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{isArabic ? 'جميع البورصات' : 'All Exchanges'}</SelectItem>
+              <SelectItem value="all">{isArabic ? 'جميع الأسواق' : 'All Exchanges'}</SelectItem>
               {SUPPORTED_EXCHANGES.map((exchange) => (
                 <SelectItem key={exchange} value={exchange}>{exchange}</SelectItem>
               ))}
@@ -1852,7 +1852,7 @@ export default function PortfolioPage() {
                       <TableRow>
                         <TableHead>{isArabic ? 'الرمز' : 'Ticker'}</TableHead>
                         <TableHead>{isArabic ? 'الاسم' : 'Name'}</TableHead>
-                        <TableHead>{isArabic ? 'البورصة' : 'Exchange'}</TableHead>
+                        <TableHead>{isArabic ? 'السوق' : 'Exchange'}</TableHead>
                         <TableHead className="text-right">{isArabic ? 'الكمية' : 'Quantity'}</TableHead>
                         <TableHead className="text-right">{isArabic ? 'متوسط التكلفة' : 'Avg Cost'}</TableHead>
                         <TableHead className="text-right">{isArabic ? 'السعر الحالي' : 'Current'}</TableHead>
@@ -2471,7 +2471,7 @@ export default function PortfolioPage() {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 auto-rows-fr">
               <Card className="h-full">
                 <CardHeader>
-                  <CardTitle>{isArabic ? 'التوزيع حسب البورصة' : 'By Exchange'}</CardTitle>
+                  <CardTitle>{isArabic ? 'التوزيع حسب السوق' : 'By Exchange'}</CardTitle>
                 </CardHeader>
                 <CardContent className="h-full">
                   <div className="h-64">

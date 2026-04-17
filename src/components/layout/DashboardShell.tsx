@@ -15,10 +15,9 @@ interface DashboardShellProps {
 export function DashboardShell({ children }: DashboardShellProps) {
   const locale = useAppStore((state) => state.locale);
   const sidebarCollapsed = useAppStore((state) => state.sidebarCollapsed);
-  const isMobile = useAppStore((state) => state.isMobile);
   const setIsMobile = useAppStore((state) => state.setIsMobile);
   const isArabic = locale === 'ar';
-  const sidebarOffset = isMobile ? 0 : sidebarCollapsed ? 84 : 280;
+  const sidebarOffset = sidebarCollapsed ? 84 : 280;
 
   // Handle responsive behavior
   useEffect(() => {
@@ -44,9 +43,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       {/* Main Content Area — overflow-x-clip here, not on the root, so fixed children (Sidebar, BottomNav) aren't trapped on iOS Safari */}
       <div
-        style={{ marginInlineStart: sidebarOffset }}
+        style={{ ['--sidebar-offset' as string]: `${sidebarOffset}px` }}
         className={cn(
           'min-w-0 max-w-full overflow-x-clip transition-[margin] duration-200',
+          'md:[margin-inline-start:var(--sidebar-offset)]',
           'md:transition-none',
         )}
       >

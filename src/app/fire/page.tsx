@@ -238,49 +238,6 @@ export default function FirePage() {
           </div>
         </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-4">
-            <div>
-              <CardTitle>{isArabic ? 'إعدادات FIRE المشتركة' : 'Shared FIRE Settings'}</CardTitle>
-              <CardDescription>
-                {isArabic
-                  ? 'التعديلات هنا تنعكس فوراً في الإعدادات والدخل ولوحة التحكم.'
-                  : 'Changes here instantly sync with Settings, Income, and Dashboard.'}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>{isArabic ? 'هدف FIRE' : 'FIRE Target'}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={financialSettings.fireTarget}
-                onChange={(event) => updateFinancialSettings({ fireTarget: Number(event.target.value || 0) })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{isArabic ? 'المصروفات الشهرية' : 'Monthly Expenses'}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={financialSettings.monthlyExpenses}
-                onChange={(event) => updateFinancialSettings({ monthlyExpenses: Number(event.target.value || 0) })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{isArabic ? 'العمر المستهدف' : 'Target Age'}</Label>
-              <Input
-                type="number"
-                min="30"
-                max="100"
-                value={financialSettings.fireTargetAge}
-                onChange={(event) => updateFinancialSettings({ fireTargetAge: Number(event.target.value || 60) })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* FIRE Number Hero */}
         <Card className="bg-gradient-to-br from-orange-500/10 via-gold/10 to-emerald-500/10 border-gold/30">
           <CardContent className="p-8">

@@ -349,6 +349,19 @@ export default function AdvisorPage() {
     }
   };
 
+  const deleteMessage = (sessionId: string, messageId: string) => {
+    setSessions((prev) =>
+      prev.map((session) => {
+        if (session.id !== sessionId) {
+          return session;
+        }
+
+        const nextMessages = session.messages.filter((message) => message.id !== messageId);
+        return { ...session, messages: nextMessages };
+      })
+    );
+  };
+
   return (
     <DashboardShell>
       <FeatureGate feature="ai.advisor">
@@ -483,10 +496,11 @@ export default function AdvisorPage() {
               ) : (
                 <div className="space-y-4">
                   <AnimatePresence>
-                    {activeSession?.messages.map((message) => {
+                    {activeSession?.messages.map((message, index) => {
                       const assistantDirection = message.role === 'assistant'
                         ? getAssistantMessageDirection(message.content)
                         : 'ltr';
+                      const isOlderMessage = Boolean(activeSession && index < activeSession.messages.length - 1);
 
                       return (
                       <motion.div
@@ -504,20 +518,33 @@ export default function AdvisorPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className={`min-w-0 flex-1 ${message.role === 'user' || assistantDirection === 'rtl' ? 'text-right' : ''}`}>
-                          <div
-                            className={`inline-block max-w-[85%] min-w-0 rounded-lg p-3 align-top ${
-                              message.role === 'user'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'overflow-visible bg-muted pe-2'
-                            }`}
-                            dir={message.role === 'assistant' ? assistantDirection : undefined}
-                          >
-                            {message.role === 'assistant' ? (
-                              <div className="prose prose-sm max-w-none break-words leading-7 text-foreground dark:prose-invert [&_*]:break-words [&_code]:whitespace-pre-wrap [&_h1]:mb-3 [&_h1]:mt-0 [&_h2]:mb-2 [&_h2]:mt-4 [&_h3]:mb-2 [&_h3]:mt-4 [&_li]:my-1 [&_ol]:my-3 [&_ol]:ps-5 [&_p]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:my-3 [&_ul]:list-disc [&_ul]:ps-5">
-                                <ReactMarkdown>{message.content}</ReactMarkdown>
-                              </div>
-                            ) : (
-                              <p className="break-words text-sm whitespace-pre-wrap">{message.content}</p>
+                          <div className="group/message flex items-start gap-2">
+                            <div
+                              className={`inline-block max-w-[85%] min-w-0 rounded-lg p-3 align-top ${
+                                message.role === 'user'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'overflow-visible bg-muted pe-2'
+                              }`}
+                              dir={message.role === 'assistant' ? assistantDirection : undefined}
+                            >
+                              {message.role === 'assistant' ? (
+                                <div className="prose prose-sm max-w-none break-words leading-7 text-foreground dark:prose-invert [&_*]:break-words [&_code]:whitespace-pre-wrap [&_h1]:mb-3 [&_h1]:mt-0 [&_h2]:mb-2 [&_h2]:mt-4 [&_h3]:mb-2 [&_h3]:mt-4 [&_li]:my-1 [&_ol]:my-3 [&_ol]:ps-5 [&_p]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_ul]:my-3 [&_ul]:list-disc [&_ul]:ps-5">
+                                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                                </div>
+                              ) : (
+                                <p className="break-words text-sm whitespace-pre-wrap">{message.content}</p>
+                              )}
+                            </div>
+                            {isOlderMessage && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="mt-1 h-7 w-7 opacity-0 transition-opacity group-hover/message:opacity-100"
+                                aria-label={isArabic ? 'حذف رسالة قديمة' : 'Delete older message'}
+                                onClick={() => deleteMessage(activeSessionId, message.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">

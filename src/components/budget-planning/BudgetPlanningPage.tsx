@@ -236,7 +236,7 @@ const defaultOneTimeExpenseForm = {
 
 const defaultSavingsAccountForm = {
   name: '',
-  type: 'awaeed' as SavingsAccount['type'],
+  type: 'standard_savings' as SavingsAccount['type'],
   provider: 'Al Rajhi',
   principal: '',
   currentBalance: '',
@@ -254,6 +254,35 @@ type BudgetPlanningSection = typeof sectionOrder[number];
 
 function categoryLabel(category: string, isArabic: boolean) {
   return isArabic ? categoryLabels[category]?.ar ?? category : categoryLabels[category]?.en ?? category;
+}
+
+function savingsAccountTypeLabel(type: SavingsAccount['type'], isArabic: boolean) {
+  if (type === 'current') {
+    return isArabic ? 'جاري' : 'Current';
+  }
+
+  if (type === 'standard_savings') {
+    return isArabic ? 'ادخار' : 'Saving';
+  }
+
+  if (type === 'awaeed' || type === 'mudarabah' || type === 'hassad') {
+    return isArabic ? 'وديعة لأجل' : 'Time Deposit';
+  }
+
+  return type;
+}
+
+function savingsPayoutMethodLabel(method: SavingsAccount['profitPayoutMethod'], isArabic: boolean) {
+  if (method === 'at_maturity') {
+    return isArabic ? 'عند الاستحقاق' : 'At Maturity';
+  }
+  if (method === 'monthly') {
+    return isArabic ? 'شهري' : 'Monthly';
+  }
+  if (method === 'in_advance') {
+    return isArabic ? 'مقدمًا' : 'In Advance';
+  }
+  return method;
 }
 
 function cardDirectionProps(isArabic: boolean) {
@@ -998,17 +1027,17 @@ export function BudgetPlanningPage({
   };
 
   const notificationChannelSummary = notificationPreferences.whatsapp
-    ? 'WhatsApp'
+    ? (isArabic ? 'واتساب' : 'WhatsApp')
     : notificationPreferences.sms
-      ? 'SMS'
+      ? (isArabic ? 'رسائل نصية' : 'SMS')
       : notificationPreferences.push
         ? isArabic ? 'داخل التطبيق' : 'In-app'
-        : 'Email';
+        : isArabic ? 'البريد الإلكتروني' : 'Email';
   const cardProps = cardDirectionProps(isArabic);
 
   return (
     <DashboardShell>
-      <div dir={isArabic ? 'rtl' : 'ltr'} className="space-y-6">
+      <div dir={isArabic ? 'rtl' : 'ltr'} className={cn('space-y-6', isArabic && 'text-right')}>
         <div className="flex flex-col gap-4 rounded-3xl border border-border/60 bg-gradient-to-br from-background via-background to-primary/5 p-6 shadow-card">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
@@ -1029,10 +1058,10 @@ export function BudgetPlanningPage({
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-3 overflow-x-auto pb-1">
               <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2" disabled={!isSignedIn}>
+                  <Button className="shrink-0 gap-2" disabled={!isSignedIn}>
                     <Plus className="h-4 w-4" />
                     {isArabic ? 'إضافة مصروف' : 'Add Expense'}
                   </Button>
@@ -1071,7 +1100,7 @@ export function BudgetPlanningPage({
 
               <Dialog open={showAddObligation} onOpenChange={setShowAddObligation}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" onClick={(event) => {
+                  <Button variant="outline" className="shrink-0 gap-2" onClick={(event) => {
                     if (!isSignedIn) {
                       event.preventDefault();
                       requireAccount();
@@ -1148,7 +1177,7 @@ export function BudgetPlanningPage({
 
               <Dialog open={showAddOneTimeExpense} onOpenChange={setShowAddOneTimeExpense}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" onClick={(event) => {
+                  <Button variant="outline" className="shrink-0 gap-2" onClick={(event) => {
                     if (!isSignedIn) {
                       event.preventDefault();
                       requireAccount();
@@ -1204,7 +1233,7 @@ export function BudgetPlanningPage({
                     </div>
                     <div className="space-y-2">
                       <Label dir={isArabic ? 'rtl' : 'ltr'}>{isArabic ? 'مصدر التمويل' : 'Funding source'}</Label>
-                      <Input dir={isArabic ? 'rtl' : 'ltr'} value={oneTimeExpenseForm.fundingSource} onChange={(event) => setOneTimeExpenseForm((current) => ({ ...current, fundingSource: event.target.value }))} placeholder={isArabic ? 'مثال: الحساب الجاري أو عوائد' : 'Example: current account or Awaeed'} />
+                      <Input dir={isArabic ? 'rtl' : 'ltr'} value={oneTimeExpenseForm.fundingSource} onChange={(event) => setOneTimeExpenseForm((current) => ({ ...current, fundingSource: event.target.value }))} placeholder={isArabic ? 'مثال: حساب جاري أو وديعة لأجل' : 'Example: current account or time deposit'} />
                     </div>
                   </div>
                   <DialogFooter>
@@ -1216,19 +1245,19 @@ export function BudgetPlanningPage({
 
               <Dialog open={showAddSavingsAccount} onOpenChange={setShowAddSavingsAccount}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" onClick={(event) => {
+                  <Button variant="outline" className="shrink-0 gap-2" onClick={(event) => {
                     if (!isSignedIn) {
                       event.preventDefault();
                       requireAccount();
                     }
                   }}>
                     <PiggyBank className="h-4 w-4" />
-                    {isArabic ? 'حساب ادخار / عوائد' : 'Savings / Awaeed'}
+                    {isArabic ? 'Add account - إضافة حساب' : 'Add account'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent dir={isArabic ? 'rtl' : 'ltr'} className="max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>{isArabic ? 'إضافة حساب ادخار أو عوائد' : 'Add Savings or Awaeed Account'}</DialogTitle>
+                    <DialogTitle>{isArabic ? 'إضافة حساب' : 'Add account'}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
@@ -1264,10 +1293,8 @@ export function BudgetPlanningPage({
                           <SelectTrigger dir={isArabic ? 'rtl' : 'ltr'}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="current">{isArabic ? 'جاري' : 'Current'}</SelectItem>
-                            <SelectItem value="awaeed">Awaeed</SelectItem>
-                            <SelectItem value="mudarabah">Mudarabah</SelectItem>
-                            <SelectItem value="hassad">Hassad</SelectItem>
-                            <SelectItem value="standard_savings">{isArabic ? 'ادخار عادي' : 'Standard Savings'}</SelectItem>
+                            <SelectItem value="standard_savings">{isArabic ? 'ادخار' : 'Saving'}</SelectItem>
+                            <SelectItem value="awaeed">{isArabic ? 'وديعة لأجل' : 'Time Deposit'}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1390,7 +1417,11 @@ export function BudgetPlanningPage({
                       </CardDescription>
                     </div>
                     <Badge variant={!hasAiSnapshot ? 'secondary' : dailySnapshot.daily_headline.sentiment === 'alert' ? 'destructive' : 'outline'}>
-                      {!hasAiSnapshot ? (isArabic ? 'جاهز' : 'Ready') : dailySnapshot.daily_headline.sentiment}
+                      {!hasAiSnapshot
+                        ? (isArabic ? 'جاهز' : 'Ready')
+                        : isArabic
+                          ? (dailySnapshot.daily_headline.sentiment === 'alert' ? 'تنبيه' : 'مستقر')
+                          : dailySnapshot.daily_headline.sentiment}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -1498,7 +1529,11 @@ export function BudgetPlanningPage({
                       <div key={item.notification_id} dir={isArabic ? 'rtl' : 'ltr'} className="rounded-2xl border p-4">
                         <div dir={isArabic ? 'rtl' : 'ltr'} className="flex items-center justify-between gap-3">
                           <p className="font-semibold">{item.title}</p>
-                          <Badge variant={item.urgency === 'critical' ? 'destructive' : 'outline'}>{item.urgency}</Badge>
+                          <Badge variant={item.urgency === 'critical' ? 'destructive' : 'outline'}>
+                            {isArabic
+                              ? (item.urgency === 'critical' ? 'حرج' : item.urgency === 'high' ? 'عالٍ' : item.urgency === 'medium' ? 'متوسط' : 'منخفض')
+                              : item.urgency}
+                          </Badge>
                         </div>
                         <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
                       </div>
@@ -1743,13 +1778,13 @@ export function BudgetPlanningPage({
 
               <Card {...cardProps}>
                 <CardHeader className={isArabic ? 'text-right' : ''}>
-                  <CardTitle>{isArabic ? 'الحسابات الادخارية والعوائد' : 'Savings & Awaeed Accounts'}</CardTitle>
+                  <CardTitle>{isArabic ? 'الحسابات البنكية' : 'Accounts'}</CardTitle>
                   <CardDescription>{isArabic ? 'استخدم حسابات الربح عند الاستحقاق للحاجات المرتبطة بموعد محدد.' : 'Use at-maturity profit accounts for time-bound obligations.'}</CardDescription>
                 </CardHeader>
                 <CardContent className={`space-y-3 ${isArabic ? 'text-right' : ''}`}>
                   {savingsAccounts.length === 0 ? (
                     <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-                      {isArabic ? 'أضف الحساب الجاري أو حساب عوائد لربط التمويل بالالتزامات.' : 'Add your current account or Awaeed accounts here.'}
+                      {isArabic ? 'أضف حساباً جارياً أو ادخاراً أو وديعة لأجل لربط التمويل بالالتزامات.' : 'Add a current, saving, or time-deposit account here.'}
                     </div>
                   ) : (
                     savingsAccounts.map((account) => (
@@ -1757,9 +1792,9 @@ export function BudgetPlanningPage({
                         <div dir={isArabic ? 'rtl' : 'ltr'} className="flex items-center justify-between gap-3">
                           <div>
                             <p className="font-medium">{account.name}</p>
-                            <p className="text-sm text-muted-foreground">{account.provider} • {account.type}</p>
+                            <p className="text-sm text-muted-foreground">{account.provider} • {savingsAccountTypeLabel(account.type, isArabic)}</p>
                           </div>
-                          <Badge variant="outline">{account.profitPayoutMethod}</Badge>
+                          <Badge variant="outline">{savingsPayoutMethodLabel(account.profitPayoutMethod, isArabic)}</Badge>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted-foreground">
                           <span>{formatCurrency(account.currentBalance, 'SAR', locale)}</span>
