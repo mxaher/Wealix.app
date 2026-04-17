@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { SignIn } from '@clerk/nextjs';
 
 export const dynamic = 'force-dynamic';
+const fallbackRedirectUrl =
+  process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL || '/onboarding';
+
 export const metadata: Metadata = {
   title: 'Sign In | Wealix',
   description: 'Sign in to your Wealix account to access your private wealth dashboard and portfolio tools.',
@@ -33,7 +36,7 @@ export default function SignInPage() {
             routing="path"
             path="/sign-in"
             signUpUrl="/sign-up"
-            fallbackRedirectUrl="/app"
+            fallbackRedirectUrl={fallbackRedirectUrl}
           />
         </div>
       </div>

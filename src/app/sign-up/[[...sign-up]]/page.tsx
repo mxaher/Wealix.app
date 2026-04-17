@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { SignUp } from '@clerk/nextjs';
 
 export const dynamic = 'force-dynamic';
+const fallbackRedirectUrl =
+  process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL || '/onboarding';
+
 export const metadata: Metadata = {
   title: 'Create Account | Wealix',
   description: 'Create your Wealix account to start tracking net worth, investments, budgets, and FIRE goals.',
@@ -34,7 +37,7 @@ export default function SignUpPage() {
             routing="path"
             path="/sign-up"
             signInUrl="/sign-in"
-            fallbackRedirectUrl="/onboarding"
+            fallbackRedirectUrl={fallbackRedirectUrl}
           />
         </div>
       </div>

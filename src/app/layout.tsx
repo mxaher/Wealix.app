@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { headers } from "next/headers";
 import { Inter, Tajawal } from "next/font/google";
 import "@fontsource/tajawal/400.css";
 import "@fontsource/tajawal/500.css";
@@ -148,11 +149,19 @@ const organizationSchema = {
   sameAs: ["https://x.com/WealixApp"],
 };
 
-export default function RootLayout({
+const signInFallbackRedirectUrl =
+  process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL || "/onboarding";
+const signUpFallbackRedirectUrl =
+  process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL || "/onboarding";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
@@ -171,9 +180,12 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-background text-foreground font-sans">
         <ClerkProvider
+          nonce={nonce}
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
+          signInFallbackRedirectUrl={signInFallbackRedirectUrl}
+          signUpFallbackRedirectUrl={signUpFallbackRedirectUrl}
           afterSignOutUrl="/"
         >
           <ThemeProvider
