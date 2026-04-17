@@ -37,6 +37,7 @@ const isPublicRoute = createRouteMatcher([
   '/markets(.*)',
   '/samples(.*)',
   '/api/webhooks/stripe(.*)',
+  '/api/webhooks/sentdm(.*)',
 ]);
 const isProtectedApiRoute = createRouteMatcher(['/api(.*)']);
 const isAdminPanelRoute = createRouteMatcher([

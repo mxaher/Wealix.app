@@ -168,7 +168,7 @@ export async function sendBudgetPlanningMessage(message: BudgetPlanningMessage, 
 
   const sendEmail = deps.sendEmail ?? sendViaCloudflareEmail;
   const sendSentDm = deps.sendSentDm ?? sendViaSentDm;
-  const results = await Promise.all(
+  const settled = await Promise.allSettled(
     targets.map((target) => {
       if (target.channel === 'email') {
         return sendEmail(target, message);
@@ -178,5 +178,10 @@ export async function sendBudgetPlanningMessage(message: BudgetPlanningMessage, 
     })
   );
 
-  return { delivered: true, reason: null, results };
+  const results = settled.map((r) =>
+    r.status === 'fulfilled' ? r.value : { error: r.reason instanceof Error ? r.reason.message : String(r.reason) }
+  );
+  const anyDelivered = settled.some((r) => r.status === 'fulfilled');
+
+  return { delivered: anyDelivered, reason: null, results };
 }

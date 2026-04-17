@@ -6,8 +6,6 @@ import { getOptionalStorageBucket } from '@/lib/cloudflare-env';
 import { loadRemoteWorkspace } from '@/lib/remote-user-data';
 import { dbRun } from '@/lib/db';
 
-export const runtime = 'nodejs';
-
 const generateSchema = z.object({
   reportType: z.enum(['monthly-summary', 'net-worth-report', 'investment-report']),
   options: z
