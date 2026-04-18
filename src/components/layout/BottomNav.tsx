@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, useSubscription } from '@/store/useAppStore';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -96,11 +96,12 @@ export function BottomNav() {
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[60vh] rounded-t-2xl">
-              <div className="py-4">
-                <h3 className="text-lg font-semibold mb-4">
+              <SheetHeader className="mb-2">
+                <SheetTitle>
                   {isArabic ? 'القائمة' : 'Menu'}
-                </h3>
-                <ScrollArea className="h-[calc(60vh-6rem)]">
+                </SheetTitle>
+              </SheetHeader>
+                <ScrollArea className="h-[calc(60vh-5rem)]">
                   <div className="grid grid-cols-3 gap-4">
                     {allNavItems.map((item) => {
                       const isActive = pathname === item.href || (item.href === '/budget-planning' && (pathname === '/budget' || pathname === '/planning'));
