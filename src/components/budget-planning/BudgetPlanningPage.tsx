@@ -1245,7 +1245,7 @@ export function BudgetPlanningPage({
                     }
                   }}>
                     <PiggyBank className="h-4 w-4" />
-                    {isArabic ? 'Add account - إضافة حساب' : 'Add account'}
+                    {isArabic ? 'إضافة حساب' : 'Add account'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent dir={isArabic ? 'rtl' : 'ltr'} className="max-h-[90vh] overflow-y-auto">
@@ -1757,7 +1757,7 @@ export function BudgetPlanningPage({
                       <div key={item.id} dir={isArabic ? 'rtl' : 'ltr'} className="flex items-center gap-3 rounded-lg border p-4">
                         <div className="min-w-0 flex-1">
                           <p className="font-medium">{item.title}</p>
-                          <p className="text-sm text-muted-foreground">{item.dueDate} • {item.priority}</p>
+                          <p className="text-sm text-muted-foreground">{item.dueDate} • {isArabic ? ({ critical: 'حرج', high: 'عالٍ', medium: 'متوسط', low: 'منخفض' } as Record<string, string>)[item.priority] ?? item.priority : item.priority}</p>
                         </div>
                         <p className="font-semibold">{formatCurrency(item.amount, item.currency, locale)}</p>
                         <Button variant="ghost" size="icon" disabled={!isSignedIn} onClick={() => deleteOneTimeExpense(item.id)}>
