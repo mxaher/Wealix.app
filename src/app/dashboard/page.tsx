@@ -180,9 +180,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Health score + KPIs */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {/* Health score card — spans 2 cols on xl */}
-          <Card className="xl:col-span-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {/* Health score card — spans 2 cols on lg+ to keep 5 top cards in one row */}
+          <Card className="lg:col-span-2">
             <CardContent className="p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>

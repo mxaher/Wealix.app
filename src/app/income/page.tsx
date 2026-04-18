@@ -156,7 +156,7 @@ export default function IncomePage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="w-full space-y-6">
         {!isSignedIn && (
           <Card className="border-dashed">
             <CardContent className="p-4 text-sm text-muted-foreground">

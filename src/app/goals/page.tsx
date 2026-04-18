@@ -231,7 +231,7 @@ export default function GoalsPage() {
 
   return (
     <DashboardShell>
-      <div className="space-y-6">
+      <div className="w-full space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">{isArabic ? 'الأهداف المالية' : 'Financial Goals'}</h1>

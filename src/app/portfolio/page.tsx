@@ -1293,7 +1293,7 @@ export default function PortfolioPage() {
 
   return (
     <DashboardShell>
-      <div className="min-w-0 max-w-full space-y-6">
+      <div className="w-full min-w-0 max-w-full space-y-6">
         {!isSignedIn && (
           <Card className="border-dashed">
             <CardContent className="p-4 text-sm text-muted-foreground">
