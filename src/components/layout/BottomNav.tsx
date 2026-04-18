@@ -132,7 +132,6 @@ export function BottomNav() {
                     })}
                   </div>
                 </ScrollArea>
-              </div>
             </SheetContent>
           </Sheet>
         </div>
