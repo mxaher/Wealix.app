@@ -68,8 +68,8 @@
   --radius: 0.625rem;
 
   /* Fonts */
-  --font-body: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
-  --font-script-arabic: var(--font-tajawal), "Tajawal", sans-serif;
+  --font-body: var(--font-inter), "Inter", var(--font-tajawal), "Tajawal", system-ui, -apple-system, sans-serif;
+  --font-script-arabic: var(--font-tajawal), "Tajawal", var(--font-inter), "Inter", sans-serif;
 
   /* Surfaces */
   --background: #F8F8F6;
@@ -211,19 +211,6 @@
   --info: #2563EB;
 }
 
-/* ─── Font Stacks ─── */
-@font-face {
-  font-family: "WealixBody";
-  src: local("Inter");
-  unicode-range: U+0020-007F, U+00A0-00FF;
-}
-
-@font-face {
-  font-family: "WealixBody";
-  src: local("Tajawal");
-  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
-}
-
 /* ─── Base Reset ─── */
 @layer base {
   * {
@@ -236,7 +223,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "WealixBody", var(--font-body);
+    font-family: var(--font-body);
     line-height: 1.5;
   }
   h1, h2, h3, h4, h5, h6 {
