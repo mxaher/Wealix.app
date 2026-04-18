@@ -495,6 +495,25 @@ html[dir="rtl"] body,
   .rhythm-page .rhythm-card [data-slot="card-header"] {
     padding-bottom: 0.75rem;
   }
+
+  .rhythm-page > div:first-child > h1 {
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .rhythm-page > div:first-child > p {
+    margin-top: 0.25rem;
+    line-height: 1.5;
+  }
+
+  .rhythm-page .rhythm-card [data-slot="card-title"] {
+    line-height: 1.3;
+  }
+
+  .rhythm-page .rhythm-card [data-slot="card-description"] {
+    margin-top: 0.125rem;
+    line-height: 1.45;
+  }
 }
 
 /* ─── Shimmer skeleton ─── */
