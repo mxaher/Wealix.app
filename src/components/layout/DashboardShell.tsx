@@ -17,7 +17,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const sidebarCollapsed = useAppStore((state) => state.sidebarCollapsed);
   const setIsMobile = useAppStore((state) => state.setIsMobile);
   const isArabic = locale === 'ar';
-  const sidebarOffset = sidebarCollapsed ? 84 : 280;
+  const sidebarOffset = sidebarCollapsed ? 72 : 260;
 
   // Handle responsive behavior
   useEffect(() => {

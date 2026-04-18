@@ -451,8 +451,6 @@ export function LandingPageClient() {
 
       <main>
         <section className="relative overflow-hidden px-4 pt-28 pb-20 sm:px-6 lg:px-8 lg:pt-34 lg:pb-28">
-          <div className="hero-orbit pointer-events-none absolute inset-0 opacity-80" />
-          <div className="hero-grid pointer-events-none absolute inset-x-0 top-16 h-[42rem] opacity-60" />
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <motion.div
               initial={{ opacity: 0, y: 18 }}
@@ -460,7 +458,7 @@ export function LandingPageClient() {
               transition={{ duration: 0.45 }}
               className="relative z-10"
             >
-              <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+              <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/8 px-3 py-1 section-label">
                 {t.heroBadge}
               </span>
               <h1 className="mt-6 max-w-4xl text-4xl font-semibold tracking-tight leading-[1.15] sm:text-5xl sm:leading-[1.15] lg:text-6xl lg:leading-[1.12]">
@@ -514,8 +512,7 @@ export function LandingPageClient() {
               transition={{ duration: 0.55, delay: 0.1 }}
               className="relative"
             >
-              <div className="absolute -inset-8 rounded-[40px] bg-gradient-to-br from-primary/18 via-accent/12 to-transparent blur-3xl" />
-              <div className="relative overflow-hidden rounded-[32px] border border-border/80 bg-white/92 p-6 shadow-[0_30px_80px_-28px_rgba(0,106,255,0.25)] backdrop-blur dark:bg-card/90">
+              <div className="relative overflow-hidden rounded-xl border border-border/80 bg-card p-6  backdrop-blur dark:bg-card">
                 <div className="flex items-center justify-between border-b border-border/80 pb-5">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Wealix AI Advisor</p>
@@ -537,7 +534,7 @@ export function LandingPageClient() {
                   ))}
                 </div>
 
-                <div className="mt-6 rounded-[24px] border border-border bg-background/90 p-5">
+                <div className="mt-6 rounded-lg border border-border bg-background p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm text-muted-foreground">
@@ -551,7 +548,7 @@ export function LandingPageClient() {
                       <Bot className="h-5 w-5" />
                     </div>
                   </div>
-                  <div className="mt-4 rounded-[20px] bg-secondary/70 p-4 text-sm leading-7 text-muted-foreground">
+                  <div className="mt-4 rounded-lg bg-secondary/70 p-4 text-sm leading-7 text-muted-foreground">
                     {isArabic
                       ? 'يعرض Wealix أثر هذا السؤال على التركز والقطاعات وتوازن المحفظة، ثم يشرح المفاضلات بلغتك وبأسلوب عملي.'
                       : 'Wealix explains the impact on concentration, sectors, and portfolio balance, then turns the trade-offs into practical language.'}
@@ -579,15 +576,15 @@ export function LandingPageClient() {
         </section>
 
         <section id="value" className="px-4 pb-8 sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 rounded-[32px] border border-border bg-card/85 p-8 shadow-sm lg:grid-cols-[0.95fr_1.05fr] lg:p-10">
+          <div className="mx-auto grid max-w-7xl gap-8 rounded-xl border border-border bg-card p-8 lg:grid-cols-[0.95fr_1.05fr] lg:p-10">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">{t.valueEyebrow}</p>
+              <p className="section-label">{t.valueEyebrow}</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.valueTitle}</h2>
               <p className="mt-4 text-base leading-8 text-muted-foreground">{t.valueDescription}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {t.valuePoints.map((point) => (
-                <div key={point} className="rounded-[24px] border border-border bg-background/80 p-5">
+                <div key={point} className="rounded-lg border border-border bg-background p-5">
                   <Sparkles className="h-5 w-5 text-primary" />
                   <p className="mt-4 text-sm leading-7 text-foreground">{point}</p>
                 </div>
@@ -599,7 +596,7 @@ export function LandingPageClient() {
         <section id="features" className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">{t.featuresEyebrow}</p>
+              <p className="section-label">{t.featuresEyebrow}</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.featuresTitle}</h2>
               <p className="mt-4 text-base leading-8 text-muted-foreground">{t.featuresDescription}</p>
             </div>
@@ -611,7 +608,7 @@ export function LandingPageClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.35, delay: index * 0.06 }}
-                  className="card-hover rounded-[28px] border border-border bg-card p-7"
+                  className="card-hover rounded-xl border border-border bg-card p-7"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                     <feature.icon className="h-5 w-5" />
@@ -627,7 +624,7 @@ export function LandingPageClient() {
         <section id="pricing" className="border-y border-border bg-secondary/35 px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">{t.pricingEyebrow}</p>
+              <p className="section-label">{t.pricingEyebrow}</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.pricingTitle}</h2>
               <p className="mt-4 text-base leading-8 text-muted-foreground">{t.pricingDescription}</p>
             </div>
@@ -639,7 +636,7 @@ export function LandingPageClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.35, delay: index * 0.06 }}
-                  className={`rounded-[28px] border bg-card p-8 shadow-sm ${
+                  className={`rounded-xl border bg-card p-8 ${
                     index === 1 ? 'border-primary/25 ring-1 ring-primary/12' : 'border-border'
                   }`}
                 >
@@ -654,7 +651,7 @@ export function LandingPageClient() {
                       </div>
                     </div>
                     {index === 1 && (
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                      <span className="rounded-sm border border-primary/20 bg-primary/8 px-2 py-0.5 text-[11px] font-medium text-primary uppercase tracking-[0.06em]">
                         {isArabic ? 'الأكثر شمولاً' : 'Most complete'}
                       </span>
                     )}
@@ -689,7 +686,7 @@ export function LandingPageClient() {
         <section id="advisor" className="border-y border-border bg-secondary/35 px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">{t.advisorEyebrow}</p>
+              <p className="section-label">{t.advisorEyebrow}</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.advisorTitle}</h2>
               <p className="mt-4 text-base leading-8 text-muted-foreground">{t.advisorDescription}</p>
               <ul className="mt-8 space-y-3">
@@ -709,9 +706,9 @@ export function LandingPageClient() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
                   transition={{ duration: 0.32, delay: index * 0.06 }}
-                  className="rounded-[24px] border border-border bg-card p-5 shadow-sm"
+                  className="rounded-lg border border-border bg-card p-5"
                 >
-                  <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+                  <p className="section-label">
                     {isArabic ? 'مثال سؤال' : 'Example prompt'}
                   </p>
                   <p className="mt-3 text-base font-medium text-foreground">{prompt}</p>
@@ -723,10 +720,10 @@ export function LandingPageClient() {
 
         <section id="analysis" className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
-            <div className="rounded-[32px] border border-border bg-card p-6 shadow-sm sm:p-8">
+            <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">{t.analysisEyebrow}</p>
+                  <p className="section-label">{t.analysisEyebrow}</p>
                   <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{t.analysisTitle}</h2>
                 </div>
                 <div className="rounded-2xl bg-primary/10 p-3 text-primary">
@@ -745,7 +742,7 @@ export function LandingPageClient() {
             </div>
             <div className="grid gap-4">
               {t.analysisPanels.map((panel) => (
-                <div key={panel.label} className="rounded-[26px] border border-border bg-white/88 p-6 shadow-sm dark:bg-card/88">
+                <div key={panel.label} className="rounded-lg border border-border bg-card p-6 dark:bg-card">
                   <p className="text-sm text-muted-foreground">{panel.label}</p>
                   <p className="mt-3 text-4xl font-semibold financial-number text-foreground">{panel.value}</p>
                   <p className="mt-3 text-sm leading-7 text-muted-foreground">{panel.description}</p>
@@ -755,16 +752,16 @@ export function LandingPageClient() {
           </div>
         </section>
 
-        <section id="decisions" className="border-y border-border bg-[linear-gradient(180deg,rgba(0,106,255,0.04),rgba(0,204,153,0.03))] px-4 py-20 sm:px-6 lg:px-8">
+        <section id="decisions" className="border-y border-border bg-secondary/20 px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-3xl">
-              <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">{t.decisionEyebrow}</p>
+              <p className="section-label">{t.decisionEyebrow}</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.decisionTitle}</h2>
               <p className="mt-4 text-base leading-8 text-muted-foreground">{t.decisionDescription}</p>
             </div>
             <div className="mt-10 grid gap-5 md:grid-cols-2">
               {t.decisionColumns.map((column) => (
-                <div key={column.title} className="rounded-[28px] border border-border bg-card p-7 shadow-sm">
+                <div key={column.title} className="rounded-xl border border-border bg-card p-7">
                   <div className="flex items-center gap-3">
                     <BriefcaseBusiness className="h-5 w-5 text-primary" />
                     <h3 className="text-lg font-semibold">{column.title}</h3>
@@ -786,10 +783,10 @@ export function LandingPageClient() {
         <section id="faq" className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">{t.faqEyebrow}</p>
+              <p className="section-label">{t.faqEyebrow}</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.faqTitle}</h2>
             </div>
-            <div className="rounded-[28px] border border-border bg-card px-6 py-2 shadow-sm sm:px-8">
+            <div className="rounded-xl border border-border bg-card px-6 py-2 sm:px-8">
               <Accordion type="single" collapsible className="w-full">
                 {t.faqItems.map((item, index) => (
                   <AccordionItem key={item.question} value={`faq-${index}`} className="border-border">
@@ -807,10 +804,10 @@ export function LandingPageClient() {
         </section>
 
         <section className="px-4 pb-24 sm:px-6 lg:px-8">
-          <div className="mx-auto overflow-hidden rounded-[34px] border border-border bg-card p-8 shadow-[0_22px_65px_-35px_rgba(0,106,255,0.24)] sm:p-10">
+          <div className="mx-auto overflow-hidden rounded-xl border border-border bg-card p-8  sm:p-10">
             <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
               <div>
-                <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">Wealix</p>
+                <p className="section-label">Wealix</p>
                 <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{t.ctaTitle}</h2>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-muted-foreground">{t.ctaDescription}</p>
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -831,7 +828,7 @@ export function LandingPageClient() {
               </div>
 
               <div className="grid gap-6">
-                <div className="rounded-[28px] border border-border bg-background/70 p-6">
+                <div className="rounded-xl border border-border bg-background p-6">
                   <ContactForm isArabic={isArabic} compact />
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">

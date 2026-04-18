@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Moon, Sun, Globe, Settings, PanelLeft, BookOpenText } from 'lucide-react';
+import { Bell, Moon, Sun, Globe, Settings, PanelLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAppStore } from '@/store/useAppStore';
@@ -29,64 +29,51 @@ export function Header() {
   const unreadCount = notificationFeed.filter((item) => !item.read).length;
 
   const isArabic = locale === 'ar';
-  const userInitial = user?.fullName?.trim()?.[0] || user?.firstName?.trim()?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || 'W';
-
-  const handleThemeToggle = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
-  const handleLanguageToggle = () => {
-    setLocale(isArabic ? 'en' : 'ar');
-  };
+  const userInitial =
+    user?.fullName?.trim()?.[0] ||
+    user?.firstName?.trim()?.[0] ||
+    user?.primaryEmailAddress?.emailAddress?.[0] ||
+    'W';
 
   return (
-    <header className="glass sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/70 px-4 md:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <Button variant="ghost" size="icon" className="hidden rounded-xl md:inline-flex" onClick={toggleSidebar}>
+    <header className="glass sticky top-0 z-30 flex h-14 items-center border-b border-border px-4 md:px-6">
+      {/* Left: sidebar toggle + mobile logo */}
+      <div className={`flex items-center gap-3 ${isArabic ? 'flex-row-reverse' : ''}`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+          onClick={toggleSidebar}
+        >
           <PanelLeft className="h-4 w-4" />
         </Button>
-        <div className="hidden sm:flex sm:items-center sm:gap-3">
+        {/* Logo visible only on mobile (sidebar hidden) */}
+        <div className="md:hidden">
           <WealixLogo compact />
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {isArabic ? 'مساحة Wealix' : 'Wealix Workspace'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {isArabic ? 'نظام تشغيل الثروة الشخصية' : 'Personal Wealth Operating System'}
-            </p>
-          </div>
         </div>
       </div>
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2">
+      {/* Right: actions — 24px gaps */}
+      <div className={`flex items-center gap-6 ${isArabic ? 'flex-row-reverse' : ''}`}>
+        {/* Language toggle */}
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-xl"
-          asChild
-        >
-          <Link href="/help" title={isArabic ? 'مركز المعرفة' : 'Knowledge Base'}>
-            <BookOpenText className="w-4 h-4" />
-          </Link>
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLanguageToggle}
-          className="hidden rounded-xl sm:flex"
+          onClick={() => setLocale(isArabic ? 'en' : 'ar')}
+          className="hidden h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground sm:flex"
           title={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}
         >
-          <Globe className="w-4 h-4" />
+          <Globe className="h-4 w-4" />
         </Button>
 
+        {/* Theme toggle */}
         <Button
           variant="ghost"
           size="icon"
-          onClick={handleThemeToggle}
-          className="rounded-xl"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
           title={isArabic ? 'تبديل الوضع' : 'Toggle theme'}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -97,10 +84,14 @@ export function Header() {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative rounded-xl">
-              <Bell className="w-4 h-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+            >
+              <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center">
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-white">
                   {unreadCount}
                 </span>
               )}
@@ -132,7 +123,7 @@ export function Header() {
                   <span className="font-medium">
                     {isArabic ? item.titleAr : item.title}
                   </span>
-                  <span className="text-xs text-muted-foreground whitespace-normal">
+                  <span className="whitespace-normal text-xs text-muted-foreground">
                     {isArabic ? item.descriptionAr : item.description}
                   </span>
                 </Link>
@@ -141,32 +132,42 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="icon" className="rounded-xl" asChild>
+        {/* Settings */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+          asChild
+        >
           <Link href="/settings?tab=profile" title={isArabic ? 'الإعدادات' : 'Settings'}>
-            <Settings className="w-4 h-4" />
+            <Settings className="h-4 w-4" />
           </Link>
         </Button>
 
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-1 py-1 shadow-sm">
-          {!isSignedIn ? (
-            <>
-            <Button asChild variant="ghost" size="sm" className="rounded-full">
+        {/* Avatar / auth */}
+        {!isSignedIn ? (
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg text-sm">
               <Link href="/sign-in">{isArabic ? 'دخول' : 'Sign in'}</Link>
             </Button>
-            <Button asChild size="sm" className="btn-primary rounded-full">
+            <Button asChild size="sm" className="btn-primary h-8">
               <Link href="/sign-up">{isArabic ? 'إنشاء حساب' : 'Sign up'}</Link>
             </Button>
-            </>
-          ) : (
-            <Button asChild variant="ghost" size="icon" className="wealix-avatar-frame h-9 w-9 rounded-full">
-              <Link href="/settings?tab=profile" aria-label={isArabic ? 'الملف الشخصي' : 'Profile'}>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                  {userInitial.toUpperCase()}
-                </span>
-              </Link>
-            </Button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="wealix-avatar-frame h-8 w-8 rounded-full"
+          >
+            <Link href="/settings?tab=profile" aria-label={isArabic ? 'الملف الشخصي' : 'Profile'}>
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                {userInitial.toUpperCase()}
+              </span>
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   );

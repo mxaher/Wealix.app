@@ -140,7 +140,7 @@ function MoreDropdown({
       <div
         role="menu"
         className={cn(
-          'absolute top-full z-50 mt-2 w-44 origin-top overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-lg backdrop-blur-md',
+          'absolute top-full z-50 mt-2 w-44 origin-top overflow-hidden rounded-lg border border-border bg-popover',
           // RTL-aware alignment: open toward the center of the page
           isArabic ? 'left-0' : 'right-0',
           // Animation
@@ -237,7 +237,7 @@ function MobileMenu({
         <Button
           variant="outline"
           size="sm"
-          className="rounded-full"
+          className="rounded-lg"
           onClick={onLocaleToggle}
         >
           <Globe className="me-1.5 h-3.5 w-3.5" />
@@ -246,7 +246,7 @@ function MobileMenu({
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full"
+          className="rounded-lg"
           onClick={onThemeToggle}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -257,7 +257,7 @@ function MobileMenu({
       <div className="mt-2 flex flex-col gap-2 px-3">
         {!clerkSignedIn ? (
           <>
-            <Button asChild variant="outline" className="rounded-full">
+            <Button asChild variant="outline" className="rounded-lg">
               <Link href="/sign-in" onClick={onClose}>
                 {data.login}
               </Link>
@@ -310,9 +310,9 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
   return (
     <nav
       dir={isArabic ? 'rtl' : 'ltr'}
-      className="glass fixed inset-x-0 top-0 z-50 border-b border-border/70"
+      className="glass fixed inset-x-0 top-0 z-50 border-b border-border"
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* ── Brand ─────────────────────────────────────────────────────────── */}
         <Link href="/" className="shrink-0">
           <WealixLogo />
@@ -360,7 +360,7 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full px-3 text-xs font-medium"
+            className="rounded-lg px-3 text-xs font-medium"
             onClick={toggleLocale}
             title={data.langToggle}
           >
@@ -372,7 +372,7 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full"
+            className="rounded-lg"
             onClick={toggleTheme}
             title={data.themeToggle}
           >
@@ -383,7 +383,7 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
           {/* Auth actions */}
           {!clerkSignedIn && (
             <>
-              <Button asChild variant="ghost" className="rounded-full">
+              <Button asChild variant="ghost" className="rounded-lg">
                 <Link href="/sign-in">{data.login}</Link>
               </Button>
               <Button asChild className="btn-primary rounded-full">
@@ -404,7 +404,7 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full"
+            className="rounded-lg"
             onClick={toggleTheme}
           >
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -416,7 +416,7 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full"
+                className="rounded-lg"
                 aria-label={mobileOpen ? data.close : 'Open menu'}
               >
                 {mobileOpen ? (
@@ -430,7 +430,7 @@ export function MarketingNav({ showSections = false }: MarketingNavProps) {
               side={isArabic ? 'right' : 'left'}
               className="w-72 p-0"
             >
-              <div className="flex h-16 items-center border-b border-border/70 px-4">
+              <div className="flex h-14 items-center border-b border-border px-4">
                 <Link href="/" onClick={() => setMobileOpen(false)}>
                   <WealixLogo />
                 </Link>

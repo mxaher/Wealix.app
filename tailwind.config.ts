@@ -58,9 +58,9 @@ const config: Config = {
   			}
   		},
   		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			lg: 'var(--radius)',          /* 10px — cards, modals */
+  			md: 'calc(var(--radius) - 2px)', /* 8px — inputs, dropdowns */
+  			sm: 'calc(var(--radius) - 6px)', /* 4px — badges, tags */
   		}
   	}
   },
