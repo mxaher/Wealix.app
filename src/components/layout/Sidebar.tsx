@@ -18,6 +18,11 @@ import {
   ChevronRight,
   Lock,
   CalendarRange,
+  ArrowLeftRight,
+  Lightbulb,
+  Bell,
+  Target,
+  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
@@ -54,8 +59,18 @@ const navSections = [
     ],
   },
   {
+    title: { en: 'Planning', ar: 'التخطيط' },
+    items: [
+      { href: '/goals', label: { en: 'Goals', ar: 'الأهداف' }, icon: Target },
+      { href: '/zakat', label: { en: 'Zakat', ar: 'الزكاة' }, icon: Moon },
+      { href: '/alerts', label: { en: 'Alerts', ar: 'التنبيهات' }, icon: Bell },
+    ],
+  },
+  {
     title: { en: 'Tools', ar: 'الأدوات' },
     items: [
+      { href: '/insights', label: { en: 'Insights', ar: 'الرؤى' }, icon: Lightbulb },
+      { href: '/converter', label: { en: 'Converter', ar: 'المحول' }, icon: ArrowLeftRight },
       { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
       { href: '/settings', label: { en: 'Settings', ar: 'الإعدادات' }, icon: Settings },
     ],

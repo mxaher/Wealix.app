@@ -12,19 +12,22 @@ import {
   Menu,
   Lock,
   BookOpenText,
+  Flame,
+  PiggyBank,
+  FileText,
+  Settings,
+  CalendarRange,
+  ArrowLeftRight,
+  Lightbulb,
+  Bell,
+  Target,
+  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, useSubscription } from '@/store/useAppStore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Flame,
-  PiggyBank,
-  FileText,
-  Settings,
-  CalendarRange,
-} from 'lucide-react';
 import { getStartPageHref } from '@/lib/start-page';
 
 const bottomNavItems = [
@@ -43,6 +46,11 @@ const allNavItems = [
   { href: '/fire', label: { en: 'FIRE Tracker', ar: 'متعقب FIRE' }, icon: Flame },
   { href: '/retirement', label: { en: 'Retirement', ar: 'التقاعد' }, icon: PiggyBank },
   { href: '/budget-planning', label: { en: 'Budget & Planning', ar: 'الموازنة والتخطيط' }, icon: CalendarRange },
+  { href: '/goals', label: { en: 'Goals', ar: 'الأهداف' }, icon: Target },
+  { href: '/zakat', label: { en: 'Zakat', ar: 'الزكاة' }, icon: Moon },
+  { href: '/alerts', label: { en: 'Alerts', ar: 'التنبيهات' }, icon: Bell },
+  { href: '/insights', label: { en: 'Insights', ar: 'الرؤى' }, icon: Lightbulb },
+  { href: '/converter', label: { en: 'Converter', ar: 'المحول' }, icon: ArrowLeftRight },
   { href: '/advisor', label: { en: 'AI Advisor', ar: 'المستشار المالي' }, icon: Bot, pro: true },
   { href: '/help', label: { en: 'Documentation', ar: 'التوثيق' }, icon: BookOpenText },
   { href: '/reports', label: { en: 'Reports', ar: 'التقارير' }, icon: FileText },
